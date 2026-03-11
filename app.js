@@ -141,60 +141,53 @@ class GSEAApp {
         // Download CSV
         document.getElementById('downloadCSVBtn').addEventListener('click', () => this.downloadCSV());
 
-        // Methods popup buttons
+        // Methods card buttons
         document.getElementById('copyMethodsBtn').addEventListener('click', () => this.copyMethods());
         document.getElementById('downloadMethodsBtn').addEventListener('click', () => this.downloadMethods());
 
-        // Methods popup hover positioning (fixed position)
-        const methodsWrapper = document.getElementById('methodsBtnWrapper');
-        const methodsPopup = document.getElementById('methodsPopup');
-        let methodsHideTimeout = null;
-
-        methodsWrapper.addEventListener('mouseenter', () => {
-            clearTimeout(methodsHideTimeout);
-            const rect = methodsWrapper.getBoundingClientRect();
-            methodsPopup.style.left = rect.left + 'px';
-            methodsPopup.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-            methodsPopup.style.width = rect.width + 'px';
-            methodsPopup.classList.add('visible');
+        // How to Use popup
+        const howToUseLink = document.getElementById('howToUseLink');
+        const howToUsePopup = document.getElementById('howToUsePopup');
+        const howToUseBackdrop = document.getElementById('howToUseBackdrop');
+        const howToUseClose = document.getElementById('howToUseClose');
+        howToUseLink.addEventListener('click', () => {
+            howToUsePopup.classList.add('open');
+            howToUseBackdrop.classList.add('open');
         });
-        methodsWrapper.addEventListener('mouseleave', () => {
-            methodsHideTimeout = setTimeout(() => methodsPopup.classList.remove('visible'), 150);
-        });
-        methodsPopup.addEventListener('mouseenter', () => {
-            clearTimeout(methodsHideTimeout);
-        });
-        methodsPopup.addEventListener('mouseleave', () => {
-            methodsHideTimeout = setTimeout(() => methodsPopup.classList.remove('visible'), 150);
-        });
+        const closeHowToUse = () => {
+            howToUsePopup.classList.remove('open');
+            howToUseBackdrop.classList.remove('open');
+        };
+        howToUseClose.addEventListener('click', closeHowToUse);
+        howToUseBackdrop.addEventListener('click', closeHowToUse);
 
         // Info tooltips — position with JS (fixed) to avoid clipping
-        document.querySelectorAll('.info-icon').forEach(icon => {
+        // Use event delegation so dynamically added info-icons also work
+        document.addEventListener('mouseenter', (e) => {
+            const icon = e.target.closest('.info-icon');
+            if (!icon) return;
             const tooltip = icon.querySelector('.info-tooltip');
             if (!tooltip) return;
-            icon.addEventListener('mouseenter', () => {
-                const rect = icon.getBoundingClientRect();
-                tooltip.style.display = 'block';
-                // Position to the right of the icon
-                let left = rect.right + 10;
-                let top = rect.top - 4;
-                // If would overflow right side of viewport, position to the left
-                if (left + 260 > window.innerWidth) {
-                    left = rect.left - 270;
-                    tooltip.style.setProperty('--arrow-side', 'right');
-                }
-                // Keep within viewport vertically
-                if (top + tooltip.offsetHeight > window.innerHeight - 10) {
-                    top = window.innerHeight - tooltip.offsetHeight - 10;
-                }
-                if (top < 10) top = 10;
-                tooltip.style.left = left + 'px';
-                tooltip.style.top = top + 'px';
-            });
-            icon.addEventListener('mouseleave', () => {
-                tooltip.style.display = 'none';
-            });
-        });
+            const rect = icon.getBoundingClientRect();
+            tooltip.style.display = 'block';
+            let left = rect.right + 10;
+            let top = rect.top - 4;
+            if (left + 330 > window.innerWidth) {
+                left = rect.left - 340;
+            }
+            if (top + tooltip.offsetHeight > window.innerHeight - 10) {
+                top = window.innerHeight - tooltip.offsetHeight - 10;
+            }
+            if (top < 10) top = 10;
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }, true);
+        document.addEventListener('mouseleave', (e) => {
+            const icon = e.target.closest('.info-icon');
+            if (!icon) return;
+            const tooltip = icon.querySelector('.info-tooltip');
+            if (tooltip) tooltip.style.display = 'none';
+        }, true);
 
         // Figure settings
         document.getElementById('updatePlotsBtn').addEventListener('click', () => this.updateSettings());
@@ -579,7 +572,7 @@ class GSEAApp {
         document.getElementById('overlapEmpty').style.display = 'none';
         document.getElementById('overlapResults').style.display = '';
         document.getElementById('settingsCard').style.display = '';
-        document.getElementById('methodsBtnWrapper').style.display = '';
+        document.getElementById('methodsCard').style.display = '';
 
         // Populate gene set selector
         this.populateGeneSetSelector();
@@ -716,8 +709,8 @@ class GSEAApp {
                 showscale: true,
                 colorbar: {
                     title: { text: 'FDR q-value', font: { size: 11, family: 'Open Sans' } },
-                    thickness: 12,
-                    len: 0.5,
+                    thickness: 18,
+                    len: 0.6,
                     y: 0.5,
                     tickvals: [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr),
                     ticktext: ['1', '0.25', '0.1', '0.05', '0.01'].slice(0, [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr).length),
@@ -752,8 +745,8 @@ class GSEAApp {
                 gridwidth: 0,
                 showgrid: false
             },
-            height: Math.max(420, top.length * 26 + 100),
-            margin: { l: 10, r: 30, t: 20, b: 55 },
+            height: Math.max(440, top.length * 26 + 120),
+            margin: { l: 10, r: 40, t: 20, b: 60 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -1099,22 +1092,22 @@ class GSEAApp {
             });
         }
 
-        // Correlation labels
+        // Correlation labels — position below the x-axis title to avoid overlap
         if (s.showCorrelationLabels && zeroCross >= 0) {
             annotations.push(
                 {
                     text: '<i>Positively correlated</i>',
-                    xref: 'paper', yref: 'paper', x: 0.02, y: metTop + 0.01,
+                    xref: 'paper', yref: 'paper', x: 0.0, y: -0.07,
                     showarrow: false,
                     font: { size: Math.max(8, baseFontSize - 3), color: '#dc2626', family: fontFam },
-                    xanchor: 'left', yanchor: 'bottom'
+                    xanchor: 'left', yanchor: 'top'
                 },
                 {
                     text: '<i>Negatively correlated</i>',
-                    xref: 'paper', yref: 'paper', x: 0.98, y: metTop + 0.01,
+                    xref: 'paper', yref: 'paper', x: 1.0, y: -0.07,
                     showarrow: false,
                     font: { size: Math.max(8, baseFontSize - 3), color: '#2563eb', family: fontFam },
-                    xanchor: 'right', yanchor: 'bottom'
+                    xanchor: 'right', yanchor: 'top'
                 }
             );
         }
@@ -1161,7 +1154,7 @@ class GSEAApp {
                 tickfont: { size: tickFontSize, family: fontFam }
             },
             height: 580,
-            margin: { l: 65, r: 15, t: 45, b: 45 },
+            margin: { l: 65, r: 15, t: 45, b: 60 },
             font: { family: fontFam },
             paper_bgcolor: s.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -1353,41 +1346,58 @@ class GSEAApp {
         resultsEl.innerHTML = html;
 
         // Highlight on the ES plot if it's showing
-        this._highlightGenesOnPlot(found.map(f => f.rank));
+        this._highlightGenesOnPlot(found.map(f => ({ gene: f.gene, rank: f.rank })));
     }
 
-    _highlightGenesOnPlot(ranks) {
+    _highlightGenesOnPlot(geneData) {
+        // geneData: array of { gene, rank }
         const plotEl = document.getElementById('esPlot');
         if (!plotEl || !plotEl.data) return;
 
-        // Add shapes for highlighted genes on ES panel
         const currentLayout = plotEl.layout || {};
-        const currentShapes = (currentLayout.shapes || []).filter(s =>
-            !(s._isHighlight)
-        );
+        const currentShapes = (currentLayout.shapes || []).filter(s => !s._isHighlight);
+        const currentAnnotations = (currentLayout.annotations || []).filter(a => !a._isHighlight);
 
-        for (const r of ranks) {
+        for (const g of geneData) {
             currentShapes.push({
                 type: 'line',
-                x0: r, x1: r,
+                x0: g.rank, x1: g.rank,
                 y0: 0, y1: 1,
                 xref: 'x', yref: 'paper',
-                line: { color: 'rgba(255, 140, 0, 0.6)', width: 2 },
+                line: { color: 'rgba(255, 140, 0, 0.7)', width: 2, dash: 'dot' },
+                _isHighlight: true
+            });
+            // Gene name label at top of the line
+            currentAnnotations.push({
+                text: `<b>${g.gene}</b>`,
+                x: g.rank,
+                y: 0.98,
+                xref: 'x', yref: 'paper',
+                showarrow: true,
+                arrowhead: 0,
+                arrowwidth: 1,
+                arrowcolor: 'rgba(255,140,0,0.5)',
+                ax: 0, ay: -20,
+                font: { size: 9, color: '#e65100', family: this.settings.fontFamily + ', sans-serif' },
+                bgcolor: 'rgba(255,255,255,0.85)',
+                borderpad: 2,
+                xanchor: 'center',
                 _isHighlight: true
             });
         }
 
-        Plotly.relayout('esPlot', { shapes: currentShapes });
+        Plotly.relayout('esPlot', { shapes: currentShapes, annotations: currentAnnotations });
     }
 
     clearGeneSearch() {
         document.getElementById('geneSearchInput').value = '';
         document.getElementById('geneSearchResults').innerHTML = '';
-        // Remove highlight shapes
+        // Remove highlight shapes and annotations
         const plotEl = document.getElementById('esPlot');
         if (plotEl && plotEl.layout) {
             const shapes = (plotEl.layout.shapes || []).filter(s => !s._isHighlight);
-            Plotly.relayout('esPlot', { shapes });
+            const annotations = (plotEl.layout.annotations || []).filter(a => !a._isHighlight);
+            Plotly.relayout('esPlot', { shapes, annotations });
         }
     }
 

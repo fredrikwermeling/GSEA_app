@@ -92,6 +92,7 @@
         .logo-header {
             text-align: center;
             padding: 5px 20px 0 20px;
+            margin-bottom: -2px;
         }
         .logo-header img {
             max-width: 550px;
@@ -113,6 +114,94 @@
         }
         .nav-bar a:hover {
             text-decoration: underline;
+        }
+        .nav-bar .how-to-use-link {
+            color: var(--green-700);
+            cursor: pointer;
+            font-weight: 600;
+            position: relative;
+        }
+        /* How to Use popup */
+        .how-to-use-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--gray-200);
+            width: 580px;
+            max-width: 92vw;
+            max-height: 85vh;
+            overflow-y: auto;
+            z-index: 5000;
+            padding: 24px;
+        }
+        .how-to-use-popup.open { display: block; }
+        .how-to-use-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 4999;
+        }
+        .how-to-use-backdrop.open { display: block; }
+        .how-to-use-popup h3 { color: var(--green-700); margin: 0 0 12px; font-size: 18px; }
+        .how-to-use-popup h4 { color: var(--green-800); margin: 14px 0 6px; font-size: 14px; }
+        .how-to-use-popup p, .how-to-use-popup li { font-size: 13px; line-height: 1.55; color: var(--text-secondary); }
+        .how-to-use-popup ol, .how-to-use-popup ul { padding-left: 20px; margin: 4px 0 8px; }
+        .how-to-use-popup code { background: var(--gray-100); padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: 'Roboto Mono', monospace; }
+        .how-to-use-popup .close-btn {
+            position: absolute; top: 12px; right: 14px;
+            background: none; border: none; font-size: 22px; cursor: pointer; color: var(--gray-500);
+            line-height: 1;
+        }
+        .how-to-use-popup .close-btn:hover { color: var(--text-primary); }
+        /* Info icon for cards */
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: help;
+            margin-left: 4px;
+            position: relative;
+            vertical-align: middle;
+            font-style: italic;
+            font-family: Georgia, serif;
+        }
+        .info-icon-dark {
+            background: var(--gray-200);
+            color: var(--gray-500);
+        }
+        .info-icon .info-tooltip {
+            display: none;
+            position: fixed;
+            background: #1f2937;
+            color: white;
+            font-size: 12px;
+            line-height: 1.5;
+            padding: 10px 14px;
+            border-radius: 6px;
+            max-width: 320px;
+            z-index: 6000;
+            font-family: 'Open Sans', sans-serif;
+            font-style: normal;
+            font-weight: 400;
+            text-align: left;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            pointer-events: none;
+        }
+        .info-icon:hover .info-tooltip {
+            display: block;
         }
 
         /* ============================================
@@ -729,6 +818,51 @@
     <a href="https://fredrikwermeling.github.io/correlation-web-app-/" target="_blank">Correlate</a>
     <a href="https://fredrikwermeling.github.io/Visualize/" target="_blank">Visualize</a>
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
+    <a class="how-to-use-link" id="howToUseLink">How to use</a>
+</div>
+
+<!-- How to Use popup -->
+<div class="how-to-use-backdrop" id="howToUseBackdrop"></div>
+<div class="how-to-use-popup" id="howToUsePopup">
+    <button class="close-btn" id="howToUseClose">&times;</button>
+    <h3>How to use Enrich</h3>
+    <p>Enrich runs Gene Set Enrichment Analysis (GSEA) entirely in your browser. No data is uploaded to any server.</p>
+
+    <h4>1. Prepare your data</h4>
+    <p>Your input file should be a <code>.csv</code> or <code>.tsv</code> with at least two columns:</p>
+    <ul>
+        <li><strong>Gene name column</strong> &mdash; standard gene symbols (e.g. TP53, BRCA1)</li>
+        <li><strong>Ranking metric column</strong> &mdash; a numeric value to rank genes (e.g. log2 fold change, t-statistic, or signal-to-noise ratio)</li>
+    </ul>
+    <p>Save your spreadsheet as <code>CSV (comma-separated)</code> or <code>TSV (tab-separated)</code> from Excel, Google Sheets, or R. Ensure the first row contains column headers.</p>
+
+    <h4>2. Upload and configure</h4>
+    <ol>
+        <li>Click <strong>Choose file</strong> or use <strong>Load Example Data</strong> to try with sample data</li>
+        <li>Select which column contains gene names and which contains the ranking metric</li>
+        <li>Genes will be automatically sorted from highest to lowest metric value</li>
+    </ol>
+
+    <h4>3. Choose gene set collections</h4>
+    <p>Select one or more MSigDB collections (Hallmark is recommended to start). You can also upload a custom GMT file.</p>
+
+    <h4>4. Run the analysis</h4>
+    <p>Click <strong>Run GSEA</strong>. The analysis runs in your browser using a Web Worker. With Hallmark (50 sets) this takes seconds; larger collections take longer.</p>
+
+    <h4>5. Interpret the results</h4>
+    <ul>
+        <li><strong>Overview</strong> &mdash; Lollipop plot showing top enriched gene sets sorted by NES</li>
+        <li><strong>Enrichment Plot</strong> &mdash; Classic GSEA enrichment score curve for individual gene sets</li>
+        <li><strong>Overlap</strong> &mdash; Jaccard similarity heatmap of significant gene sets</li>
+        <li><strong>Results Table</strong> &mdash; Full sortable/filterable table with CSV export</li>
+    </ul>
+
+    <h4>Key statistics</h4>
+    <ul>
+        <li><strong>NES</strong> (Normalized Enrichment Score) &mdash; positive = upregulated, negative = downregulated</li>
+        <li><strong>FDR</strong> (False Discovery Rate) &mdash; &lt;0.25 is suggestive, &lt;0.05 is significant</li>
+        <li><strong>Leading Edge</strong> &mdash; the subset of genes driving the enrichment signal</li>
+    </ul>
 </div>
 
 <!-- Main Content -->
@@ -880,23 +1014,23 @@
                     <div class="progress-text" id="progressText"></div>
                 </div>
                 <div id="runStatus" class="status-box hidden"></div>
+            </div>
+        </div>
 
-                <!-- Methods popup button (shown after results) -->
-                <div class="methods-btn-wrapper" id="methodsBtnWrapper" style="display: none;">
-                    <button class="btn btn-outline" style="width: 100%; font-size: 12px;">
-                        <span style="margin-right: 4px;">&#x1F4DD;</span> Methods Section
-                    </button>
-                    <div class="methods-popup" id="methodsPopup">
-                        <div class="methods-popup-title">
-                            <span>&#x1F4DD;</span> Methods Section
-                        </div>
-                        <div class="methods-popup-text" id="methodsPopupText">
-                            Run GSEA to generate a methods section.
-                        </div>
-                        <div class="methods-popup-actions">
-                            <button class="btn btn-primary btn-sm" id="copyMethodsBtn">Copy to clipboard</button>
-                            <button class="btn btn-outline btn-sm" id="downloadMethodsBtn">Download .txt</button>
-                        </div>
+        <!-- Methods Section (shown after results, separate from run button) -->
+        <div class="card" id="methodsCard" style="display: none;">
+            <div class="card-title" style="font-size: 0.9em; padding: 6px 10px;">
+                &#x1F4DD; Methods Section
+                <span class="info-icon">i<span class="info-tooltip">An auto-generated methods paragraph you can copy into your paper. It describes the GSEA parameters and gene set collections used in this analysis.</span></span>
+            </div>
+            <div class="card-content" style="padding: 8px 10px;">
+                <div class="methods-btn-wrapper" id="methodsBtnWrapper">
+                    <div class="methods-popup-text" id="methodsPopupText" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 8px;">
+                        Run GSEA to generate a methods section.
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn btn-primary btn-sm" id="copyMethodsBtn">Copy to clipboard</button>
+                        <button class="btn btn-outline btn-sm" id="downloadMethodsBtn">Download .txt</button>
                     </div>
                 </div>
             </div>
@@ -1066,6 +1200,7 @@
                         <div class="card">
                             <div class="card-title">
                                 Enrichment Score Plot
+                                <span class="info-icon">i<span class="info-tooltip"><b>How to read this plot:</b><br><b>Top panel</b> — The green running enrichment score (ES) curve. A peak away from zero indicates enrichment. Peaks to the left = genes are upregulated; peaks to the right = downregulated.<br><b>Middle panel</b> — Black bars show where genes in this set appear in the ranked list.<br><b>Bottom panel</b> — The ranking metric for all genes (red = positive/upregulated, blue = negative/downregulated).<br><b>Leading edge</b> = genes before the ES peak that drive the signal.</span></span>
                                 <div class="title-actions">
                                     <button class="btn btn-sm" onclick="app.exportPlot('esPlot','svg')">SVG</button>
                                     <button class="btn btn-sm" onclick="app.exportPlot('esPlot','png')">PNG</button>
@@ -1079,14 +1214,26 @@
                     <!-- Info column -->
                     <div style="width: 300px; min-width: 260px; flex-shrink: 0;" id="esInfoPanel">
                         <div class="card" style="margin-bottom: 8px;">
-                            <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Gene Set Info</div>
+                            <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Gene Set Info
+                                <span class="info-icon">i<span class="info-tooltip" id="geneSetInfoTooltip">
+                                    <b>NES</b> — Normalized Enrichment Score. Positive = genes tend to be upregulated; Negative = downregulated.<br>
+                                    <b>FDR</b> — False Discovery Rate (Benjamini-Hochberg adjusted).<br>
+                                    <b>p-value</b> — Nominal enrichment p-value from permutation test.<br>
+                                    <b>ES</b> — Raw (unnormalized) enrichment score.<br>
+                                    <b>Leading Edge</b> — Genes appearing before the ES peak; these drive the enrichment signal.<br>
+                                    <b>Direction</b> — Whether the gene set is enriched among upregulated (positive metric) or downregulated (negative metric) genes.<br>
+                                    <b>Status</b> — ★ Significant (FDR &lt; 0.05), ◆ Suggestive (FDR &lt; 0.25), or ○ Not significant.
+                                </span></span>
+                            </div>
                             <div class="card-content" style="padding: 8px 10px; font-size: 0.85em;" id="geneSetInfoContent">
                                 <p style="color: var(--gray-500);">Select a gene set to see details.</p>
                             </div>
                         </div>
                         <!-- Gene search -->
                         <div class="card" style="margin-bottom: 8px;">
-                            <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Search Genes</div>
+                            <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Search Genes
+                                <span class="info-icon">i<span class="info-tooltip">Enter gene names to find their position in the ranked list. Genes are highlighted with labeled orange lines on the enrichment plot. You can paste a list from Excel (one gene per line) or use commas to separate names.</span></span>
+                            </div>
                             <div class="card-content" style="padding: 8px 10px;">
                                 <textarea class="form-control" id="geneSearchInput"
                                     placeholder="Enter gene names (one per line or comma-separated)..."
@@ -1102,6 +1249,7 @@
                         <div class="card">
                             <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">
                                 Top &amp; Bottom Genes
+                                <span class="info-icon">i<span class="info-tooltip">Shows the genes with the highest (top) and lowest (bottom) ranking metric values in your dataset. This helps orient the analysis: top genes are the most upregulated, bottom genes are the most downregulated.</span></span>
                                 <div class="title-actions">
                                     <select class="form-control" id="topBottomN" style="width: auto; font-size: 11px; padding: 2px 4px;">
                                         <option value="5">5</option>
@@ -1121,6 +1269,7 @@
                 <div class="card" style="margin-top: 8px;">
                     <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">
                         Leading Edge Genes
+                        <span class="info-icon">i<span class="info-tooltip">All genes belonging to this gene set, shown in ranked order.<br><b>Rank</b> — Position in the full ranked gene list.<br><b>Gene</b> — Gene symbol.<br><b>Metric</b> — The ranking metric value (e.g. log2FC).<br><b>Running ES</b> — Cumulative enrichment score at this gene's position.<br><b>Leading Edge</b> — "Yes" if the gene appears before the ES peak and contributes to the enrichment signal.</span></span>
                         <div class="title-actions">
                             <button class="btn btn-sm" id="downloadGeneDetailCSV">Download CSV</button>
                         </div>
@@ -1246,6 +1395,6 @@
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
 </div>
 
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
