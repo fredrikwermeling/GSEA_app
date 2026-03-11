@@ -113,6 +113,57 @@ class GSEAApp {
         document.getElementById('copyMethodsBtn').addEventListener('click', () => this.copyMethods());
         document.getElementById('downloadMethodsBtn').addEventListener('click', () => this.downloadMethods());
 
+        // Methods popup hover positioning (fixed position)
+        const methodsWrapper = document.getElementById('methodsBtnWrapper');
+        const methodsPopup = document.getElementById('methodsPopup');
+        let methodsHideTimeout = null;
+
+        methodsWrapper.addEventListener('mouseenter', () => {
+            clearTimeout(methodsHideTimeout);
+            const rect = methodsWrapper.getBoundingClientRect();
+            methodsPopup.style.left = rect.left + 'px';
+            methodsPopup.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+            methodsPopup.style.width = rect.width + 'px';
+            methodsPopup.classList.add('visible');
+        });
+        methodsWrapper.addEventListener('mouseleave', () => {
+            methodsHideTimeout = setTimeout(() => methodsPopup.classList.remove('visible'), 150);
+        });
+        methodsPopup.addEventListener('mouseenter', () => {
+            clearTimeout(methodsHideTimeout);
+        });
+        methodsPopup.addEventListener('mouseleave', () => {
+            methodsHideTimeout = setTimeout(() => methodsPopup.classList.remove('visible'), 150);
+        });
+
+        // Info tooltips — position with JS (fixed) to avoid clipping
+        document.querySelectorAll('.info-icon').forEach(icon => {
+            const tooltip = icon.querySelector('.info-tooltip');
+            if (!tooltip) return;
+            icon.addEventListener('mouseenter', () => {
+                const rect = icon.getBoundingClientRect();
+                tooltip.style.display = 'block';
+                // Position to the right of the icon
+                let left = rect.right + 10;
+                let top = rect.top - 4;
+                // If would overflow right side of viewport, position to the left
+                if (left + 260 > window.innerWidth) {
+                    left = rect.left - 270;
+                    tooltip.style.setProperty('--arrow-side', 'right');
+                }
+                // Keep within viewport vertically
+                if (top + tooltip.offsetHeight > window.innerHeight - 10) {
+                    top = window.innerHeight - tooltip.offsetHeight - 10;
+                }
+                if (top < 10) top = 10;
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
+            });
+            icon.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+        });
+
         // Figure settings
         document.getElementById('updatePlotsBtn').addEventListener('click', () => this.updateSettings());
 
@@ -685,85 +736,110 @@ class GSEAApp {
     }
 
     // --------------------------------------------------------
-    // Ranked List Plot
+    // Ranked List Plot — Classic GSEA waterfall style
     // --------------------------------------------------------
     renderRankedPlot() {
         const N = this.rankedList.genes.length;
         const metrics = this.rankedList.metrics;
 
-        // Subsample for performance
-        const maxPts = 3000;
-        const step = N > maxPts ? Math.ceil(N / maxPts) : 1;
+        // Subsample to ~600 bars for the waterfall effect
+        const maxBars = 600;
+        const step = Math.max(1, Math.ceil(N / maxBars));
         const xVals = [];
         const yVals = [];
+        const barColors = [];
+
         for (let i = 0; i < N; i += step) {
             xVals.push(i);
             yVals.push(metrics[i]);
-        }
-
-        // Filled area with red/blue coloring
-        // Split into positive and negative traces for dual color
-        const posX = [], posY = [], negX = [], negY = [];
-        for (let i = 0; i < xVals.length; i++) {
-            if (yVals[i] >= 0) {
-                posX.push(xVals[i]);
-                posY.push(yVals[i]);
-                negX.push(xVals[i]);
-                negY.push(0);
+            // Gradient: red for positive, blue for negative, intensity by magnitude
+            if (metrics[i] >= 0) {
+                const intensity = Math.min(1, metrics[i] / (Math.abs(metrics[0]) || 1));
+                barColors.push(`rgba(${Math.round(180 + 60 * intensity)}, ${Math.round(50 * (1 - intensity))}, ${Math.round(50 * (1 - intensity))}, 0.85)`);
             } else {
-                posX.push(xVals[i]);
-                posY.push(0);
-                negX.push(xVals[i]);
-                negY.push(yVals[i]);
+                const intensity = Math.min(1, Math.abs(metrics[i]) / (Math.abs(metrics[N - 1]) || 1));
+                barColors.push(`rgba(${Math.round(50 * (1 - intensity))}, ${Math.round(60 + 50 * (1 - intensity))}, ${Math.round(180 + 60 * intensity)}, 0.85)`);
             }
         }
 
-        const posTrace = {
-            x: posX, y: posY,
-            type: 'scatter', mode: 'lines',
-            fill: 'tozeroy',
-            fillcolor: 'rgba(220, 38, 38, 0.35)',
-            line: { color: 'rgba(220, 38, 38, 0.6)', width: 0.5 },
-            showlegend: false, hoverinfo: 'skip'
-        };
-
-        const negTrace = {
-            x: negX, y: negY,
-            type: 'scatter', mode: 'lines',
-            fill: 'tozeroy',
-            fillcolor: 'rgba(37, 99, 235, 0.35)',
-            line: { color: 'rgba(37, 99, 235, 0.6)', width: 0.5 },
-            showlegend: false, hoverinfo: 'skip'
+        const trace = {
+            x: xVals,
+            y: yVals,
+            type: 'bar',
+            marker: {
+                color: barColors,
+                line: { width: 0 }
+            },
+            showlegend: false,
+            hovertemplate: 'Rank: %{x}<br>Metric: %{y:.3f}<extra></extra>'
         };
 
         const metricLabel = document.getElementById('metricColumn').value || 'Ranking Metric';
 
+        // Find zero-crossing for annotation
+        let zeroCross = -1;
+        for (let i = 0; i < N - 1; i++) {
+            if ((metrics[i] >= 0 && metrics[i + 1] < 0)) {
+                zeroCross = i;
+                break;
+            }
+        }
+
+        const annotations = [];
+        if (zeroCross >= 0) {
+            annotations.push({
+                text: 'Zero cross',
+                x: zeroCross, y: 0,
+                xref: 'x', yref: 'y',
+                showarrow: true, arrowhead: 0, arrowsize: 0.8, arrowwidth: 1,
+                ax: 0, ay: -20,
+                font: { size: 9, color: '#666' }
+            });
+        }
+        // Positive / Negative labels
+        annotations.push({
+            text: '<b>Positively correlated</b>',
+            xref: 'paper', yref: 'paper', x: 0.02, y: 1.02,
+            showarrow: false, font: { size: 9, color: '#dc2626' },
+            xanchor: 'left', yanchor: 'bottom'
+        });
+        annotations.push({
+            text: '<b>Negatively correlated</b>',
+            xref: 'paper', yref: 'paper', x: 0.98, y: 1.02,
+            showarrow: false, font: { size: 9, color: '#2563eb' },
+            xanchor: 'right', yanchor: 'bottom'
+        });
+
         const layout = {
             xaxis: {
-                title: { text: 'Gene Rank', font: { size: 11 } },
-                showgrid: false
+                title: { text: 'Rank in Ordered Dataset', font: { size: 11 } },
+                showgrid: false,
+                tickfont: { size: 10 }
             },
             yaxis: {
-                title: { text: metricLabel, font: { size: 11 } },
+                title: { text: 'Ranked list metric (' + metricLabel + ')', font: { size: 11 } },
                 zeroline: true,
                 zerolinewidth: 1.5,
                 zerolinecolor: '#333',
-                gridcolor: '#e5e5e5'
+                gridcolor: '#e5e5e5',
+                tickfont: { size: 10 }
             },
-            height: 220,
-            margin: { l: 65, r: 20, t: 15, b: 45 },
+            height: 250,
+            margin: { l: 65, r: 20, t: 25, b: 50 },
             font: { family: 'Open Sans, sans-serif' },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
+            bargap: 0,
             shapes: [{
                 type: 'rect', xref: 'paper', yref: 'paper',
                 x0: 0, x1: 1, y0: 0, y1: 1,
                 line: { color: '#333', width: 1.5 },
                 fillcolor: 'rgba(0,0,0,0)'
-            }]
+            }],
+            annotations: annotations
         };
 
-        Plotly.newPlot('rankedPlot', [posTrace, negTrace], layout, {
+        Plotly.newPlot('rankedPlot', [trace], layout, {
             responsive: true,
             displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d']

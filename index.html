@@ -152,7 +152,7 @@
             margin-bottom: 10px;
             box-shadow: var(--shadow-md);
             border: 1px solid #ddd;
-            overflow: hidden;
+            overflow: visible;
         }
         .card-title {
             font-weight: 600;
@@ -161,7 +161,7 @@
             background: var(--green-600);
             margin: 0;
             padding: 8px 14px;
-            border-radius: 7px 7px 0 0;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -519,10 +519,7 @@
         }
         .info-tooltip {
             display: none;
-            position: absolute;
-            left: calc(100% + 10px);
-            top: 50%;
-            transform: translateY(-50%);
+            position: fixed;
             background: #1f2937;
             color: #f3f4f6;
             padding: 10px 12px;
@@ -530,22 +527,18 @@
             font-size: 11.5px;
             font-weight: 400;
             line-height: 1.5;
-            width: 250px;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            width: 260px;
+            z-index: 10000;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
             pointer-events: none;
         }
         .info-tooltip::after {
             content: '';
             position: absolute;
             right: 100%;
-            top: 50%;
-            transform: translateY(-50%);
+            top: 14px;
             border: 6px solid transparent;
             border-right-color: #1f2937;
-        }
-        .info-icon:hover .info-tooltip {
-            display: block;
         }
         .info-tooltip strong {
             color: var(--green-300);
@@ -562,21 +555,16 @@
         }
         .methods-popup {
             display: none;
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 0;
-            right: 0;
+            position: fixed;
             background: white;
             border: 1px solid var(--gray-200);
             border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-            z-index: 100;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            z-index: 10000;
             padding: 14px;
-            min-width: 340px;
-            max-width: 420px;
+            width: 380px;
         }
-        .methods-btn-wrapper:hover .methods-popup,
-        .methods-popup:hover {
+        .methods-popup.visible {
             display: block;
         }
         .methods-popup-title {
@@ -592,7 +580,7 @@
             font-size: 0.82em;
             line-height: 1.6;
             color: var(--text-secondary);
-            max-height: 200px;
+            max-height: 250px;
             overflow-y: auto;
             margin-bottom: 10px;
             padding-right: 4px;
@@ -1100,6 +1088,6 @@
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
 </div>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
