@@ -1,1 +1,2 @@
 - allow to click gene set to get more information, including showing which genes that are inlcuded and how they rank in the gene set. perhaps this should be a .csv file
+the enrichment graph doesnt look good. text is overlapping with lements of graph. I also need to be able to move around eg legends, and to be able to change font, font size etc of differnt text.
