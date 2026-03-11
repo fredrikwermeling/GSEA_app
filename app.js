@@ -1041,8 +1041,13 @@ class GSEAApp {
                   line: { color: '#333', width: 1 }, fillcolor: 'rgba(0,0,0,0)' },
                 { type: 'rect', xref: 'paper', yref: 'paper', x0: xLeft, x1: xRight, y0: hitBot, y1: hitTop,
                   line: { color: '#333', width: 1 }, fillcolor: 'rgba(0,0,0,0)' },
-                { type: 'rect', xref: 'paper', yref: 'paper', x0: xLeft, x1: xRight, y0: metBot, y1: metTop,
-                  line: { color: '#333', width: 1 }, fillcolor: 'rgba(0,0,0,0)' }
+                // Metric panel: top + left + right lines only (no bottom — avoids overlap with x-axis)
+                { type: 'line', xref: 'paper', yref: 'paper', x0: xLeft, x1: xRight, y0: metTop, y1: metTop,
+                  line: { color: '#333', width: 1 } },
+                { type: 'line', xref: 'paper', yref: 'paper', x0: xLeft, x1: xLeft, y0: metBot, y1: metTop,
+                  line: { color: '#333', width: 1 } },
+                { type: 'line', xref: 'paper', yref: 'paper', x0: xRight, x1: xRight, y0: metBot, y1: metTop,
+                  line: { color: '#333', width: 1 } }
             );
         }
 
