@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSEA - Gene Set Enrichment Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        /* ============================================
+           CSS Custom Properties — Wermeling Lab Design
+           ============================================ */
+        :root {
+            --green-900: #2d5a27;
+            --green-800: #3a7333;
+            --green-700: #4a8c3f;
+            --green-600: #5a9f4a;
+            --green-500: #6ab257;
+            --green-400: #8bc77a;
+            --green-300: #a8d89a;
+            --green-200: #c5e8bc;
+            --green-100: #e2f4de;
+            --green-50:  #f0f9ef;
+            --gray-600: #4b5563;
+            --gray-500: #6b7280;
+            --gray-200: #e5e7eb;
+            --gray-100: #f3f4f6;
+            --text-primary: #1f2937;
+            --text-secondary: #4b5563;
+            --bg-white: #ffffff;
+            --brand-green: #5a9f4a;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.15);
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 8px;
+        }
+
+        /* ============================================
+           Reset & Base
+           ============================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-white);
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        /* ============================================
+           Loading Overlay
+           ============================================ */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.92);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s;
+        }
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-spinner {
+            width: 50px; height: 50px;
+            border: 4px solid var(--green-200);
+            border-top-color: var(--green-600);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .loading-text {
+            margin-top: 16px;
+            font-size: 15px;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ============================================
+           Header & Nav
+           ============================================ */
+        .logo-header {
+            text-align: center;
+            padding: 20px 20px 8px;
+        }
+        .logo-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--green-800);
+            margin: 0;
+        }
+        .logo-header h1 span {
+            color: var(--green-600);
+        }
+        .logo-header .subtitle {
+            font-size: 14px;
+            color: var(--gray-500);
+            margin-top: 2px;
+        }
+        .nav-bar {
+            text-align: center;
+            padding: 0 20px 5px 20px;
+            background: white;
+            margin-bottom: 8px;
+        }
+        .nav-bar a {
+            color: #0055bb;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .nav-bar a:hover {
+            text-decoration: underline;
+        }
+
+        /* ============================================
+           Main Layout
+           ============================================ */
+        .container {
+            display: flex;
+            gap: 16px;
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 0 16px;
+            align-items: flex-start;
+        }
+        .sidebar {
+            width: 415px;
+            min-width: 390px;
+            flex-shrink: 0;
+        }
+        .main-panel {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* ============================================
+           Cards
+           ============================================ */
+        .card {
+            background: white;
+            border-radius: var(--radius-lg);
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid #ddd;
+            overflow: hidden;
+        }
+        .card-title {
+            font-weight: 600;
+            font-size: 1.05em;
+            color: white;
+            background: var(--green-600);
+            margin: 0;
+            padding: 12px 20px;
+            border-radius: 7px 7px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-title .title-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .card-content {
+            padding: 20px;
+        }
+
+        /* ============================================
+           Buttons
+           ============================================ */
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 13px;
+            font-family: 'Open Sans', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: var(--green-600);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: var(--green-700);
+            box-shadow: 0 2px 8px rgba(22,163,74,0.3);
+        }
+        .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-600);
+            border: 1px solid var(--gray-200);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--gray-200);
+        }
+        .btn-outline {
+            background: white;
+            border: 1px solid var(--green-600);
+            color: var(--green-700);
+        }
+        .btn-outline:hover:not(:disabled) {
+            background: var(--green-50);
+        }
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .btn-lg {
+            padding: 12px 24px;
+            font-size: 16px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* ============================================
+           Form Elements
+           ============================================ */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+        .form-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            font-size: 0.9em;
+            color: #374151;
+        }
+        .form-control {
+            width: 100%;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--gray-200);
+            padding: 8px 12px;
+            font-size: 0.95em;
+            font-family: inherit;
+            background: white;
+            color: var(--text-primary);
+        }
+        .form-control:focus {
+            border-color: var(--green-500);
+            box-shadow: 0 0 0 3px rgba(34,197,94,0.15);
+            outline: none;
+        }
+        .form-control:disabled {
+            background: var(--gray-100);
+            color: var(--gray-500);
+        }
+        .form-hint {
+            font-size: 0.82em;
+            color: var(--gray-500);
+            margin-top: 4px;
+        }
+        input[type="number"].form-control {
+            max-width: 140px;
+        }
+        input[type="file"] {
+            font-family: inherit;
+            font-size: 0.9em;
+        }
+
+        /* Checkboxes */
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95em;
+            cursor: pointer;
+        }
+        .checkbox-label input[type="checkbox"] {
+            accent-color: var(--green-600);
+            width: 16px;
+            height: 16px;
+        }
+        .checkbox-info {
+            font-size: 0.82em;
+            color: var(--gray-500);
+            margin-left: 24px;
+        }
+
+        /* ============================================
+           Inline Form Row
+           ============================================ */
+        .form-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        /* ============================================
+           Status Boxes
+           ============================================ */
+        .status-box {
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            font-size: 0.85em;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+        .status-success {
+            background: var(--green-50);
+            color: var(--green-800);
+            border-left: 3px solid var(--green-500);
+        }
+        .status-warning {
+            background: #fffbeb;
+            color: #92400e;
+            border-left: 3px solid #f59e0b;
+        }
+        .status-error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 3px solid #ef4444;
+        }
+        .status-info {
+            background: #eff6ff;
+            color: #1e40af;
+            border-left: 3px solid #3b82f6;
+        }
+        .status-box.hidden { display: none; }
+
+        /* ============================================
+           Progress Bar
+           ============================================ */
+        .progress-container {
+            margin-top: 12px;
+            display: none;
+        }
+        .progress-container.active { display: block; }
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: var(--gray-200);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--green-600);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .progress-text {
+            font-size: 0.82em;
+            color: var(--gray-500);
+            margin-top: 6px;
+            text-align: center;
+        }
+
+        /* ============================================
+           Tabs
+           ============================================ */
+        .tab-bar {
+            display: flex;
+            border-bottom: 2px solid var(--gray-200);
+            gap: 2px;
+            margin-bottom: 16px;
+        }
+        .tab-btn {
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            color: var(--gray-500);
+            font-weight: 500;
+            font-size: 0.9em;
+            cursor: pointer;
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover {
+            color: var(--green-600);
+            background: var(--green-50);
+        }
+        .tab-btn.active {
+            background: var(--green-600);
+            color: white;
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* ============================================
+           Data Table
+           ============================================ */
+        .table-container {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            overflow: auto;
+            max-height: 600px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .data-table thead th {
+            background: var(--green-50);
+            color: var(--green-800);
+            font-weight: 600;
+            padding: 10px 12px;
+            border-bottom: 2px solid var(--green-200);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            cursor: pointer;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .data-table thead th:hover {
+            background: var(--green-100);
+        }
+        .data-table thead th .sort-arrow {
+            margin-left: 4px;
+            opacity: 0.4;
+        }
+        .data-table thead th.sorted .sort-arrow {
+            opacity: 1;
+        }
+        .data-table td {
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--gray-200);
+            text-align: center;
+        }
+        .data-table td:first-child {
+            text-align: left;
+            max-width: 350px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .data-table tbody tr {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .data-table tbody tr:hover {
+            background: var(--green-50);
+        }
+        .data-table tbody tr.selected {
+            background: var(--green-100);
+        }
+        .data-table .positive { color: #dc2626; }
+        .data-table .negative { color: #2563eb; }
+
+        /* ============================================
+           Table toolbar
+           ============================================ */
+        .table-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .table-toolbar .form-control {
+            width: auto;
+        }
+        .table-toolbar .result-count {
+            font-size: 0.85em;
+            color: var(--gray-500);
+            margin-left: auto;
+        }
+
+        /* ============================================
+           Methods Section
+           ============================================ */
+        .methods-text {
+            font-family: 'Open Sans', sans-serif;
+            font-size: 0.92em;
+            line-height: 1.7;
+            color: var(--text-primary);
+            padding: 16px;
+            background: var(--gray-100);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--gray-200);
+        }
+
+        /* ============================================
+           Figure Settings Panel
+           ============================================ */
+        .settings-section {
+            padding: 10px 12px;
+            background: var(--gray-100);
+            border-radius: var(--radius-md);
+            border-left: 4px solid var(--green-500);
+            margin-bottom: 12px;
+        }
+        .settings-section h3 {
+            color: var(--green-800);
+            margin-bottom: 8px;
+            font-size: 0.92em;
+            font-weight: 600;
+        }
+        .settings-section .form-group {
+            margin-bottom: 10px;
+        }
+        .settings-section .form-label {
+            font-size: 0.82em;
+        }
+
+        /* ============================================
+           Placeholder / Empty State
+           ============================================ */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray-500);
+        }
+        .empty-state .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.4;
+        }
+        .empty-state p {
+            font-size: 0.95em;
+        }
+
+        /* ============================================
+           Footer
+           ============================================ */
+        .site-footer {
+            text-align: center;
+            padding: 18px 20px;
+            margin-top: 30px;
+            color: var(--gray-500);
+            font-size: 0.85em;
+            border-top: 1px solid var(--gray-200);
+        }
+        .site-footer a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .site-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ============================================
+           Collapsible
+           ============================================ */
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .collapsible-header .chevron {
+            transition: transform 0.2s;
+            font-size: 10px;
+        }
+        .collapsible-header.open .chevron {
+            transform: rotate(90deg);
+        }
+        .collapsible-body {
+            display: none;
+            margin-top: 10px;
+        }
+        .collapsible-body.open {
+            display: block;
+        }
+
+        /* ============================================
+           Responsive
+           ============================================ */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                min-width: 0;
+            }
+        }
+
+        /* ============================================
+           Plot export buttons in card title
+           ============================================ */
+        .card-title .btn-sm {
+            padding: 3px 8px;
+            font-size: 11px;
+            font-weight: 500;
+            color: white;
+            border-color: rgba(255,255,255,0.5);
+        }
+        .card-title .btn-sm:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: white;
+        }
+
+        /* Leading edge tooltip */
+        .leading-edge-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 11px;
+            color: var(--gray-600);
+        }
+        .leading-edge-cell:hover {
+            white-space: normal;
+            overflow: visible;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading gene set collections...</div>
+</div>
+
+<!-- Header -->
+<div class="logo-header">
+    <h1><span>GSEA</span> Web Tool</h1>
+    <div class="subtitle">Gene Set Enrichment Analysis &mdash; Wermeling Lab</div>
+</div>
+
+<!-- Navigation -->
+<div class="nav-bar">
+    <a href="https://fredrikwermeling.github.io/Greenlisted_v2/" target="_blank">Green Listed</a>
+    <a href="https://fredrikwermeling.github.io/correlation-web-app-/" target="_blank">Correlate</a>
+    <a href="https://fredrikwermeling.github.io/Visualize/" target="_blank">Visualize</a>
+    <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
+</div>
+
+<!-- Main Content -->
+<div class="container">
+    <!-- ============================
+         SIDEBAR
+         ============================ -->
+    <div class="sidebar">
+
+        <!-- Card 1: Upload Data -->
+        <div class="card">
+            <div class="card-title">1. Upload Data</div>
+            <div class="card-content">
+                <div class="form-group">
+                    <label class="form-label">Upload CSV or TSV file with gene-level statistics</label>
+                    <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.tab" class="form-control">
+                    <div class="form-hint">File should have a gene name column and one or more numeric columns</div>
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-outline btn-sm" id="loadExampleBtn">Load Example Data</button>
+                </div>
+                <div id="uploadStatus" class="status-box hidden"></div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="form-label">Gene name column</label>
+                    <select class="form-control" id="geneColumn" disabled>
+                        <option value="">Upload a file first...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Ranking metric column</label>
+                    <select class="form-control" id="metricColumn" disabled>
+                        <option value="">Upload a file first...</option>
+                    </select>
+                    <div class="form-hint">Genes will be ranked in descending order by this value</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Gene Set Collections -->
+        <div class="card">
+            <div class="card-title">2. Gene Set Collections</div>
+            <div class="card-content">
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="checkHallmark" checked>
+                        <strong>H: Hallmark</strong>
+                    </label>
+                    <div class="checkbox-info">50 well-defined biological states and processes</div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="checkC2">
+                        <strong>C2: Curated</strong>
+                    </label>
+                    <div class="checkbox-info">KEGG, Reactome, WikiPathways and more (7,233 sets)</div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="checkC5">
+                        <strong>C5: GO</strong>
+                    </label>
+                    <div class="checkbox-info">Gene Ontology BP, MF, CC (16,008 sets)</div>
+                </div>
+
+                <div id="geneSetStatus" class="status-box status-info" style="margin-top: 14px;">
+                    Hallmark: 50 gene sets loaded
+                </div>
+
+                <div style="margin-top: 16px;">
+                    <div class="collapsible-header" id="customGmtToggle">
+                        <span class="chevron">&#9654;</span>
+                        <span class="form-label" style="margin: 0; cursor: pointer;">Upload custom GMT file</span>
+                    </div>
+                    <div class="collapsible-body" id="customGmtBody">
+                        <input type="file" id="gmtInput" accept=".gmt" class="form-control">
+                        <div id="gmtStatus" class="status-box hidden"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Parameters -->
+        <div class="card">
+            <div class="card-title">3. Analysis Parameters</div>
+            <div class="card-content">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Permutations</label>
+                        <input type="number" class="form-control" id="permutations" value="1000" min="100" max="10000" step="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Weight (p)</label>
+                        <input type="number" class="form-control" id="weightP" value="1" min="0" max="2" step="0.5">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Min gene set size</label>
+                        <input type="number" class="form-control" id="minSize" value="15" min="1" max="500">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Max gene set size</label>
+                        <input type="number" class="form-control" id="maxSize" value="500" min="10" max="5000">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Run Analysis -->
+        <div class="card">
+            <div class="card-title">4. Run Analysis</div>
+            <div class="card-content">
+                <button class="btn btn-primary btn-lg" id="runBtn" disabled>Run GSEA</button>
+                <button class="btn btn-secondary btn-lg" id="cancelBtn" style="display:none; margin-top: 8px;">Cancel</button>
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="progressBar"></div>
+                    </div>
+                    <div class="progress-text" id="progressText"></div>
+                </div>
+                <div id="runStatus" class="status-box hidden"></div>
+            </div>
+        </div>
+
+        <!-- Card 5: Figure Settings (shown after results) -->
+        <div class="card" id="settingsCard" style="display: none;">
+            <div class="card-title">5. Figure Settings</div>
+            <div class="card-content">
+                <div class="settings-section">
+                    <h3>Bubble Plot</h3>
+                    <div class="form-group">
+                        <label class="form-label">Top N gene sets</label>
+                        <input type="number" class="form-control" id="topN" value="20" min="5" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">FDR threshold for display</label>
+                        <select class="form-control" id="fdrDisplayThreshold">
+                            <option value="1">Show all</option>
+                            <option value="0.25" selected>FDR &lt; 0.25</option>
+                            <option value="0.1">FDR &lt; 0.1</option>
+                            <option value="0.05">FDR &lt; 0.05</option>
+                            <option value="0.01">FDR &lt; 0.01</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Color scale</label>
+                        <select class="form-control" id="colorScale">
+                            <option value="RdBu" selected>Red-Blue (RdBu)</option>
+                            <option value="Viridis">Viridis</option>
+                            <option value="Plasma">Plasma</option>
+                            <option value="YlOrRd">Yellow-Orange-Red</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Export Options</h3>
+                    <div class="form-group">
+                        <label class="form-label">Scale factor (PNG)</label>
+                        <input type="number" class="form-control" id="exportScale" value="4" min="1" max="8">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="transparentBg">
+                            Transparent background
+                        </label>
+                    </div>
+                </div>
+                <button class="btn btn-outline" id="updatePlotsBtn" style="width: 100%; margin-top: 4px;">Update Plots</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================
+         MAIN PANEL
+         ============================ -->
+    <div class="main-panel">
+
+        <!-- Tab Bar -->
+        <div class="tab-bar" id="tabBar">
+            <button class="tab-btn active" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="enrichment">Enrichment Plot</button>
+            <button class="tab-btn" data-tab="table">Results Table</button>
+            <button class="tab-btn" data-tab="methods">Methods</button>
+        </div>
+
+        <!-- Tab: Overview -->
+        <div class="tab-panel active" id="tab-overview">
+            <div id="overviewEmpty" class="empty-state">
+                <div class="empty-icon">&#x1F4CA;</div>
+                <p>Upload data and run GSEA to see results here.</p>
+            </div>
+            <div id="overviewResults" style="display: none;">
+                <div class="card">
+                    <div class="card-title">
+                        Enrichment Overview
+                        <div class="title-actions">
+                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('bubblePlot','svg')">SVG</button>
+                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('bubblePlot','png')">PNG</button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="bubblePlot"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        Ranked Gene List
+                        <div class="title-actions">
+                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('rankedPlot','svg')">SVG</button>
+                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('rankedPlot','png')">PNG</button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="rankedPlot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Enrichment Plot -->
+        <div class="tab-panel" id="tab-enrichment">
+            <div id="enrichmentEmpty" class="empty-state">
+                <div class="empty-icon">&#x1F4C8;</div>
+                <p>Run GSEA and select a gene set to view its enrichment score plot.</p>
+            </div>
+            <div id="enrichmentResults" style="display: none;">
+                <div class="card">
+                    <div class="card-title">
+                        Enrichment Score Plot
+                        <div class="title-actions">
+                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('esPlot','svg')">SVG</button>
+                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('esPlot','png')">PNG</button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="form-group">
+                            <select class="form-control" id="geneSetSelector">
+                                <option value="">Select a gene set...</option>
+                            </select>
+                        </div>
+                        <div id="esPlot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Results Table -->
+        <div class="tab-panel" id="tab-table">
+            <div id="tableEmpty" class="empty-state">
+                <div class="empty-icon">&#x1F4CB;</div>
+                <p>Run GSEA to see results in this table.</p>
+            </div>
+            <div id="tableResults" style="display: none;">
+                <div class="card">
+                    <div class="card-title">GSEA Results</div>
+                    <div class="card-content">
+                        <div class="table-toolbar">
+                            <input type="text" class="form-control" id="tableFilter"
+                                   placeholder="Filter gene sets..." style="max-width: 280px;">
+                            <select class="form-control" id="fdrFilter" style="width: auto;">
+                                <option value="all">All FDR</option>
+                                <option value="0.25">FDR &lt; 0.25</option>
+                                <option value="0.1">FDR &lt; 0.1</option>
+                                <option value="0.05">FDR &lt; 0.05</option>
+                                <option value="0.01">FDR &lt; 0.01</option>
+                            </select>
+                            <select class="form-control" id="directionFilter" style="width: auto;">
+                                <option value="all">All directions</option>
+                                <option value="up">Upregulated (NES &gt; 0)</option>
+                                <option value="down">Downregulated (NES &lt; 0)</option>
+                            </select>
+                            <button class="btn btn-outline btn-sm" id="downloadCSVBtn">Download CSV</button>
+                            <span class="result-count" id="resultCount"></span>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table" id="resultsTable">
+                                <thead>
+                                    <tr>
+                                        <th data-col="name">Gene Set <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-col="size">Size <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-col="es">ES <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-col="nes">NES <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-col="pvalue">p-value <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-col="fdr">FDR <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-col="leadingEdge">Leading Edge <span class="sort-arrow">&#9650;</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Methods -->
+        <div class="tab-panel" id="tab-methods">
+            <div id="methodsEmpty" class="empty-state">
+                <div class="empty-icon">&#x1F4DD;</div>
+                <p>Run GSEA to generate a methods section for your manuscript.</p>
+            </div>
+            <div id="methodsResults" style="display: none;">
+                <div class="card">
+                    <div class="card-title">
+                        Methods Section
+                        <div class="title-actions">
+                            <button class="btn btn-sm btn-outline" id="copyMethodsBtn">Copy</button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="methods-text" id="methodsText"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Footer -->
+<div class="site-footer">
+    GSEA Web Tool &mdash; <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>, Karolinska Institutet
+    &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
