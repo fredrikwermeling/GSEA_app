@@ -109,8 +109,9 @@ class GSEAApp {
         // Download CSV
         document.getElementById('downloadCSVBtn').addEventListener('click', () => this.downloadCSV());
 
-        // Copy methods
+        // Methods popup buttons
         document.getElementById('copyMethodsBtn').addEventListener('click', () => this.copyMethods());
+        document.getElementById('downloadMethodsBtn').addEventListener('click', () => this.downloadMethods());
 
         // Figure settings
         document.getElementById('updatePlotsBtn').addEventListener('click', () => this.updateSettings());
@@ -492,9 +493,8 @@ class GSEAApp {
         document.getElementById('enrichmentResults').style.display = '';
         document.getElementById('tableEmpty').style.display = 'none';
         document.getElementById('tableResults').style.display = '';
-        document.getElementById('methodsEmpty').style.display = 'none';
-        document.getElementById('methodsResults').style.display = '';
         document.getElementById('settingsCard').style.display = '';
+        document.getElementById('methodsBtnWrapper').style.display = '';
 
         // Populate gene set selector
         this.populateGeneSetSelector();
@@ -1122,14 +1122,21 @@ class GSEAApp {
 
         const nSets = this.results.length;
         const nSig = this.results.filter(r => r.fdr < 0.25).length;
+        const nGenes = this.rankedList ? this.rankedList.genes.length : 0;
         const date = this.analysisDate
             ? this.analysisDate.toISOString().split('T')[0]
             : new Date().toISOString().split('T')[0];
 
+        // Get the file name if available
+        const fileInput = document.getElementById('fileInput');
+        const fileName = fileInput.files && fileInput.files[0]
+            ? fileInput.files[0].name
+            : 'example data';
+
         const text = `Preranked Gene Set Enrichment Analysis (GSEA) was performed using a ` +
             `client-side JavaScript implementation of the GSEA algorithm ` +
             `(Subramanian et al., PNAS 2005; Mootha et al., Nature Genetics 2003). ` +
-            `Genes were ranked by ${metricCol} in descending order. ` +
+            `Input data (${fileName}, ${nGenes} genes) was ranked by ${metricCol} in descending order. ` +
             `Enrichment scores were computed using a weighted running-sum statistic ` +
             `(weight parameter p = ${this.settings.weightP}). ` +
             `Gene set collections from MSigDB v2023.2 ` +
@@ -1143,18 +1150,28 @@ class GSEAApp {
             `P-values were adjusted for multiple testing using the Benjamini-Hochberg ` +
             `procedure. ${nSig} gene sets were significant at FDR < 0.25. ` +
             `Analysis was performed on ${date} using the GSEA Web Tool ` +
+            `(https://fredrikwermeling.github.io/GSEA_app/), ` +
+            `built with Plotly.js v2.27.0, PapaParse v5.4.1, and Web Workers ` +
             `(Wermeling Lab, Karolinska Institutet).`;
 
-        document.getElementById('methodsText').textContent = text;
+        this.methodsText = text;
+        document.getElementById('methodsPopupText').textContent = text;
     }
 
     copyMethods() {
-        const text = document.getElementById('methodsText').textContent;
+        const text = this.methodsText || document.getElementById('methodsPopupText').textContent;
         navigator.clipboard.writeText(text).then(() => {
             const btn = document.getElementById('copyMethodsBtn');
+            const orig = btn.textContent;
             btn.textContent = 'Copied!';
-            setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+            setTimeout(() => { btn.textContent = orig; }, 2000);
         });
+    }
+
+    downloadMethods() {
+        const text = this.methodsText || document.getElementById('methodsPopupText').textContent;
+        const blob = new Blob([text], { type: 'text/plain' });
+        this.downloadBlob(blob, 'gsea_methods.txt');
     }
 
     // --------------------------------------------------------

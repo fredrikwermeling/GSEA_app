@@ -89,10 +89,10 @@
            ============================================ */
         .logo-header {
             text-align: center;
-            padding: 20px 20px 8px;
+            padding: 12px 20px 4px;
         }
         .logo-header h1 {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
             color: var(--green-800);
             margin: 0;
@@ -101,21 +101,21 @@
             color: var(--green-600);
         }
         .logo-header .subtitle {
-            font-size: 14px;
+            font-size: 13px;
             color: var(--gray-500);
-            margin-top: 2px;
+            margin-top: 1px;
         }
         .nav-bar {
             text-align: center;
-            padding: 0 20px 5px 20px;
+            padding: 0 20px 4px 20px;
             background: white;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         .nav-bar a {
             color: #0055bb;
             text-decoration: none;
-            margin: 0 15px;
-            font-size: 15px;
+            margin: 0 12px;
+            font-size: 13px;
             font-weight: 500;
         }
         .nav-bar a:hover {
@@ -127,15 +127,15 @@
            ============================================ */
         .container {
             display: flex;
-            gap: 16px;
+            gap: 12px;
             max-width: 1500px;
             margin: 0 auto;
-            padding: 0 16px;
+            padding: 0 12px;
             align-items: flex-start;
         }
         .sidebar {
-            width: 415px;
-            min-width: 390px;
+            width: 380px;
+            min-width: 360px;
             flex-shrink: 0;
         }
         .main-panel {
@@ -149,18 +149,18 @@
         .card {
             background: white;
             border-radius: var(--radius-lg);
-            margin-bottom: 16px;
+            margin-bottom: 10px;
             box-shadow: var(--shadow-md);
             border: 1px solid #ddd;
             overflow: hidden;
         }
         .card-title {
             font-weight: 600;
-            font-size: 1.05em;
+            font-size: 0.95em;
             color: white;
             background: var(--green-600);
             margin: 0;
-            padding: 12px 20px;
+            padding: 8px 14px;
             border-radius: 7px 7px 0 0;
             display: flex;
             align-items: center;
@@ -171,7 +171,7 @@
             gap: 6px;
         }
         .card-content {
-            padding: 20px;
+            padding: 12px 14px;
         }
 
         /* ============================================
@@ -233,7 +233,7 @@
            Form Elements
            ============================================ */
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 10px;
         }
         .form-group:last-child {
             margin-bottom: 0;
@@ -241,16 +241,16 @@
         .form-label {
             display: block;
             font-weight: 500;
-            margin-bottom: 6px;
-            font-size: 0.9em;
+            margin-bottom: 4px;
+            font-size: 0.85em;
             color: #374151;
         }
         .form-control {
             width: 100%;
             border-radius: var(--radius-md);
             border: 1px solid var(--gray-200);
-            padding: 8px 12px;
-            font-size: 0.95em;
+            padding: 6px 10px;
+            font-size: 0.9em;
             font-family: inherit;
             background: white;
             color: var(--text-primary);
@@ -281,13 +281,13 @@
         .checkbox-group {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 6px;
         }
         .checkbox-label {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.95em;
+            gap: 6px;
+            font-size: 0.9em;
             cursor: pointer;
         }
         .checkbox-label input[type="checkbox"] {
@@ -317,11 +317,11 @@
            Status Boxes
            ============================================ */
         .status-box {
-            padding: 10px 14px;
+            padding: 7px 10px;
             border-radius: var(--radius-md);
-            font-size: 0.85em;
-            margin-top: 10px;
-            line-height: 1.5;
+            font-size: 0.82em;
+            margin-top: 8px;
+            line-height: 1.4;
         }
         .status-success {
             background: var(--green-50);
@@ -349,7 +349,7 @@
            Progress Bar
            ============================================ */
         .progress-container {
-            margin-top: 12px;
+            margin-top: 8px;
             display: none;
         }
         .progress-container.active { display: block; }
@@ -381,15 +381,15 @@
             display: flex;
             border-bottom: 2px solid var(--gray-200);
             gap: 2px;
-            margin-bottom: 16px;
+            margin-bottom: 10px;
         }
         .tab-btn {
-            padding: 10px 16px;
+            padding: 7px 14px;
             border: none;
             background: transparent;
             color: var(--gray-500);
             font-weight: 500;
-            font-size: 0.9em;
+            font-size: 0.85em;
             cursor: pointer;
             border-radius: var(--radius-md) var(--radius-md) 0 0;
             font-family: inherit;
@@ -492,40 +492,137 @@
         }
 
         /* ============================================
-           Methods Section
+           Info Tooltips (parameter help)
            ============================================ */
-        .methods-text {
-            font-family: 'Open Sans', sans-serif;
-            font-size: 0.92em;
-            line-height: 1.7;
-            color: var(--text-primary);
-            padding: 16px;
-            background: var(--gray-100);
-            border-radius: var(--radius-md);
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: var(--green-100);
+            color: var(--green-700);
+            font-size: 10px;
+            font-weight: 700;
+            cursor: help;
+            margin-left: 4px;
+            position: relative;
+            vertical-align: middle;
+            font-style: normal;
+            line-height: 1;
+            border: 1px solid var(--green-300);
+            flex-shrink: 0;
+        }
+        .info-icon:hover {
+            background: var(--green-200);
+        }
+        .info-tooltip {
+            display: none;
+            position: absolute;
+            left: calc(100% + 10px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 400;
+            line-height: 1.5;
+            width: 250px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            pointer-events: none;
+        }
+        .info-tooltip::after {
+            content: '';
+            position: absolute;
+            right: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 6px solid transparent;
+            border-right-color: #1f2937;
+        }
+        .info-icon:hover .info-tooltip {
+            display: block;
+        }
+        .info-tooltip strong {
+            color: var(--green-300);
+        }
+
+        /* ============================================
+           Methods Popup
+           ============================================ */
+        .methods-btn-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            margin-top: 8px;
+        }
+        .methods-popup {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            background: white;
             border: 1px solid var(--gray-200);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 100;
+            padding: 14px;
+            min-width: 340px;
+            max-width: 420px;
+        }
+        .methods-btn-wrapper:hover .methods-popup,
+        .methods-popup:hover {
+            display: block;
+        }
+        .methods-popup-title {
+            font-weight: 600;
+            font-size: 0.9em;
+            color: var(--green-800);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .methods-popup-text {
+            font-size: 0.82em;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding-right: 4px;
+        }
+        .methods-popup-actions {
+            display: flex;
+            gap: 6px;
         }
 
         /* ============================================
            Figure Settings Panel
            ============================================ */
         .settings-section {
-            padding: 10px 12px;
+            padding: 8px 10px;
             background: var(--gray-100);
             border-radius: var(--radius-md);
-            border-left: 4px solid var(--green-500);
-            margin-bottom: 12px;
+            border-left: 3px solid var(--green-500);
+            margin-bottom: 8px;
         }
         .settings-section h3 {
             color: var(--green-800);
-            margin-bottom: 8px;
-            font-size: 0.92em;
+            margin-bottom: 6px;
+            font-size: 0.85em;
             font-weight: 600;
         }
         .settings-section .form-group {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .settings-section .form-label {
-            font-size: 0.82em;
+            font-size: 0.8em;
         }
 
         /* ============================================
@@ -533,12 +630,12 @@
            ============================================ */
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 40px 20px;
             color: var(--gray-500);
         }
         .empty-state .empty-icon {
-            font-size: 48px;
-            margin-bottom: 12px;
+            font-size: 40px;
+            margin-bottom: 8px;
             opacity: 0.4;
         }
         .empty-state p {
@@ -550,10 +647,10 @@
            ============================================ */
         .site-footer {
             text-align: center;
-            padding: 18px 20px;
-            margin-top: 30px;
+            padding: 12px 20px;
+            margin-top: 16px;
             color: var(--gray-500);
-            font-size: 0.85em;
+            font-size: 0.82em;
             border-top: 1px solid var(--gray-200);
         }
         .site-footer a {
@@ -582,7 +679,7 @@
         }
         .collapsible-body {
             display: none;
-            margin-top: 10px;
+            margin-top: 6px;
         }
         .collapsible-body.open {
             display: block;
@@ -674,7 +771,7 @@
                 </div>
                 <div id="uploadStatus" class="status-box hidden"></div>
 
-                <div class="form-group" style="margin-top: 16px;">
+                <div class="form-group" style="margin-top: 10px;">
                     <label class="form-label">Gene name column</label>
                     <select class="form-control" id="geneColumn" disabled>
                         <option value="">Upload a file first...</option>
@@ -714,11 +811,11 @@
                     <div class="checkbox-info">Gene Ontology BP, MF, CC (16,008 sets)</div>
                 </div>
 
-                <div id="geneSetStatus" class="status-box status-info" style="margin-top: 14px;">
+                <div id="geneSetStatus" class="status-box status-info" style="margin-top: 8px;">
                     Hallmark: 50 gene sets loaded
                 </div>
 
-                <div style="margin-top: 16px;">
+                <div style="margin-top: 10px;">
                     <div class="collapsible-header" id="customGmtToggle">
                         <span class="chevron">&#9654;</span>
                         <span class="form-label" style="margin: 0; cursor: pointer;">Upload custom GMT file</span>
@@ -733,25 +830,56 @@
 
         <!-- Card 3: Parameters -->
         <div class="card">
-            <div class="card-title">3. Analysis Parameters</div>
+            <div class="card-title">
+                3. Analysis Parameters
+                <span class="info-icon" style="background: rgba(255,255,255,0.25); color: white; border-color: rgba(255,255,255,0.5);">?
+                    <span class="info-tooltip" style="width: 300px;">
+                        <strong>Quick guide:</strong> Default settings work well for most analyses. Use 1000 permutations for publication results. Increase to 10,000 for very precise p-values. The weight parameter p=1 is the standard GSEA weighting.
+                    </span>
+                </span>
+            </div>
             <div class="card-content">
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Permutations</label>
+                        <label class="form-label">Permutations
+                            <span class="info-icon">?
+                                <span class="info-tooltip">
+                                    <strong>Number of permutations</strong> for significance testing. More permutations = more precise p-values but slower. <strong>Recommended:</strong> 1000 for exploration, 10,000 for publication.
+                                </span>
+                            </span>
+                        </label>
                         <input type="number" class="form-control" id="permutations" value="1000" min="100" max="10000" step="100">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Weight (p)</label>
+                        <label class="form-label">Weight (p)
+                            <span class="info-icon">?
+                                <span class="info-tooltip">
+                                    <strong>Enrichment weight parameter.</strong> Controls how much the ranking metric magnitude matters. <strong>p=1</strong> (default): weighted, recommended for most analyses. <strong>p=0</strong>: classic Kolmogorov-Smirnov (unweighted).
+                                </span>
+                            </span>
+                        </label>
                         <input type="number" class="form-control" id="weightP" value="1" min="0" max="2" step="0.5">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Min gene set size</label>
+                        <label class="form-label">Min size
+                            <span class="info-icon">?
+                                <span class="info-tooltip">
+                                    <strong>Minimum gene set size</strong> after filtering to genes in your dataset. Sets smaller than this are excluded. <strong>Recommended:</strong> 15 (default). Lower values include very small, often noisy, gene sets.
+                                </span>
+                            </span>
+                        </label>
                         <input type="number" class="form-control" id="minSize" value="15" min="1" max="500">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Max gene set size</label>
+                        <label class="form-label">Max size
+                            <span class="info-icon">?
+                                <span class="info-tooltip">
+                                    <strong>Maximum gene set size</strong> after filtering. Very large gene sets (e.g. >500) tend to be too broad to be informative. <strong>Recommended:</strong> 500 (default).
+                                </span>
+                            </span>
+                        </label>
                         <input type="number" class="form-control" id="maxSize" value="500" min="10" max="5000">
                     </div>
                 </div>
@@ -771,6 +899,25 @@
                     <div class="progress-text" id="progressText"></div>
                 </div>
                 <div id="runStatus" class="status-box hidden"></div>
+
+                <!-- Methods popup button (shown after results) -->
+                <div class="methods-btn-wrapper" id="methodsBtnWrapper" style="display: none;">
+                    <button class="btn btn-outline" style="width: 100%; font-size: 12px;">
+                        <span style="margin-right: 4px;">&#x1F4DD;</span> Methods Section
+                    </button>
+                    <div class="methods-popup" id="methodsPopup">
+                        <div class="methods-popup-title">
+                            <span>&#x1F4DD;</span> Methods Section
+                        </div>
+                        <div class="methods-popup-text" id="methodsPopupText">
+                            Run GSEA to generate a methods section.
+                        </div>
+                        <div class="methods-popup-actions">
+                            <button class="btn btn-primary btn-sm" id="copyMethodsBtn">Copy to clipboard</button>
+                            <button class="btn btn-outline btn-sm" id="downloadMethodsBtn">Download .txt</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -832,7 +979,6 @@
             <button class="tab-btn active" data-tab="overview">Overview</button>
             <button class="tab-btn" data-tab="enrichment">Enrichment Plot</button>
             <button class="tab-btn" data-tab="table">Results Table</button>
-            <button class="tab-btn" data-tab="methods">Methods</button>
         </div>
 
         <!-- Tab: Overview -->
@@ -945,27 +1091,6 @@
             </div>
         </div>
 
-        <!-- Tab: Methods -->
-        <div class="tab-panel" id="tab-methods">
-            <div id="methodsEmpty" class="empty-state">
-                <div class="empty-icon">&#x1F4DD;</div>
-                <p>Run GSEA to generate a methods section for your manuscript.</p>
-            </div>
-            <div id="methodsResults" style="display: none;">
-                <div class="card">
-                    <div class="card-title">
-                        Methods Section
-                        <div class="title-actions">
-                            <button class="btn btn-sm btn-outline" id="copyMethodsBtn">Copy</button>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="methods-text" id="methodsText"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
 </div>
 
@@ -975,6 +1100,6 @@
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
 </div>
 
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
