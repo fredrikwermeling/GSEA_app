@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GSEA - Gene Set Enrichment Analysis</title>
+    <title>Enrich - Gene Set Enrichment Analysis</title>
+    <link rel="icon" type="image/png" href="enrich favicon.png">
+    <link rel="apple-touch-icon" href="enrich favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -89,21 +91,12 @@
            ============================================ */
         .logo-header {
             text-align: center;
-            padding: 12px 20px 4px;
+            padding: 14px 20px 4px;
         }
-        .logo-header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--green-800);
-            margin: 0;
-        }
-        .logo-header h1 span {
-            color: var(--green-600);
-        }
-        .logo-header .subtitle {
-            font-size: 13px;
-            color: var(--gray-500);
-            margin-top: 1px;
+        .logo-header img {
+            height: 90px;
+            width: auto;
+            display: inline-block;
         }
         .nav-bar {
             text-align: center;
@@ -694,10 +687,11 @@
             font-size: 11px;
             font-weight: 500;
             color: white;
-            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.5);
         }
         .card-title .btn-sm:hover {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.3);
             border-color: white;
         }
 
@@ -726,8 +720,7 @@
 
 <!-- Header -->
 <div class="logo-header">
-    <h1><span>GSEA</span> Web Tool</h1>
-    <div class="subtitle">Gene Set Enrichment Analysis &mdash; Wermeling Lab</div>
+    <img src="Enrich logo.png" alt="Enrich - a Gene Set Enrichment Analysis (GSEA) tool">
 </div>
 
 <!-- Navigation -->
@@ -914,7 +907,7 @@
             <div class="card-title">5. Figure Settings</div>
             <div class="card-content">
                 <div class="settings-section">
-                    <h3>Bubble Plot</h3>
+                    <h3>Overview Plot</h3>
                     <div class="form-group">
                         <label class="form-label">Top N gene sets</label>
                         <input type="number" class="form-control" id="topN" value="20" min="5" max="100">
@@ -937,6 +930,48 @@
                             <option value="Plasma">Plasma</option>
                             <option value="YlOrRd">Yellow-Orange-Red</option>
                         </select>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Enrichment Plot</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ES line color</label>
+                            <input type="color" class="form-control" id="esLineColor" value="#15a04a" style="height: 30px; padding: 2px; max-width: 60px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Line width</label>
+                            <input type="number" class="form-control" id="esLineWidth" value="2.5" min="0.5" max="6" step="0.5">
+                        </div>
+                    </div>
+                    <div class="checkbox-group" style="margin-top: 4px;">
+                        <label class="checkbox-label"><input type="checkbox" id="showStatsBox" checked> Show stats box (NES, FDR, p)</label>
+                        <label class="checkbox-label"><input type="checkbox" id="showZeroCross" checked> Show zero-cross annotation</label>
+                        <label class="checkbox-label"><input type="checkbox" id="showCorrelationLabels" checked> Show correlation labels</label>
+                        <label class="checkbox-label"><input type="checkbox" id="showPanelBorders" checked> Show panel borders</label>
+                        <label class="checkbox-label"><input type="checkbox" id="showHitMarkers" checked> Show hit markers</label>
+                        <label class="checkbox-label"><input type="checkbox" id="showMetricFill" checked> Color metric by direction</label>
+                    </div>
+                    <div class="form-hint" style="margin-top: 4px;">Tip: Drag annotations directly on the plot to reposition them</div>
+                </div>
+                <div class="settings-section">
+                    <h3>Typography</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Font family</label>
+                            <select class="form-control" id="figFontFamily">
+                                <option value="Open Sans" selected>Open Sans</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Helvetica">Helvetica</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Roboto">Roboto</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Base font size</label>
+                            <input type="number" class="form-control" id="figFontSize" value="12" min="8" max="20">
+                        </div>
                     </div>
                 </div>
                 <div class="settings-section">
@@ -966,6 +1001,7 @@
         <div class="tab-bar" id="tabBar">
             <button class="tab-btn active" data-tab="overview">Overview</button>
             <button class="tab-btn" data-tab="enrichment">Enrichment Plot</button>
+            <button class="tab-btn" data-tab="overlap">Overlap</button>
             <button class="tab-btn" data-tab="table">Results Table</button>
         </div>
 
@@ -980,8 +1016,8 @@
                     <div class="card-title">
                         Enrichment Overview
                         <div class="title-actions">
-                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('bubblePlot','svg')">SVG</button>
-                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('bubblePlot','png')">PNG</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','svg')">SVG</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','png')">PNG</button>
                         </div>
                     </div>
                     <div class="card-content">
@@ -992,8 +1028,8 @@
                     <div class="card-title">
                         Ranked Gene List
                         <div class="title-actions">
-                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('rankedPlot','svg')">SVG</button>
-                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('rankedPlot','png')">PNG</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">SVG</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">PNG</button>
                         </div>
                     </div>
                     <div class="card-content">
@@ -1010,21 +1046,143 @@
                 <p>Run GSEA and select a gene set to view its enrichment score plot.</p>
             </div>
             <div id="enrichmentResults" style="display: none;">
+                <!-- Gene set selector row -->
+                <div class="card" style="margin-bottom: 8px;">
+                    <div class="card-content" style="padding: 8px 14px;">
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <select class="form-control" id="geneSetSelector" style="flex: 1; min-width: 250px;">
+                                <option value="">Select a gene set...</option>
+                            </select>
+                            <button class="btn btn-outline btn-sm" id="prevGeneSetBtn" title="Previous gene set">&#9664;</button>
+                            <button class="btn btn-outline btn-sm" id="nextGeneSetBtn" title="Next gene set">&#9654;</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ES plot + info side by side -->
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                    <!-- Plot column -->
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="card">
+                            <div class="card-title">
+                                Enrichment Score Plot
+                                <div class="title-actions">
+                                    <button class="btn btn-sm" onclick="app.exportPlot('esPlot','svg')">SVG</button>
+                                    <button class="btn btn-sm" onclick="app.exportPlot('esPlot','png')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="card-content" style="padding: 8px;">
+                                <div id="esPlot"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Info column -->
+                    <div style="width: 300px; min-width: 260px; flex-shrink: 0;" id="esInfoPanel">
+                        <div class="card" style="margin-bottom: 8px;">
+                            <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Gene Set Info</div>
+                            <div class="card-content" style="padding: 8px 10px; font-size: 0.85em;" id="geneSetInfoContent">
+                                <p style="color: var(--gray-500);">Select a gene set to see details.</p>
+                            </div>
+                        </div>
+                        <!-- Gene search -->
+                        <div class="card" style="margin-bottom: 8px;">
+                            <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Search Genes</div>
+                            <div class="card-content" style="padding: 8px 10px;">
+                                <textarea class="form-control" id="geneSearchInput"
+                                    placeholder="Enter gene names (one per line or comma-separated)..."
+                                    rows="3" style="font-size: 0.85em; resize: vertical;"></textarea>
+                                <div style="display: flex; gap: 4px; margin-top: 4px;">
+                                    <button class="btn btn-outline btn-sm" id="searchGenesBtn" style="flex: 1;">Highlight</button>
+                                    <button class="btn btn-secondary btn-sm" id="clearSearchBtn" style="flex: 1;">Clear</button>
+                                </div>
+                                <div id="geneSearchResults" style="font-size: 0.82em; margin-top: 6px; max-height: 180px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                        <!-- Top/Bottom genes -->
+                        <div class="card">
+                            <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">
+                                Top &amp; Bottom Genes
+                                <div class="title-actions">
+                                    <select class="form-control" id="topBottomN" style="width: auto; font-size: 11px; padding: 2px 4px;">
+                                        <option value="5">5</option>
+                                        <option value="10" selected>10</option>
+                                        <option value="20">20</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="card-content" style="padding: 6px 10px; font-size: 0.82em; max-height: 300px; overflow-y: auto;" id="topBottomGenes">
+                                <p style="color: var(--gray-500);">Run GSEA to see top/bottom genes.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gene set detail table -->
+                <div class="card" style="margin-top: 8px;">
+                    <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">
+                        Leading Edge Genes
+                        <div class="title-actions">
+                            <button class="btn btn-sm" id="downloadGeneDetailCSV">Download CSV</button>
+                        </div>
+                    </div>
+                    <div class="card-content" style="padding: 6px 10px;">
+                        <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                            <table class="data-table" id="geneDetailTable" style="font-size: 0.82em;">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Gene</th>
+                                        <th>Metric</th>
+                                        <th>Running ES</th>
+                                        <th>Leading Edge</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="geneDetailBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Overlap Heatmap -->
+        <div class="tab-panel" id="tab-overlap">
+            <div id="overlapEmpty" class="empty-state">
+                <div class="empty-icon">&#x1F9EC;</div>
+                <p>Run GSEA to see gene set overlap analysis.</p>
+            </div>
+            <div id="overlapResults" style="display: none;">
+                <div class="card" style="margin-bottom: 8px;">
+                    <div class="card-content" style="padding: 8px 14px;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <label class="form-label" style="margin: 0; white-space: nowrap;">Max sets:</label>
+                            <input type="number" class="form-control" id="overlapMaxSets" value="20" min="5" max="50" style="max-width: 70px;">
+                            <label class="form-label" style="margin: 0; white-space: nowrap;">Min overlap for collapse:</label>
+                            <input type="number" class="form-control" id="overlapCollapseThresh" value="50" min="10" max="100" style="max-width: 70px;">
+                            <span style="font-size: 0.82em; color: var(--gray-500);">%</span>
+                            <label class="checkbox-label" style="font-size: 0.85em;">
+                                <input type="checkbox" id="overlapCondensed"> Condensed view
+                            </label>
+                            <button class="btn btn-outline btn-sm" id="updateOverlapBtn">Update</button>
+                        </div>
+                    </div>
+                </div>
                 <div class="card">
                     <div class="card-title">
-                        Enrichment Score Plot
+                        Gene Set Overlap Heatmap
                         <div class="title-actions">
-                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('esPlot','svg')">SVG</button>
-                            <button class="btn btn-sm btn-outline" onclick="app.exportPlot('esPlot','png')">PNG</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','svg')">SVG</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','png')">PNG</button>
                         </div>
                     </div>
                     <div class="card-content">
-                        <div class="form-group">
-                            <select class="form-control" id="geneSetSelector">
-                                <option value="">Select a gene set...</option>
-                            </select>
-                        </div>
-                        <div id="esPlot"></div>
+                        <div id="overlapHeatmap"></div>
+                    </div>
+                </div>
+                <div id="condensedInfo" style="display: none; margin-top: 8px;">
+                    <div class="card">
+                        <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Collapsed Gene Sets</div>
+                        <div class="card-content" style="padding: 8px 10px; font-size: 0.82em; max-height: 200px; overflow-y: auto;" id="condensedList"></div>
                     </div>
                 </div>
             </div>
@@ -1088,6 +1246,6 @@
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
 </div>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

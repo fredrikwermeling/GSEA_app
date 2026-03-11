@@ -23,7 +23,18 @@ class GSEAApp {
             fdrDisplayThreshold: 0.25,
             colorScale: 'RdBu',
             exportScale: 4,
-            transparentBg: false
+            transparentBg: false,
+            // Figure customization
+            fontFamily: 'Open Sans',
+            fontSize: 12,
+            esLineColor: '#15a04a',
+            esLineWidth: 2.5,
+            showStatsBox: true,
+            showZeroCross: true,
+            showCorrelationLabels: true,
+            showPanelBorders: true,
+            showHitMarkers: true,
+            showMetricFill: true
         };
 
         // Table sort state
@@ -93,8 +104,29 @@ class GSEAApp {
 
         // Gene set selector for ES plot
         document.getElementById('geneSetSelector').addEventListener('change', (e) => {
-            if (e.target.value) this.renderESPlot(e.target.value);
+            if (e.target.value) {
+                this.renderESPlot(e.target.value);
+                this.renderGeneSetInfo(e.target.value);
+                this.renderGeneDetailTable(e.target.value);
+            }
         });
+
+        // Prev/Next gene set buttons
+        document.getElementById('prevGeneSetBtn').addEventListener('click', () => this.navigateGeneSet(-1));
+        document.getElementById('nextGeneSetBtn').addEventListener('click', () => this.navigateGeneSet(1));
+
+        // Gene search
+        document.getElementById('searchGenesBtn').addEventListener('click', () => this.searchGenes());
+        document.getElementById('clearSearchBtn').addEventListener('click', () => this.clearGeneSearch());
+
+        // Top/Bottom N selector
+        document.getElementById('topBottomN').addEventListener('change', () => this.renderTopBottomGenes());
+
+        // Gene detail CSV download
+        document.getElementById('downloadGeneDetailCSV').addEventListener('click', () => this.downloadGeneDetailCSV());
+
+        // Overlap heatmap
+        document.getElementById('updateOverlapBtn').addEventListener('click', () => this.renderOverlapHeatmap());
 
         // Table filter
         document.getElementById('tableFilter').addEventListener('input', () => this.filterAndRenderTable());
@@ -544,6 +576,8 @@ class GSEAApp {
         document.getElementById('enrichmentResults').style.display = '';
         document.getElementById('tableEmpty').style.display = 'none';
         document.getElementById('tableResults').style.display = '';
+        document.getElementById('overlapEmpty').style.display = 'none';
+        document.getElementById('overlapResults').style.display = '';
         document.getElementById('settingsCard').style.display = '';
         document.getElementById('methodsBtnWrapper').style.display = '';
 
@@ -555,13 +589,19 @@ class GSEAApp {
         this.renderRankedPlot();
         this.filterAndRenderTable();
         this.generateMethods();
+        this.renderTopBottomGenes();
 
         // Auto-show first gene set in ES plot
         if (this.results.length > 0) {
             const topSet = this.results[0].name;
             document.getElementById('geneSetSelector').value = topSet;
             this.renderESPlot(topSet);
+            this.renderGeneSetInfo(topSet);
+            this.renderGeneDetailTable(topSet);
         }
+
+        // Render overlap heatmap
+        this.renderOverlapHeatmap();
     }
 
     populateGeneSetSelector() {
@@ -606,6 +646,8 @@ class GSEAApp {
         this.readSettings();
         const fdrThresh = parseFloat(this.settings.fdrDisplayThreshold);
         const topN = this.settings.topN;
+        const fontFam = this.settings.fontFamily + ', sans-serif';
+        const baseFontSize = this.settings.fontSize;
 
         let filtered = this.results;
         if (fdrThresh < 1) {
@@ -696,22 +738,23 @@ class GSEAApp {
 
         const layout = {
             xaxis: {
-                title: { text: 'Normalized Enrichment Score (NES)', font: { size: 12 } },
+                title: { text: 'Normalized Enrichment Score (NES)', font: { size: baseFontSize, family: fontFam } },
                 zeroline: false,
                 gridcolor: '#f0f0f0',
-                side: 'bottom'
+                side: 'bottom',
+                tickfont: { size: baseFontSize - 2, family: fontFam }
             },
             yaxis: {
                 tickvals: top.map((_, i) => i),
                 ticktext: top.map(r => this.cleanName(r.name)),
-                tickfont: { size: 11 },
+                tickfont: { size: baseFontSize - 1, family: fontFam },
                 automargin: true,
                 gridwidth: 0,
                 showgrid: false
             },
             height: Math.max(420, top.length * 26 + 100),
             margin: { l: 10, r: 30, t: 20, b: 55 },
-            font: { family: 'Open Sans, sans-serif' },
+            font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
             shapes: shapes
@@ -739,6 +782,9 @@ class GSEAApp {
     // Ranked List Plot — Classic GSEA waterfall style
     // --------------------------------------------------------
     renderRankedPlot() {
+        this.readSettings();
+        const fontFam = this.settings.fontFamily + ', sans-serif';
+        const baseFontSize = this.settings.fontSize;
         const N = this.rankedList.genes.length;
         const metrics = this.rankedList.metrics;
 
@@ -812,21 +858,21 @@ class GSEAApp {
 
         const layout = {
             xaxis: {
-                title: { text: 'Rank in Ordered Dataset', font: { size: 11 } },
+                title: { text: 'Rank in Ordered Dataset', font: { size: baseFontSize - 1, family: fontFam } },
                 showgrid: false,
-                tickfont: { size: 10 }
+                tickfont: { size: baseFontSize - 2, family: fontFam }
             },
             yaxis: {
-                title: { text: 'Ranked list metric (' + metricLabel + ')', font: { size: 11 } },
+                title: { text: 'Ranked list metric (' + metricLabel + ')', font: { size: baseFontSize - 1, family: fontFam } },
                 zeroline: true,
                 zerolinewidth: 1.5,
                 zerolinecolor: '#333',
                 gridcolor: '#e5e5e5',
-                tickfont: { size: 10 }
+                tickfont: { size: baseFontSize - 2, family: fontFam }
             },
             height: 250,
             margin: { l: 65, r: 20, t: 25, b: 50 },
-            font: { family: 'Open Sans, sans-serif' },
+            font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
             bargap: 0,
@@ -853,9 +899,13 @@ class GSEAApp {
     renderESPlot(geneSetName) {
         const result = this.results.find(r => r.name === geneSetName);
         if (!result) return;
+        this.readSettings();
 
         const N = this.rankedList.genes.length;
         const metrics = this.rankedList.metrics;
+        const s = this.settings;
+        const fontFam = s.fontFamily + ', sans-serif';
+        const baseFontSize = s.fontSize;
 
         // Subsample for performance if very large
         const maxPts = 4000;
@@ -884,16 +934,27 @@ class GSEAApp {
             }
         }
 
+        // ---- Panel domain proportions (classic GSEA style) ----
+        // Top: ES curve (55%), Middle: Hit markers (8%), Bottom: Ranked metric (28%)
+        // Gaps between panels to prevent overlap
+        const esTop = 0.97;
+        const esBot = 0.42;
+        const hitTop = 0.39;
+        const hitBot = 0.31;
+        const metTop = 0.28;
+        const metBot = 0.0;
+        const xLeft = 0.0;  // Use yaxis titles instead of annotations
+        const xRight = 1.0;
+
         // ---- Panel 1: Running Enrichment Score ----
-        // Green line with fill toward zero
         const esLine = {
             x: xSampled,
             y: esSampled,
             type: 'scatter',
             mode: 'lines',
-            line: { color: '#15a04a', width: 2.5 },
+            line: { color: s.esLineColor, width: s.esLineWidth },
             fill: 'tozeroy',
-            fillcolor: 'rgba(21, 160, 74, 0.12)',
+            fillcolor: s.esLineColor + '1F',  // 12% opacity hex
             showlegend: false,
             xaxis: 'x',
             yaxis: 'y',
@@ -903,19 +964,23 @@ class GSEAApp {
         const esZero = {
             x: [0, N - 1], y: [0, 0],
             type: 'scatter', mode: 'lines',
-            line: { color: '#999', width: 1 },
+            line: { color: '#aaa', width: 1, dash: 'dot' },
             showlegend: false, xaxis: 'x', yaxis: 'y', hoverinfo: 'skip'
         };
 
         // ---- Panel 2: Hit markers ----
-        // Each hit is a vertical line spanning the full height of the rug band
-        const hitShapes = result.hits.map(idx => ({
-            type: 'line',
-            x0: idx, x1: idx,
-            y0: 0, y1: 1,
-            xref: 'x2', yref: 'y2',
-            line: { color: '#111', width: 1.2 }
-        }));
+        const hitShapes = [];
+        if (s.showHitMarkers) {
+            for (const idx of result.hits) {
+                hitShapes.push({
+                    type: 'line',
+                    x0: idx, x1: idx,
+                    y0: 0, y1: 1,
+                    xref: 'x2', yref: 'y2',
+                    line: { color: '#111', width: 1 }
+                });
+            }
+        }
 
         // Invisible trace to anchor the subplot
         const rugAnchor = {
@@ -925,21 +990,46 @@ class GSEAApp {
             showlegend: false, xaxis: 'x2', yaxis: 'y2', hoverinfo: 'skip'
         };
 
-        // ---- Panel 3: Ranked list metric with red-to-blue gradient ----
-        // Create a filled area plot with the metric values
-        const metricLine = {
-            x: xSampled,
-            y: metSampled,
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#999', width: 0.8 },
-            fill: 'tozeroy',
-            fillcolor: 'rgba(180,180,180,0.35)',
-            showlegend: false,
-            xaxis: 'x3',
-            yaxis: 'y3',
-            hoverinfo: 'skip'
-        };
+        // ---- Panel 3: Ranked list metric ----
+        const traces3 = [];
+        if (s.showMetricFill) {
+            // Separate positive and negative for coloring
+            const posX = [], posY = [], negX = [], negY = [];
+            for (let i = 0; i < xSampled.length; i++) {
+                if (metSampled[i] >= 0) {
+                    posX.push(xSampled[i]);
+                    posY.push(metSampled[i]);
+                } else {
+                    negX.push(xSampled[i]);
+                    negY.push(metSampled[i]);
+                }
+            }
+            if (posX.length > 0) {
+                traces3.push({
+                    x: posX, y: posY,
+                    type: 'bar',
+                    marker: { color: 'rgba(220, 38, 38, 0.5)', line: { width: 0 } },
+                    showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
+                });
+            }
+            if (negX.length > 0) {
+                traces3.push({
+                    x: negX, y: negY,
+                    type: 'bar',
+                    marker: { color: 'rgba(37, 99, 235, 0.5)', line: { width: 0 } },
+                    showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
+                });
+            }
+        } else {
+            traces3.push({
+                x: xSampled, y: metSampled,
+                type: 'scatter', mode: 'lines',
+                line: { color: '#999', width: 0.8 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(180,180,180,0.3)',
+                showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
+            });
+        }
 
         const metZero = {
             x: [0, N - 1], y: [0, 0],
@@ -948,38 +1038,19 @@ class GSEAApp {
             showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
         };
 
-        // ---- Layout ----
-        // Panel borders via shapes
-        const panelShapes = [
-            // ES panel border
-            { type: 'rect', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0.44, y1: 1,
-              line: { color: '#333', width: 1.5 }, fillcolor: 'rgba(0,0,0,0)' },
-            // Hit panel border
-            { type: 'rect', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0.32, y1: 0.44,
-              line: { color: '#333', width: 1.5 }, fillcolor: 'rgba(0,0,0,0)' },
-            // Metric panel border
-            { type: 'rect', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0, y1: 0.32,
-              line: { color: '#333', width: 1.5 }, fillcolor: 'rgba(0,0,0,0)' },
-            ...hitShapes
-        ];
+        // ---- Shapes ----
+        const panelShapes = [...hitShapes];
 
-        // Red-blue gradient bar for positively/negatively correlated region
-        if (zeroCross >= 0) {
-            const crossFrac = zeroCross / (N - 1);
-            // Red band (positive)
-            panelShapes.push({
-                type: 'rect', xref: 'x3', yref: 'paper',
-                x0: 0, x1: zeroCross,
-                y0: 0.25, y1: 0.32,
-                fillcolor: 'rgba(239, 68, 68, 0.2)', line: { width: 0 }
-            });
-            // Blue band (negative)
-            panelShapes.push({
-                type: 'rect', xref: 'x3', yref: 'paper',
-                x0: zeroCross, x1: N - 1,
-                y0: 0.25, y1: 0.32,
-                fillcolor: 'rgba(59, 130, 246, 0.2)', line: { width: 0 }
-            });
+        // Panel borders
+        if (s.showPanelBorders) {
+            panelShapes.push(
+                { type: 'rect', xref: 'paper', yref: 'paper', x0: xLeft, x1: xRight, y0: esBot, y1: esTop,
+                  line: { color: '#333', width: 1 }, fillcolor: 'rgba(0,0,0,0)' },
+                { type: 'rect', xref: 'paper', yref: 'paper', x0: xLeft, x1: xRight, y0: hitBot, y1: hitTop,
+                  line: { color: '#333', width: 1 }, fillcolor: 'rgba(0,0,0,0)' },
+                { type: 'rect', xref: 'paper', yref: 'paper', x0: xLeft, x1: xRight, y0: metBot, y1: metTop,
+                  line: { color: '#333', width: 1 }, fillcolor: 'rgba(0,0,0,0)' }
+            );
         }
 
         const metricLabel = document.getElementById('metricColumn').value || 'Ranking metric';
@@ -988,109 +1059,552 @@ class GSEAApp {
         const annotations = [
             // Title
             {
-                text: `<b>Enrichment plot: ${geneSetName.replace(/_/g, ' ')}</b>`,
-                xref: 'paper', yref: 'paper', x: 0.5, y: 1.08,
-                showarrow: false, font: { size: 13, family: 'Open Sans' },
-                xanchor: 'center'
-            },
-            // ES panel label
-            {
-                text: 'Enrichment score (ES)',
-                xref: 'paper', yref: 'paper', x: -0.01, y: 0.72,
-                showarrow: false, font: { size: 11, color: '#333' },
-                textangle: -90, xanchor: 'right'
-            },
-            // Hits label
-            {
-                text: 'Hits',
-                xref: 'paper', yref: 'paper', x: -0.01, y: 0.38,
-                showarrow: false, font: { size: 10, color: '#333' },
-                textangle: -90, xanchor: 'right'
-            },
-            // Ranked metric label
-            {
-                text: `Ranked list metric<br>(${metricLabel})`,
-                xref: 'paper', yref: 'paper', x: -0.01, y: 0.16,
-                showarrow: false, font: { size: 10, color: '#333' },
-                textangle: -90, xanchor: 'right'
-            },
-            // Stats annotation (top right of ES panel)
-            {
-                text: `NES = ${result.nes.toFixed(2)}<br>FDR = ${this.formatPval(result.fdr)}<br>p = ${this.formatPval(result.pvalue)}<br>Size = ${result.size}`,
-                xref: 'paper', yref: 'paper',
-                x: result.nes >= 0 ? 0.98 : 0.02,
-                y: 0.97,
+                text: `<b>${geneSetName.replace(/_/g, ' ')}</b>`,
+                xref: 'paper', yref: 'paper', x: 0.5, y: 1.06,
                 showarrow: false,
-                font: { size: 10, family: 'Roboto Mono, monospace', color: '#333' },
-                align: result.nes >= 0 ? 'right' : 'left',
-                xanchor: result.nes >= 0 ? 'right' : 'left',
-                yanchor: 'top',
-                bgcolor: 'rgba(255,255,255,0.85)',
-                bordercolor: '#ccc',
-                borderwidth: 1,
-                borderpad: 4
+                font: { size: baseFontSize + 1, family: fontFam },
+                xanchor: 'center'
             }
         ];
 
+        // Stats annotation (positioned opposite to the ES peak)
+        if (s.showStatsBox) {
+            const isPositive = result.nes >= 0;
+            annotations.push({
+                text: `NES = ${result.nes.toFixed(2)}<br>FDR = ${this.formatPval(result.fdr)}<br>p = ${this.formatPval(result.pvalue)}<br>Size = ${result.size}`,
+                xref: 'paper', yref: 'paper',
+                x: isPositive ? 0.97 : 0.03,
+                y: isPositive ? 0.58 : esTop - 0.02,
+                showarrow: false,
+                font: { size: Math.max(9, baseFontSize - 2), family: 'Roboto Mono, monospace', color: '#333' },
+                align: isPositive ? 'right' : 'left',
+                xanchor: isPositive ? 'right' : 'left',
+                yanchor: isPositive ? 'top' : 'top',
+                bgcolor: 'rgba(255,255,255,0.9)',
+                bordercolor: '#ccc',
+                borderwidth: 1,
+                borderpad: 5
+            });
+        }
+
         // Zero cross annotation
-        if (zeroCross >= 0) {
+        if (zeroCross >= 0 && s.showZeroCross) {
             annotations.push({
                 text: `Zero cross at ${zeroCross}`,
                 x: zeroCross, y: 0,
                 xref: 'x3', yref: 'y3',
                 showarrow: true, arrowhead: 0, arrowsize: 0.8, arrowwidth: 1,
-                ax: 0, ay: -25,
-                font: { size: 9, color: '#666' }
+                ax: 0, ay: -22,
+                font: { size: Math.max(8, baseFontSize - 4), color: '#666', family: fontFam }
             });
         }
 
+        // Correlation labels
+        if (s.showCorrelationLabels && zeroCross >= 0) {
+            annotations.push(
+                {
+                    text: '<i>Positively correlated</i>',
+                    xref: 'paper', yref: 'paper', x: 0.02, y: metTop + 0.01,
+                    showarrow: false,
+                    font: { size: Math.max(8, baseFontSize - 3), color: '#dc2626', family: fontFam },
+                    xanchor: 'left', yanchor: 'bottom'
+                },
+                {
+                    text: '<i>Negatively correlated</i>',
+                    xref: 'paper', yref: 'paper', x: 0.98, y: metTop + 0.01,
+                    showarrow: false,
+                    font: { size: Math.max(8, baseFontSize - 3), color: '#2563eb', family: fontFam },
+                    xanchor: 'right', yanchor: 'bottom'
+                }
+            );
+        }
+
+        const tickFontSize = Math.max(8, baseFontSize - 3);
+
         const layout = {
+            // ES panel
             xaxis: {
                 range: [0, N - 1], showticklabels: false, showgrid: false, zeroline: false,
-                domain: [0.08, 1]
+                domain: [xLeft, xRight]
             },
             yaxis: {
-                domain: [0.44, 0.98],
-                gridcolor: '#e5e5e5', gridwidth: 1,
+                title: { text: 'Enrichment score (ES)', font: { size: baseFontSize - 1, family: fontFam }, standoff: 8 },
+                domain: [esBot, esTop],
+                gridcolor: '#eee', gridwidth: 1,
                 zeroline: false,
-                tickfont: { size: 10 }
+                tickfont: { size: tickFontSize, family: fontFam }
             },
+            // Hit marker panel
             xaxis2: {
                 range: [0, N - 1], showticklabels: false, showgrid: false, zeroline: false,
-                domain: [0.08, 1], matches: 'x'
+                domain: [xLeft, xRight], matches: 'x'
             },
             yaxis2: {
-                domain: [0.32, 0.44],
+                domain: [hitBot, hitTop],
                 range: [0, 1],
-                showticklabels: false, showgrid: false, zeroline: false, fixedrange: true
+                showticklabels: false, showgrid: false, zeroline: false, fixedrange: true,
+                title: ''
             },
+            // Ranked metric panel
             xaxis3: {
                 range: [0, N - 1],
-                title: { text: 'Rank in Ordered Dataset', font: { size: 11 }, standoff: 5 },
-                domain: [0.08, 1], matches: 'x',
+                title: { text: 'Rank in Ordered Dataset', font: { size: baseFontSize - 1, family: fontFam }, standoff: 4 },
+                domain: [xLeft, xRight], matches: 'x',
                 showgrid: false,
-                tickfont: { size: 10 }
+                tickfont: { size: tickFontSize, family: fontFam }
             },
             yaxis3: {
-                domain: [0, 0.32],
-                gridcolor: '#e5e5e5', gridwidth: 1,
-                zeroline: false,
-                tickfont: { size: 10 }
+                title: { text: metricLabel, font: { size: baseFontSize - 2, family: fontFam }, standoff: 5 },
+                domain: [metBot, metTop],
+                gridcolor: '#eee', gridwidth: 1,
+                zeroline: true, zerolinecolor: '#333', zerolinewidth: 0.8,
+                tickfont: { size: tickFontSize, family: fontFam }
             },
-            height: 600,
-            margin: { l: 80, r: 20, t: 55, b: 50 },
-            font: { family: 'Open Sans, sans-serif' },
-            paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
+            height: 580,
+            margin: { l: 65, r: 15, t: 45, b: 45 },
+            font: { family: fontFam },
+            paper_bgcolor: s.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
             shapes: panelShapes,
-            annotations: annotations
+            annotations: annotations,
+            bargap: 0
         };
 
         Plotly.newPlot('esPlot',
-            [esLine, esZero, rugAnchor, metricLine, metZero],
+            [esLine, esZero, rugAnchor, ...traces3, metZero],
             layout,
-            { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'] }
+            {
+                responsive: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                edits: {
+                    annotationPosition: true,
+                    annotationTail: true,
+                    annotationText: false,
+                    titleText: false,
+                    axisTitleText: false,
+                    legendPosition: true,
+                    colorbarPosition: true,
+                    colorbarTitleText: false,
+                    legendText: false
+                }
+            }
         );
+    }
+
+    // --------------------------------------------------------
+    // Gene Set Navigation
+    // --------------------------------------------------------
+    navigateGeneSet(direction) {
+        const sel = document.getElementById('geneSetSelector');
+        const options = Array.from(sel.options).filter(o => o.value);
+        const currentIdx = options.findIndex(o => o.value === sel.value);
+        const newIdx = Math.max(0, Math.min(options.length - 1, currentIdx + direction));
+        if (options[newIdx]) {
+            sel.value = options[newIdx].value;
+            this.renderESPlot(sel.value);
+            this.renderGeneSetInfo(sel.value);
+            this.renderGeneDetailTable(sel.value);
+        }
+    }
+
+    // --------------------------------------------------------
+    // Gene Set Info Panel
+    // --------------------------------------------------------
+    renderGeneSetInfo(geneSetName) {
+        const result = this.results.find(r => r.name === geneSetName);
+        if (!result) return;
+        const el = document.getElementById('geneSetInfoContent');
+
+        // Format the name nicely
+        const displayName = this.cleanName(geneSetName);
+        const direction = result.nes > 0 ? 'Upregulated' : 'Downregulated';
+        const dirColor = result.nes > 0 ? '#dc2626' : '#2563eb';
+        const sigLabel = result.fdr < 0.05 ? '★ Significant' : result.fdr < 0.25 ? '◆ Suggestive' : '○ Not significant';
+        const sigColor = result.fdr < 0.05 ? '#15803d' : result.fdr < 0.25 ? '#d97706' : '#6b7280';
+
+        el.innerHTML = `
+            <div style="font-weight: 600; margin-bottom: 6px; line-height: 1.3; word-break: break-word;">${displayName}</div>
+            <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 0.95em;">
+                <span style="color: var(--gray-500);">NES:</span>
+                <span style="font-weight: 600; color: ${dirColor};">${result.nes.toFixed(3)}</span>
+                <span style="color: var(--gray-500);">FDR:</span>
+                <span style="font-family: 'Roboto Mono', monospace;">${this.formatPval(result.fdr)}</span>
+                <span style="color: var(--gray-500);">p-value:</span>
+                <span style="font-family: 'Roboto Mono', monospace;">${this.formatPval(result.pvalue)}</span>
+                <span style="color: var(--gray-500);">ES:</span>
+                <span>${result.es.toFixed(4)}</span>
+                <span style="color: var(--gray-500);">Size:</span>
+                <span>${result.size} genes</span>
+                <span style="color: var(--gray-500);">Leading Edge:</span>
+                <span>${(result.leadingEdge || []).length} genes</span>
+                <span style="color: var(--gray-500);">Direction:</span>
+                <span style="color: ${dirColor}; font-weight: 500;">${direction}</span>
+                <span style="color: var(--gray-500);">Status:</span>
+                <span style="color: ${sigColor}; font-weight: 500;">${sigLabel}</span>
+            </div>
+        `;
+    }
+
+    // --------------------------------------------------------
+    // Gene Detail Table (hits in gene set with metrics)
+    // --------------------------------------------------------
+    renderGeneDetailTable(geneSetName) {
+        const result = this.results.find(r => r.name === geneSetName);
+        if (!result || !this.rankedList) return;
+
+        const tbody = document.getElementById('geneDetailBody');
+        tbody.innerHTML = '';
+
+        const leadingEdgeSet = new Set((result.leadingEdge || []).map(g => g.toUpperCase()));
+        const genes = this.rankedList.genes;
+        const metrics = this.rankedList.metrics;
+
+        // Build rows for hits
+        const rows = [];
+        for (const hitIdx of result.hits) {
+            const gene = genes[hitIdx];
+            const metric = metrics[hitIdx];
+            const es = result.runningES[hitIdx];
+            const isLE = leadingEdgeSet.has(gene.toUpperCase());
+            rows.push({ rank: hitIdx, gene, metric, es, isLE });
+        }
+
+        // Sort by rank
+        rows.sort((a, b) => a.rank - b.rank);
+
+        for (const row of rows) {
+            const tr = document.createElement('tr');
+            const leStyle = row.isLE ? 'font-weight:600; color: var(--green-700);' : 'color: var(--gray-500);';
+            tr.innerHTML = `
+                <td>${row.rank + 1}</td>
+                <td style="font-family: 'Roboto Mono', monospace; font-size: 0.95em;">${row.gene}</td>
+                <td style="font-family: 'Roboto Mono', monospace;">${row.metric.toFixed(4)}</td>
+                <td style="font-family: 'Roboto Mono', monospace;">${row.es.toFixed(4)}</td>
+                <td style="${leStyle}">${row.isLE ? 'Yes' : 'No'}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        this._currentGeneDetailRows = rows;
+    }
+
+    downloadGeneDetailCSV() {
+        const sel = document.getElementById('geneSetSelector').value;
+        if (!sel || !this._currentGeneDetailRows) return;
+
+        const headers = ['Rank', 'Gene', 'Ranking Metric', 'Running ES', 'Leading Edge'];
+        const csvRows = this._currentGeneDetailRows.map(r =>
+            [r.rank + 1, r.gene, r.metric.toFixed(6), r.es.toFixed(6), r.isLE ? 'Yes' : 'No']
+        );
+        const csv = [headers.join(','), ...csvRows.map(r => r.join(','))].join('\n');
+        const setName = sel.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 60);
+        this.downloadBlob(new Blob([csv], { type: 'text/csv' }), `${setName}_genes.csv`);
+    }
+
+    // --------------------------------------------------------
+    // Gene Search — highlight genes in the ES plot
+    // --------------------------------------------------------
+    searchGenes() {
+        const input = document.getElementById('geneSearchInput').value.trim();
+        if (!input || !this.rankedList) return;
+
+        // Parse gene list (comma, newline, space, tab separated)
+        const searchGenes = input.split(/[\n,\t\s]+/)
+            .map(g => g.trim().toUpperCase())
+            .filter(g => g.length > 0);
+
+        const genes = this.rankedList.genes;
+        const metrics = this.rankedList.metrics;
+        const resultsEl = document.getElementById('geneSearchResults');
+
+        let html = '';
+        const found = [];
+        const notFound = [];
+
+        for (const sg of searchGenes) {
+            const idx = genes.indexOf(sg);
+            if (idx >= 0) {
+                found.push({ gene: sg, rank: idx, metric: metrics[idx] });
+            } else {
+                notFound.push(sg);
+            }
+        }
+
+        found.sort((a, b) => a.rank - b.rank);
+
+        if (found.length > 0) {
+            html += `<div style="color: var(--green-700); font-weight: 600; margin-bottom: 3px;">Found ${found.length}:</div>`;
+            html += '<table style="width:100%; border-collapse: collapse;">';
+            for (const f of found) {
+                const color = f.metric >= 0 ? '#dc2626' : '#2563eb';
+                html += `<tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 1px 4px; font-family: Roboto Mono, monospace;">${f.gene}</td>
+                    <td style="padding: 1px 4px; text-align: right;">Rank ${f.rank + 1}</td>
+                    <td style="padding: 1px 4px; text-align: right; color: ${color};">${f.metric.toFixed(3)}</td>
+                </tr>`;
+            }
+            html += '</table>';
+        }
+        if (notFound.length > 0) {
+            html += `<div style="color: #dc2626; margin-top: 4px; font-size: 0.95em;">Not found: ${notFound.join(', ')}</div>`;
+        }
+
+        resultsEl.innerHTML = html;
+
+        // Highlight on the ES plot if it's showing
+        this._highlightGenesOnPlot(found.map(f => f.rank));
+    }
+
+    _highlightGenesOnPlot(ranks) {
+        const plotEl = document.getElementById('esPlot');
+        if (!plotEl || !plotEl.data) return;
+
+        // Add shapes for highlighted genes on ES panel
+        const currentLayout = plotEl.layout || {};
+        const currentShapes = (currentLayout.shapes || []).filter(s =>
+            !(s._isHighlight)
+        );
+
+        for (const r of ranks) {
+            currentShapes.push({
+                type: 'line',
+                x0: r, x1: r,
+                y0: 0, y1: 1,
+                xref: 'x', yref: 'paper',
+                line: { color: 'rgba(255, 140, 0, 0.6)', width: 2 },
+                _isHighlight: true
+            });
+        }
+
+        Plotly.relayout('esPlot', { shapes: currentShapes });
+    }
+
+    clearGeneSearch() {
+        document.getElementById('geneSearchInput').value = '';
+        document.getElementById('geneSearchResults').innerHTML = '';
+        // Remove highlight shapes
+        const plotEl = document.getElementById('esPlot');
+        if (plotEl && plotEl.layout) {
+            const shapes = (plotEl.layout.shapes || []).filter(s => !s._isHighlight);
+            Plotly.relayout('esPlot', { shapes });
+        }
+    }
+
+    // --------------------------------------------------------
+    // Top & Bottom Genes
+    // --------------------------------------------------------
+    renderTopBottomGenes() {
+        if (!this.rankedList) return;
+        const n = parseInt(document.getElementById('topBottomN').value) || 10;
+        const genes = this.rankedList.genes;
+        const metrics = this.rankedList.metrics;
+        const el = document.getElementById('topBottomGenes');
+
+        let html = '<div style="font-weight: 600; color: #dc2626; margin-bottom: 3px;">Top ' + n + ' (highest metric):</div>';
+        html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">';
+        for (let i = 0; i < Math.min(n, genes.length); i++) {
+            html += `<tr style="border-bottom: 1px solid #f0f0f0;">
+                <td style="padding: 1px 2px; font-family: Roboto Mono, monospace; font-size: 0.95em;">${genes[i]}</td>
+                <td style="padding: 1px 2px; text-align: right; color: #dc2626;">${metrics[i].toFixed(3)}</td>
+            </tr>`;
+        }
+        html += '</table>';
+
+        html += '<div style="font-weight: 600; color: #2563eb; margin-bottom: 3px;">Bottom ' + n + ' (lowest metric):</div>';
+        html += '<table style="width: 100%; border-collapse: collapse;">';
+        for (let i = genes.length - 1; i >= Math.max(0, genes.length - n); i--) {
+            html += `<tr style="border-bottom: 1px solid #f0f0f0;">
+                <td style="padding: 1px 2px; font-family: Roboto Mono, monospace; font-size: 0.95em;">${genes[i]}</td>
+                <td style="padding: 1px 2px; text-align: right; color: #2563eb;">${metrics[i].toFixed(3)}</td>
+            </tr>`;
+        }
+        html += '</table>';
+
+        el.innerHTML = html;
+    }
+
+    // --------------------------------------------------------
+    // Overlap Heatmap
+    // --------------------------------------------------------
+    renderOverlapHeatmap() {
+        if (!this.results) return;
+        this.readSettings();
+
+        const maxSets = parseInt(document.getElementById('overlapMaxSets').value) || 20;
+        const collapseThresh = parseInt(document.getElementById('overlapCollapseThresh').value) || 50;
+        const condensed = document.getElementById('overlapCondensed').checked;
+        const fontFam = this.settings.fontFamily + ', sans-serif';
+
+        // Get significant gene sets sorted by |NES|
+        let sigSets = this.results
+            .filter(r => r.fdr < 0.25)
+            .sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
+
+        if (sigSets.length === 0) {
+            Plotly.newPlot('overlapHeatmap', [], {
+                annotations: [{
+                    text: 'No significant gene sets (FDR < 0.25) to show',
+                    xref: 'paper', yref: 'paper', x: 0.5, y: 0.5,
+                    showarrow: false, font: { size: 14, color: '#666' }
+                }],
+                height: 200
+            });
+            return;
+        }
+
+        // Get the active gene sets for gene lists
+        const activeGeneSets = this.getActiveGeneSets();
+
+        // Build gene lists for significant results
+        const setGenes = {};
+        for (const r of sigSets) {
+            if (activeGeneSets[r.name]) {
+                const rankedGenesUpper = new Set(this.rankedList.genes.map(g => g.toUpperCase()));
+                setGenes[r.name] = activeGeneSets[r.name]
+                    .map(g => g.toUpperCase())
+                    .filter(g => rankedGenesUpper.has(g));
+            }
+        }
+
+        // Condensed view: collapse highly overlapping sets
+        let collapsedInfo = {};
+        if (condensed) {
+            const kept = [];
+            const collapsed = {};
+
+            for (const r of sigSets) {
+                if (!setGenes[r.name]) continue;
+                let shouldCollapse = false;
+                for (const keptSet of kept) {
+                    const overlap = this._computeOverlap(setGenes[r.name], setGenes[keptSet.name]);
+                    const smaller = Math.min(setGenes[r.name].length, setGenes[keptSet.name].length);
+                    if (smaller > 0 && (overlap / smaller) * 100 >= collapseThresh) {
+                        if (!collapsed[keptSet.name]) collapsed[keptSet.name] = [];
+                        collapsed[keptSet.name].push(r.name);
+                        shouldCollapse = true;
+                        break;
+                    }
+                }
+                if (!shouldCollapse) {
+                    kept.push(r);
+                }
+            }
+            sigSets = kept;
+            collapsedInfo = collapsed;
+        }
+
+        // Cap at maxSets
+        sigSets = sigSets.slice(0, maxSets);
+
+        if (sigSets.length < 2) {
+            Plotly.newPlot('overlapHeatmap', [], {
+                annotations: [{
+                    text: 'Need at least 2 gene sets for overlap analysis',
+                    xref: 'paper', yref: 'paper', x: 0.5, y: 0.5,
+                    showarrow: false, font: { size: 14, color: '#666' }
+                }],
+                height: 200
+            });
+            return;
+        }
+
+        // Compute overlap matrix (Jaccard similarity)
+        const n = sigSets.length;
+        const labels = sigSets.map(r => this.cleanName(r.name));
+        const matrix = [];
+        const textMatrix = [];
+
+        for (let i = 0; i < n; i++) {
+            const row = [];
+            const textRow = [];
+            const genesI = setGenes[sigSets[i].name] || [];
+            for (let j = 0; j < n; j++) {
+                const genesJ = setGenes[sigSets[j].name] || [];
+                if (i === j) {
+                    row.push(1);
+                    textRow.push(`${genesI.length} genes`);
+                } else {
+                    const overlap = this._computeOverlap(genesI, genesJ);
+                    const union = new Set([...genesI, ...genesJ]).size;
+                    const jaccard = union > 0 ? overlap / union : 0;
+                    row.push(jaccard);
+                    textRow.push(`${overlap} shared<br>J=${jaccard.toFixed(2)}`);
+                }
+            }
+            matrix.push(row);
+            textMatrix.push(textRow);
+        }
+
+        const trace = {
+            z: matrix,
+            x: labels,
+            y: labels,
+            type: 'heatmap',
+            colorscale: [
+                [0, '#ffffff'],
+                [0.2, '#e0f2e9'],
+                [0.4, '#a8d89a'],
+                [0.6, '#5a9f4a'],
+                [0.8, '#3a7333'],
+                [1.0, '#2d5a27']
+            ],
+            text: textMatrix,
+            hovertemplate: '%{y} vs %{x}<br>%{text}<extra></extra>',
+            showscale: true,
+            colorbar: {
+                title: { text: 'Jaccard Index', font: { size: 11, family: fontFam } },
+                thickness: 12, len: 0.5
+            }
+        };
+
+        const size = Math.max(450, n * 28 + 150);
+        const layout = {
+            height: size,
+            width: size + 50,
+            margin: { l: 10, r: 50, t: 20, b: 10 },
+            xaxis: { tickfont: { size: 10, family: fontFam }, tickangle: -45, automargin: true, showgrid: false },
+            yaxis: { tickfont: { size: 10, family: fontFam }, automargin: true, showgrid: false, autorange: 'reversed' },
+            font: { family: fontFam },
+            paper_bgcolor: '#fff',
+            plot_bgcolor: '#fff'
+        };
+
+        Plotly.newPlot('overlapHeatmap', [trace], layout, {
+            responsive: true, displaylogo: false,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+        });
+
+        // Show collapsed info
+        const condensedEl = document.getElementById('condensedInfo');
+        const condensedList = document.getElementById('condensedList');
+        if (condensed && Object.keys(collapsedInfo).length > 0) {
+            condensedEl.style.display = '';
+            let html = '';
+            let idx = 1;
+            for (const [parent, children] of Object.entries(collapsedInfo)) {
+                html += `<div style="margin-bottom: 6px;">
+                    <span style="font-weight: 600; color: var(--green-700);">${idx}. ${this.cleanName(parent)}</span>
+                    <span style="color: var(--gray-500);"> also includes:</span>
+                    <div style="padding-left: 12px; color: var(--gray-600);">
+                        ${children.map(c => this.cleanName(c)).join('<br>')}
+                    </div>
+                </div>`;
+                idx++;
+            }
+            condensedList.innerHTML = html;
+        } else {
+            condensedEl.style.display = 'none';
+        }
+    }
+
+    _computeOverlap(genesA, genesB) {
+        const setB = new Set(genesB);
+        let count = 0;
+        for (const g of genesA) {
+            if (setB.has(g)) count++;
+        }
+        return count;
     }
 
     // --------------------------------------------------------
@@ -1255,32 +1769,55 @@ class GSEAApp {
     // --------------------------------------------------------
     exportPlot(plotId, format) {
         const plotEl = document.getElementById(plotId);
-        if (!plotEl || !plotEl.data) return;
-
-        const scale = this.settings.exportScale;
-        const bgColor = this.settings.transparentBg ? 'rgba(0,0,0,0)' : 'white';
-
-        if (format === 'svg') {
-            Plotly.toImage(plotEl, { format: 'svg', width: plotEl.offsetWidth, height: plotEl.offsetHeight })
-                .then(url => {
-                    // Convert data URL to blob
-                    const svgData = atob(url.split(',')[1]);
-                    const blob = new Blob([svgData], { type: 'image/svg+xml' });
-                    this.downloadBlob(blob, `${plotId}.svg`);
-                });
-        } else {
-            Plotly.toImage(plotEl, {
-                format: 'png',
-                width: plotEl.offsetWidth * scale,
-                height: plotEl.offsetHeight * scale,
-                scale: 1
-            }).then(url => {
-                const link = document.createElement('a');
-                link.download = `${plotId}.png`;
-                link.href = url;
-                link.click();
-            });
+        if (!plotEl || !plotEl.data) {
+            console.warn('No plot data found for', plotId);
+            return;
         }
+
+        this.readSettings();
+        const scale = this.settings.exportScale;
+
+        const opts = {
+            format: format,
+            width: plotEl.offsetWidth || 800,
+            height: plotEl.offsetHeight || 500
+        };
+
+        if (format === 'png') {
+            opts.scale = scale;
+        }
+
+        Plotly.toImage(plotEl, opts)
+            .then(dataUrl => {
+                if (format === 'svg') {
+                    // SVG data URL: data:image/svg+xml,... (URL-encoded) or data:image/svg+xml;base64,...
+                    let svgContent;
+                    if (dataUrl.includes(';base64,')) {
+                        svgContent = atob(dataUrl.split(';base64,')[1]);
+                    } else {
+                        svgContent = decodeURIComponent(dataUrl.split(',').slice(1).join(','));
+                    }
+                    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+                    this.downloadBlob(blob, `${plotId}.svg`);
+                } else {
+                    // PNG: data URL approach
+                    this.downloadBlob(this.dataURLtoBlob(dataUrl), `${plotId}.png`);
+                }
+            })
+            .catch(err => {
+                console.error('Export failed:', err);
+            });
+    }
+
+    dataURLtoBlob(dataUrl) {
+        const parts = dataUrl.split(';base64,');
+        const contentType = parts[0].split(':')[1];
+        const raw = atob(parts[1]);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) {
+            arr[i] = raw.charCodeAt(i);
+        }
+        return new Blob([arr], { type: contentType });
     }
 
     downloadCSV() {
@@ -1396,6 +1933,23 @@ class GSEAApp {
         this.settings.colorScale = document.getElementById('colorScale').value;
         this.settings.exportScale = parseInt(document.getElementById('exportScale').value) || 4;
         this.settings.transparentBg = document.getElementById('transparentBg').checked;
+        // Figure customization
+        const fontEl = document.getElementById('figFontFamily');
+        if (fontEl) this.settings.fontFamily = fontEl.value;
+        const fontSizeEl = document.getElementById('figFontSize');
+        if (fontSizeEl) this.settings.fontSize = parseInt(fontSizeEl.value) || 12;
+        const esColorEl = document.getElementById('esLineColor');
+        if (esColorEl) this.settings.esLineColor = esColorEl.value;
+        const esWidthEl = document.getElementById('esLineWidth');
+        if (esWidthEl) this.settings.esLineWidth = parseFloat(esWidthEl.value) || 2.5;
+        // Toggle elements
+        const cb = (id) => { const el = document.getElementById(id); return el ? el.checked : true; };
+        this.settings.showStatsBox = cb('showStatsBox');
+        this.settings.showZeroCross = cb('showZeroCross');
+        this.settings.showCorrelationLabels = cb('showCorrelationLabels');
+        this.settings.showPanelBorders = cb('showPanelBorders');
+        this.settings.showHitMarkers = cb('showHitMarkers');
+        this.settings.showMetricFill = cb('showMetricFill');
     }
 
     updateSettings() {
