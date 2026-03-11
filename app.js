@@ -577,26 +577,61 @@ class GSEAApp {
             return;
         }
 
-        // Sort by NES for display (positive at top)
+        // Sort by NES for display (most negative at bottom, most positive at top)
         top.sort((a, b) => a.nes - b.nes);
+
+        // FDR color scale: use a proper diverging scale with good contrast
+        const fdrColors = top.map(r => {
+            const fdr = Math.max(r.fdr, 1e-10);
+            const logFdr = -Math.log10(fdr);
+            return logFdr;
+        });
+        const maxLogFdr = Math.max(...fdrColors, 1.5);
+
+        // Dot + lollipop style: horizontal lines from 0 to NES
+        const shapes = top.map((r, i) => ({
+            type: 'line',
+            x0: 0, x1: r.nes,
+            y0: i, y1: i,
+            line: { color: '#d1d5db', width: 1.5 }
+        }));
+        // Add vertical zero line
+        shapes.push({
+            type: 'line', x0: 0, x1: 0,
+            yref: 'paper', y0: 0, y1: 1,
+            line: { color: '#9ca3af', width: 1.5 }
+        });
 
         const trace = {
             x: top.map(r => r.nes),
-            y: top.map(r => this.cleanName(r.name)),
+            y: top.map((_, i) => i),
             mode: 'markers',
             type: 'scatter',
             marker: {
-                size: top.map(r => Math.max(8, Math.sqrt(r.size) * 2.5)),
-                color: top.map(r => -Math.log10(Math.max(r.fdr, 1e-10))),
-                colorscale: this.settings.colorScale,
-                reversescale: false,
+                size: top.map(r => Math.max(10, Math.min(30, Math.sqrt(r.size) * 2))),
+                color: fdrColors,
+                colorscale: [
+                    [0, '#d4d4d8'],
+                    [0.2, '#93c5fd'],
+                    [0.4, '#3b82f6'],
+                    [0.6, '#f97316'],
+                    [0.8, '#ef4444'],
+                    [1.0, '#991b1b']
+                ],
+                cmin: 0,
+                cmax: maxLogFdr,
                 showscale: true,
                 colorbar: {
-                    title: { text: '-log10(FDR)', font: { size: 12 } },
-                    thickness: 14,
-                    len: 0.6
+                    title: { text: 'FDR q-value', font: { size: 11, family: 'Open Sans' } },
+                    thickness: 12,
+                    len: 0.5,
+                    y: 0.5,
+                    tickvals: [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr),
+                    ticktext: ['1', '0.25', '0.1', '0.05', '0.01'].slice(0, [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr).length),
+                    tickfont: { size: 10 },
+                    outlinewidth: 0
                 },
-                line: { width: 1, color: '#555' }
+                line: { width: 1.5, color: 'white' }
             },
             text: top.map(r =>
                 `<b>${this.cleanName(r.name)}</b><br>` +
@@ -609,27 +644,26 @@ class GSEAApp {
         };
 
         const layout = {
-            title: { text: 'GSEA Enrichment Overview', font: { size: 16 } },
             xaxis: {
-                title: 'Normalized Enrichment Score (NES)',
-                zeroline: true,
-                zerolinewidth: 1,
-                zerolinecolor: '#aaa'
+                title: { text: 'Normalized Enrichment Score (NES)', font: { size: 12 } },
+                zeroline: false,
+                gridcolor: '#f0f0f0',
+                side: 'bottom'
             },
             yaxis: {
+                tickvals: top.map((_, i) => i),
+                ticktext: top.map(r => this.cleanName(r.name)),
+                tickfont: { size: 11 },
                 automargin: true,
-                tickfont: { size: 11 }
+                gridwidth: 0,
+                showgrid: false
             },
-            height: Math.max(400, top.length * 28 + 100),
-            margin: { l: 10, r: 80, t: 50, b: 60 },
+            height: Math.max(420, top.length * 26 + 100),
+            margin: { l: 10, r: 30, t: 20, b: 55 },
             font: { family: 'Open Sans, sans-serif' },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
-            plot_bgcolor: '#fafafa',
-            shapes: [{
-                type: 'line', x0: 0, x1: 0,
-                yref: 'paper', y0: 0, y1: 1,
-                line: { color: '#999', width: 1, dash: 'dash' }
-            }]
+            plot_bgcolor: '#fff',
+            shapes: shapes
         };
 
         Plotly.newPlot('bubblePlot', [trace], layout, {
@@ -657,54 +691,79 @@ class GSEAApp {
         const N = this.rankedList.genes.length;
         const metrics = this.rankedList.metrics;
 
-        // For large lists, subsample for performance
-        let xVals, yVals, colors;
-        if (N > 5000) {
-            const step = Math.ceil(N / 3000);
-            xVals = [];
-            yVals = [];
-            colors = [];
-            for (let i = 0; i < N; i += step) {
-                xVals.push(i);
-                yVals.push(metrics[i]);
-                colors.push(metrics[i] >= 0 ? 'rgba(220, 38, 38, 0.6)' : 'rgba(37, 99, 235, 0.6)');
-            }
-        } else {
-            xVals = Array.from({ length: N }, (_, i) => i);
-            yVals = metrics;
-            colors = metrics.map(v => v >= 0 ? 'rgba(220, 38, 38, 0.6)' : 'rgba(37, 99, 235, 0.6)');
+        // Subsample for performance
+        const maxPts = 3000;
+        const step = N > maxPts ? Math.ceil(N / maxPts) : 1;
+        const xVals = [];
+        const yVals = [];
+        for (let i = 0; i < N; i += step) {
+            xVals.push(i);
+            yVals.push(metrics[i]);
         }
 
-        const trace = {
-            x: xVals,
-            y: yVals,
-            type: 'bar',
-            marker: { color: colors },
-            hoverinfo: 'skip',
-            showlegend: false
+        // Filled area with red/blue coloring
+        // Split into positive and negative traces for dual color
+        const posX = [], posY = [], negX = [], negY = [];
+        for (let i = 0; i < xVals.length; i++) {
+            if (yVals[i] >= 0) {
+                posX.push(xVals[i]);
+                posY.push(yVals[i]);
+                negX.push(xVals[i]);
+                negY.push(0);
+            } else {
+                posX.push(xVals[i]);
+                posY.push(0);
+                negX.push(xVals[i]);
+                negY.push(yVals[i]);
+            }
+        }
+
+        const posTrace = {
+            x: posX, y: posY,
+            type: 'scatter', mode: 'lines',
+            fill: 'tozeroy',
+            fillcolor: 'rgba(220, 38, 38, 0.35)',
+            line: { color: 'rgba(220, 38, 38, 0.6)', width: 0.5 },
+            showlegend: false, hoverinfo: 'skip'
         };
 
+        const negTrace = {
+            x: negX, y: negY,
+            type: 'scatter', mode: 'lines',
+            fill: 'tozeroy',
+            fillcolor: 'rgba(37, 99, 235, 0.35)',
+            line: { color: 'rgba(37, 99, 235, 0.6)', width: 0.5 },
+            showlegend: false, hoverinfo: 'skip'
+        };
+
+        const metricLabel = document.getElementById('metricColumn').value || 'Ranking Metric';
+
         const layout = {
-            title: { text: 'Ranked Gene List', font: { size: 14 } },
             xaxis: {
-                title: 'Gene Rank',
+                title: { text: 'Gene Rank', font: { size: 11 } },
                 showgrid: false
             },
             yaxis: {
-                title: document.getElementById('metricColumn').value || 'Ranking Metric',
+                title: { text: metricLabel, font: { size: 11 } },
                 zeroline: true,
-                zerolinewidth: 1,
-                zerolinecolor: '#333'
+                zerolinewidth: 1.5,
+                zerolinecolor: '#333',
+                gridcolor: '#e5e5e5'
             },
-            height: 250,
-            margin: { l: 70, r: 20, t: 40, b: 50 },
+            height: 220,
+            margin: { l: 65, r: 20, t: 15, b: 45 },
             font: { family: 'Open Sans, sans-serif' },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
-            plot_bgcolor: '#fafafa',
-            bargap: 0
+            plot_bgcolor: '#fff',
+            shapes: [{
+                type: 'rect', xref: 'paper', yref: 'paper',
+                x0: 0, x1: 1, y0: 0, y1: 1,
+                line: { color: '#333', width: 1.5 },
+                fillcolor: 'rgba(0,0,0,0)'
+            }]
         };
 
-        Plotly.newPlot('rankedPlot', [trace], layout, {
+        Plotly.newPlot('rankedPlot', [posTrace, negTrace], layout, {
             responsive: true,
             displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d']
@@ -712,141 +771,247 @@ class GSEAApp {
     }
 
     // --------------------------------------------------------
-    // Enrichment Score Plot (3 subplots)
+    // Enrichment Score Plot — Classic GSEA style
+    // 3 panels: ES curve (top), hit markers (middle), ranked metric (bottom)
     // --------------------------------------------------------
     renderESPlot(geneSetName) {
         const result = this.results.find(r => r.name === geneSetName);
         if (!result) return;
 
         const N = this.rankedList.genes.length;
-        const xAxis = Array.from({ length: N }, (_, i) => i);
         const metrics = this.rankedList.metrics;
 
-        // Subplot 1: Running ES curve
-        const esTrace = {
-            x: xAxis,
-            y: result.runningES,
+        // Subsample for performance if very large
+        const maxPts = 4000;
+        const step = N > maxPts ? Math.ceil(N / maxPts) : 1;
+        const xSampled = [];
+        const esSampled = [];
+        const metSampled = [];
+        for (let i = 0; i < N; i += step) {
+            xSampled.push(i);
+            esSampled.push(result.runningES[i]);
+            metSampled.push(metrics[i]);
+        }
+        // Always include the last point
+        if (xSampled[xSampled.length - 1] !== N - 1) {
+            xSampled.push(N - 1);
+            esSampled.push(result.runningES[N - 1]);
+            metSampled.push(metrics[N - 1]);
+        }
+
+        // Find zero-crossing index in ranked list
+        let zeroCross = -1;
+        for (let i = 0; i < N - 1; i++) {
+            if ((metrics[i] >= 0 && metrics[i + 1] < 0) || (metrics[i] > 0 && metrics[i + 1] <= 0)) {
+                zeroCross = i;
+                break;
+            }
+        }
+
+        // ---- Panel 1: Running Enrichment Score ----
+        // Green line with fill toward zero
+        const esLine = {
+            x: xSampled,
+            y: esSampled,
             type: 'scatter',
             mode: 'lines',
-            line: { color: '#2ca02c', width: 2.5 },
-            name: 'Running ES',
-            xaxis: 'x',
-            yaxis: 'y',
-            showlegend: false
-        };
-
-        const zeroTrace = {
-            x: [0, N - 1],
-            y: [0, 0],
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#aaa', width: 1, dash: 'dash' },
-            showlegend: false,
-            xaxis: 'x',
-            yaxis: 'y',
-            hoverinfo: 'skip'
-        };
-
-        // Subplot 2: Hit markers (rug plot)
-        const rugX = result.hits;
-        const rugY = rugX.map(() => 1);
-        const rugTrace = {
-            x: rugX,
-            y: rugY,
-            type: 'scatter',
-            mode: 'markers',
-            marker: {
-                symbol: 'line-ns',
-                size: 10,
-                color: 'black',
-                line: { width: 0.8 }
-            },
-            showlegend: false,
-            xaxis: 'x',
-            yaxis: 'y2',
-            hoverinfo: 'skip'
-        };
-
-        // Subplot 3: Ranked metric values (as filled area for performance)
-        const barColors = metrics.map(v =>
-            v >= 0 ? 'rgba(220, 38, 38, 0.5)' : 'rgba(37, 99, 235, 0.5)'
-        );
-
-        // For large N, use area fill instead of bars for performance
-        const metricTrace = {
-            x: xAxis,
-            y: metrics,
-            type: 'scatter',
-            mode: 'lines',
+            line: { color: '#15a04a', width: 2.5 },
             fill: 'tozeroy',
-            fillcolor: 'rgba(150,150,150,0.3)',
-            line: { width: 0.5, color: '#888' },
+            fillcolor: 'rgba(21, 160, 74, 0.12)',
             showlegend: false,
             xaxis: 'x',
+            yaxis: 'y',
+            hovertemplate: 'Rank: %{x}<br>ES: %{y:.4f}<extra></extra>'
+        };
+
+        const esZero = {
+            x: [0, N - 1], y: [0, 0],
+            type: 'scatter', mode: 'lines',
+            line: { color: '#999', width: 1 },
+            showlegend: false, xaxis: 'x', yaxis: 'y', hoverinfo: 'skip'
+        };
+
+        // ---- Panel 2: Hit markers ----
+        // Each hit is a vertical line spanning the full height of the rug band
+        const hitShapes = result.hits.map(idx => ({
+            type: 'line',
+            x0: idx, x1: idx,
+            y0: 0, y1: 1,
+            xref: 'x2', yref: 'y2',
+            line: { color: '#111', width: 1.2 }
+        }));
+
+        // Invisible trace to anchor the subplot
+        const rugAnchor = {
+            x: [0, N - 1], y: [0.5, 0.5],
+            type: 'scatter', mode: 'lines',
+            line: { color: 'rgba(0,0,0,0)', width: 0 },
+            showlegend: false, xaxis: 'x2', yaxis: 'y2', hoverinfo: 'skip'
+        };
+
+        // ---- Panel 3: Ranked list metric with red-to-blue gradient ----
+        // Create a filled area plot with the metric values
+        const metricLine = {
+            x: xSampled,
+            y: metSampled,
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: '#999', width: 0.8 },
+            fill: 'tozeroy',
+            fillcolor: 'rgba(180,180,180,0.35)',
+            showlegend: false,
+            xaxis: 'x3',
             yaxis: 'y3',
             hoverinfo: 'skip'
         };
 
-        const zeroTrace3 = {
-            x: [0, N - 1],
-            y: [0, 0],
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#333', width: 0.5 },
-            showlegend: false,
-            xaxis: 'x',
-            yaxis: 'y3',
-            hoverinfo: 'skip'
+        const metZero = {
+            x: [0, N - 1], y: [0, 0],
+            type: 'scatter', mode: 'lines',
+            line: { color: '#333', width: 0.8 },
+            showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
         };
+
+        // ---- Layout ----
+        // Panel borders via shapes
+        const panelShapes = [
+            // ES panel border
+            { type: 'rect', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0.44, y1: 1,
+              line: { color: '#333', width: 1.5 }, fillcolor: 'rgba(0,0,0,0)' },
+            // Hit panel border
+            { type: 'rect', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0.32, y1: 0.44,
+              line: { color: '#333', width: 1.5 }, fillcolor: 'rgba(0,0,0,0)' },
+            // Metric panel border
+            { type: 'rect', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0, y1: 0.32,
+              line: { color: '#333', width: 1.5 }, fillcolor: 'rgba(0,0,0,0)' },
+            ...hitShapes
+        ];
+
+        // Red-blue gradient bar for positively/negatively correlated region
+        if (zeroCross >= 0) {
+            const crossFrac = zeroCross / (N - 1);
+            // Red band (positive)
+            panelShapes.push({
+                type: 'rect', xref: 'x3', yref: 'paper',
+                x0: 0, x1: zeroCross,
+                y0: 0.25, y1: 0.32,
+                fillcolor: 'rgba(239, 68, 68, 0.2)', line: { width: 0 }
+            });
+            // Blue band (negative)
+            panelShapes.push({
+                type: 'rect', xref: 'x3', yref: 'paper',
+                x0: zeroCross, x1: N - 1,
+                y0: 0.25, y1: 0.32,
+                fillcolor: 'rgba(59, 130, 246, 0.2)', line: { width: 0 }
+            });
+        }
+
+        const metricLabel = document.getElementById('metricColumn').value || 'Ranking metric';
+
+        // Annotations
+        const annotations = [
+            // Title
+            {
+                text: `<b>Enrichment plot: ${geneSetName.replace(/_/g, ' ')}</b>`,
+                xref: 'paper', yref: 'paper', x: 0.5, y: 1.08,
+                showarrow: false, font: { size: 13, family: 'Open Sans' },
+                xanchor: 'center'
+            },
+            // ES panel label
+            {
+                text: 'Enrichment score (ES)',
+                xref: 'paper', yref: 'paper', x: -0.01, y: 0.72,
+                showarrow: false, font: { size: 11, color: '#333' },
+                textangle: -90, xanchor: 'right'
+            },
+            // Hits label
+            {
+                text: 'Hits',
+                xref: 'paper', yref: 'paper', x: -0.01, y: 0.38,
+                showarrow: false, font: { size: 10, color: '#333' },
+                textangle: -90, xanchor: 'right'
+            },
+            // Ranked metric label
+            {
+                text: `Ranked list metric<br>(${metricLabel})`,
+                xref: 'paper', yref: 'paper', x: -0.01, y: 0.16,
+                showarrow: false, font: { size: 10, color: '#333' },
+                textangle: -90, xanchor: 'right'
+            },
+            // Stats annotation (top right of ES panel)
+            {
+                text: `NES = ${result.nes.toFixed(2)}<br>FDR = ${this.formatPval(result.fdr)}<br>p = ${this.formatPval(result.pvalue)}<br>Size = ${result.size}`,
+                xref: 'paper', yref: 'paper',
+                x: result.nes >= 0 ? 0.98 : 0.02,
+                y: 0.97,
+                showarrow: false,
+                font: { size: 10, family: 'Roboto Mono, monospace', color: '#333' },
+                align: result.nes >= 0 ? 'right' : 'left',
+                xanchor: result.nes >= 0 ? 'right' : 'left',
+                yanchor: 'top',
+                bgcolor: 'rgba(255,255,255,0.85)',
+                bordercolor: '#ccc',
+                borderwidth: 1,
+                borderpad: 4
+            }
+        ];
+
+        // Zero cross annotation
+        if (zeroCross >= 0) {
+            annotations.push({
+                text: `Zero cross at ${zeroCross}`,
+                x: zeroCross, y: 0,
+                xref: 'x3', yref: 'y3',
+                showarrow: true, arrowhead: 0, arrowsize: 0.8, arrowwidth: 1,
+                ax: 0, ay: -25,
+                font: { size: 9, color: '#666' }
+            });
+        }
 
         const layout = {
-            grid: {
-                rows: 3,
-                columns: 1,
-                subplots: [['xy'], ['xy2'], ['xy3']],
-                roworder: 'top to bottom',
-                pattern: 'independent'
+            xaxis: {
+                range: [0, N - 1], showticklabels: false, showgrid: false, zeroline: false,
+                domain: [0.08, 1]
             },
-            xaxis: { showticklabels: false, showgrid: false, zeroline: false, domain: [0, 1] },
             yaxis: {
-                title: { text: 'Enrichment Score', font: { size: 12 } },
-                domain: [0.42, 1],
-                zeroline: true
-            },
-            xaxis2: { showticklabels: false, showgrid: false, zeroline: false, domain: [0, 1], matches: 'x' },
-            yaxis2: {
-                domain: [0.32, 0.40],
-                showticklabels: false,
-                showgrid: false,
+                domain: [0.44, 0.98],
+                gridcolor: '#e5e5e5', gridwidth: 1,
                 zeroline: false,
-                range: [0, 2]
+                tickfont: { size: 10 }
+            },
+            xaxis2: {
+                range: [0, N - 1], showticklabels: false, showgrid: false, zeroline: false,
+                domain: [0.08, 1], matches: 'x'
+            },
+            yaxis2: {
+                domain: [0.32, 0.44],
+                range: [0, 1],
+                showticklabels: false, showgrid: false, zeroline: false, fixedrange: true
             },
             xaxis3: {
-                title: { text: 'Gene Rank', font: { size: 12 } },
-                domain: [0, 1],
-                matches: 'x'
+                range: [0, N - 1],
+                title: { text: 'Rank in Ordered Dataset', font: { size: 11 }, standoff: 5 },
+                domain: [0.08, 1], matches: 'x',
+                showgrid: false,
+                tickfont: { size: 10 }
             },
             yaxis3: {
-                title: { text: document.getElementById('metricColumn').value || 'Metric', font: { size: 11 } },
-                domain: [0, 0.30],
-                zeroline: true
+                domain: [0, 0.32],
+                gridcolor: '#e5e5e5', gridwidth: 1,
+                zeroline: false,
+                tickfont: { size: 10 }
             },
-            height: 550,
-            margin: { l: 70, r: 30, t: 60, b: 50 },
+            height: 600,
+            margin: { l: 80, r: 20, t: 55, b: 50 },
             font: { family: 'Open Sans, sans-serif' },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
-            plot_bgcolor: '#fafafa',
-            title: {
-                text: this.cleanName(geneSetName) +
-                      `<br><span style="font-size:12px; color:#666;">` +
-                      `NES = ${result.nes.toFixed(3)} &nbsp; FDR = ${this.formatPval(result.fdr)} &nbsp; ` +
-                      `p = ${this.formatPval(result.pvalue)} &nbsp; Size = ${result.size}</span>`,
-                font: { size: 14 }
-            }
+            plot_bgcolor: '#fff',
+            shapes: panelShapes,
+            annotations: annotations
         };
 
         Plotly.newPlot('esPlot',
-            [esTrace, zeroTrace, rugTrace, metricTrace, zeroTrace3],
+            [esLine, esZero, rugAnchor, metricLine, metZero],
             layout,
             { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'] }
         );
