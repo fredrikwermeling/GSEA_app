@@ -17,9 +17,11 @@ class GSEAApp {
         this.selectedGeneSets = new Set();     // Set of gene set names for custom selection
         this.useCustomSelection = false;        // false = collection checkboxes; true = per-set selection
         this._gsbAllItems = [];                 // master sorted list built when modal opens
-        this._gsbFlatList = [];                 // filtered list with section headers
-        this._gsbRowHeight = 36;
-        this._gsbBufferRows = 10;
+        this._gsbFlatList = [];                 // filtered flat list (headers + items)
+        this._gsbVisualRows = [];               // visual rows for virtual scroll (multi-column)
+        this._gsbColumns = 3;                   // number of columns for gene set items
+        this._gsbRowHeight = 32;
+        this._gsbBufferRows = 12;
 
         // Settings
         this.settings = {
@@ -167,11 +169,10 @@ class GSEAApp {
         gsbRowsEl.addEventListener('mouseover', (e) => {
             const row = e.target.closest('.gsb-row');
             if (!row) return;
-            const idx = parseInt(row.dataset.index);
-            const item = this._gsbFlatList[idx];
-            if (item && item.type === 'item') {
-                this.gsbShowDetail(item);
-            }
+            const name = row.dataset.name;
+            if (!name || !this._gsbItemMap) return;
+            const item = this._gsbItemMap.get(name);
+            if (item) this.gsbShowDetail(item);
         });
 
         // Close gene set browser on Escape
@@ -2421,6 +2422,8 @@ class GSEAApp {
         this.useCustomSelection = false;
         this._gsbAllItems = [];
         this._gsbFlatList = [];
+        this._gsbVisualRows = [];
+        this._gsbItemMap = null;
 
         // Reset UI
         document.getElementById('fileInput').value = '';
@@ -2473,16 +2476,31 @@ class GSEAApp {
     // --------------------------------------------------------
     // Gene Set Browser
     // --------------------------------------------------------
-    openGeneSetBrowser() {
-        // Ensure at least one collection is loaded
-        const hasAny = this.geneSets['hallmark'] || this.geneSets['c2'] || this.geneSets['c5']
-            || (this.customGeneSets && Object.keys(this.customGeneSets).length > 0);
-        if (!hasAny) {
-            alert('No gene set collections are loaded yet. Please wait for loading to complete.');
-            return;
+    async openGeneSetBrowser() {
+        // Auto-load ALL collections (not just checked ones)
+        const collections = [
+            { id: 'hallmark', file: 'h.all.v2023.2.Hs.json' },
+            { id: 'c2', file: 'c2.all.v2023.2.Hs.json' },
+            { id: 'c5', file: 'c5.all.v2023.2.Hs.json' }
+        ];
+
+        // Show modal immediately with a loading state
+        document.getElementById('gsbModal').classList.add('open');
+        document.getElementById('gsbBackdrop').classList.add('open');
+        document.getElementById('gsbRows').innerHTML = '<div style="padding: 40px 20px; text-align: center; color: #888; font-size: 14px;">Loading all gene set collections...</div>';
+
+        for (const coll of collections) {
+            if (!this.geneSets[coll.id]) {
+                try {
+                    const resp = await fetch('web_data/' + coll.file);
+                    if (resp.ok) this.geneSets[coll.id] = await resp.json();
+                } catch (e) {
+                    console.warn(`Failed to load ${coll.id}:`, e);
+                }
+            }
         }
 
-        // Build master list: [{name, collection, collectionLabel, size, genes, nameLower}, ...]
+        // Build master list
         this._gsbAllItems = [];
         const addCollection = (id, label, data) => {
             if (!data) return;
@@ -2513,19 +2531,17 @@ class GSEAApp {
             return a.nameLower.localeCompare(b.nameLower);
         });
 
-        // If no prior custom selection, pre-select based on current checkbox state
+        // Build lookup map for hover detail (O(1) instead of linear search)
+        this._gsbItemMap = new Map();
+        for (const item of this._gsbAllItems) {
+            this._gsbItemMap.set(item.name, item);
+        }
+
+        // If first time opening (no prior custom selection), select ALL gene sets
         if (!this.useCustomSelection) {
             this.selectedGeneSets = new Set();
-            const checked = {
-                hallmark: document.getElementById('checkHallmark').checked,
-                c2: document.getElementById('checkC2').checked,
-                c5: document.getElementById('checkC5').checked,
-                custom: this.customGeneSets && Object.keys(this.customGeneSets).length > 0
-            };
             for (const item of this._gsbAllItems) {
-                if (checked[item.collection]) {
-                    this.selectedGeneSets.add(item.name);
-                }
+                this.selectedGeneSets.add(item.name);
             }
         }
 
@@ -2537,12 +2553,9 @@ class GSEAApp {
         document.getElementById('gsbDetailTitle').textContent = 'Gene Set Details';
         document.getElementById('gsbDetailBody').innerHTML = '<p class="gsb-detail-hint">Hover over any gene set to see its details here.</p>';
 
-        // Apply filter (all items) and open
+        // Apply filter and render
         this.filterGeneSetBrowser();
         this.updateGsbSelectionCount();
-
-        document.getElementById('gsbModal').classList.add('open');
-        document.getElementById('gsbBackdrop').classList.add('open');
         document.getElementById('gsbSearch').focus();
     }
 
@@ -2587,10 +2600,34 @@ class GSEAApp {
             this._gsbFlatList.push({ type: 'item', ...item });
         }
 
+        // Build visual rows: headers span full width, items grouped into N columns
+        const cols = this._gsbColumns;
+        this._gsbVisualRows = [];
+        let pendingItems = [];
+
+        const flushItems = () => {
+            while (pendingItems.length > 0) {
+                this._gsbVisualRows.push({
+                    type: 'items',
+                    items: pendingItems.splice(0, cols)
+                });
+            }
+        };
+
+        for (const entry of this._gsbFlatList) {
+            if (entry.type === 'header') {
+                flushItems();
+                this._gsbVisualRows.push(entry);
+            } else {
+                pendingItems.push(entry);
+            }
+        }
+        flushItems();
+
         // Update scroll spacer height
         const container = document.getElementById('gsbListContainer');
         const spacer = document.getElementById('gsbScrollSpacer');
-        spacer.style.height = (this._gsbFlatList.length * this._gsbRowHeight) + 'px';
+        spacer.style.height = (this._gsbVisualRows.length * this._gsbRowHeight) + 'px';
 
         // Reset scroll
         container.scrollTop = 0;
@@ -2604,32 +2641,38 @@ class GSEAApp {
         const viewportHeight = container.clientHeight;
         const rowH = this._gsbRowHeight;
         const buffer = this._gsbBufferRows;
+        const cols = this._gsbColumns;
+        const colPct = (100 / cols).toFixed(4);
 
         const startIndex = Math.max(0, Math.floor(scrollTop / rowH) - buffer);
         const endIndex = Math.min(
-            this._gsbFlatList.length,
+            this._gsbVisualRows.length,
             Math.ceil((scrollTop + viewportHeight) / rowH) + buffer
         );
 
         let html = '';
         for (let i = startIndex; i < endIndex; i++) {
-            const item = this._gsbFlatList[i];
+            const vrow = this._gsbVisualRows[i];
             const top = i * rowH;
 
-            if (item.type === 'header') {
+            if (vrow.type === 'header') {
                 html += `<div class="gsb-section-header" style="position:absolute; top:${top}px; left:0; right:0; height:${rowH}px;">
-                    ${item.label} (${item.count.toLocaleString()} gene sets)
+                    ${vrow.label} (${vrow.count.toLocaleString()} gene sets)
                 </div>`;
             } else {
-                const checked = this.selectedGeneSets.has(item.name) ? 'checked' : '';
-                const selectedClass = this.selectedGeneSets.has(item.name) ? ' selected' : '';
-                const escapedName = this._escapeAttr(item.name);
-                html += `<div class="gsb-row${selectedClass}" data-index="${i}" style="position:absolute; top:${top}px; left:0; right:0; height:${rowH}px;">
-                    <input type="checkbox" ${checked} data-name="${escapedName}">
-                    <span class="gsb-row-name" title="${escapedName}">${this.cleanName(item.name)}</span>
-                    <span class="gsb-row-collection">${item.collectionLabel}</span>
-                    <span class="gsb-row-size">${item.size} genes</span>
-                </div>`;
+                // Render N items side by side
+                for (let c = 0; c < vrow.items.length; c++) {
+                    const item = vrow.items[c];
+                    const checked = this.selectedGeneSets.has(item.name) ? 'checked' : '';
+                    const selectedClass = this.selectedGeneSets.has(item.name) ? ' selected' : '';
+                    const escapedName = this._escapeAttr(item.name);
+                    const leftPct = (c * 100 / cols).toFixed(4);
+                    html += `<div class="gsb-row${selectedClass}" data-name="${escapedName}" style="position:absolute; top:${top}px; left:${leftPct}%; width:${colPct}%; height:${rowH}px;">
+                        <input type="checkbox" ${checked} data-name="${escapedName}">
+                        <span class="gsb-row-name" title="${escapedName}">${this.cleanName(item.name)}</span>
+                        <span class="gsb-row-size">${item.size}</span>
+                    </div>`;
+                }
             }
         }
 

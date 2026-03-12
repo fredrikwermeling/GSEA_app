@@ -1082,15 +1082,16 @@
             right: 0;
         }
 
-        /* Individual row */
+        /* Individual row (multi-column cell) */
         .gsb-row {
             display: flex;
             align-items: center;
-            padding: 0 20px;
-            height: 36px;
+            padding: 0 6px 0 10px;
+            height: 32px;
             border-bottom: 1px solid #f0f0f0;
+            border-right: 1px solid #f0f0f0;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             transition: background 0.1s;
             box-sizing: border-box;
         }
@@ -1108,8 +1109,8 @@
         .gsb-section-header {
             display: flex;
             align-items: center;
-            padding: 0 20px;
-            height: 36px;
+            padding: 0 14px;
+            height: 32px;
             background: var(--gray-100);
             border-bottom: 1px solid var(--gray-200);
             font-weight: 600;
@@ -1122,9 +1123,9 @@
 
         .gsb-row input[type="checkbox"] {
             accent-color: var(--green-600);
-            width: 15px;
-            height: 15px;
-            margin-right: 10px;
+            width: 14px;
+            height: 14px;
+            margin-right: 6px;
             flex-shrink: 0;
             cursor: pointer;
         }
@@ -1133,22 +1134,13 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-        }
-        .gsb-row-collection {
-            font-size: 11px;
-            color: var(--gray-500);
-            margin-left: 8px;
-            flex-shrink: 0;
-            width: 70px;
-            text-align: right;
+            min-width: 0;
         }
         .gsb-row-size {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--gray-500);
-            margin-left: 8px;
+            margin-left: 4px;
             flex-shrink: 0;
-            width: 65px;
-            text-align: right;
             font-family: 'Roboto Mono', monospace;
         }
 
@@ -1955,6 +1947,6 @@
     </div>
 </div>
 
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>
