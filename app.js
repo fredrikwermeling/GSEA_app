@@ -2742,6 +2742,12 @@ class GSEAApp {
             return;
         }
         this.useCustomSelection = true;
+
+        // Uncheck collection checkboxes — the browser selection takes over
+        document.getElementById('checkHallmark').checked = false;
+        document.getElementById('checkC2').checked = false;
+        document.getElementById('checkC5').checked = false;
+
         this.closeGeneSetBrowser();
         this.updateGeneSetStatus();
         this.checkReady();
