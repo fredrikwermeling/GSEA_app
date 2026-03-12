@@ -967,7 +967,7 @@ class GSEAApp {
                 fixedrange: true
             },
             height: Math.max(440, top.length * 26 + 140),
-            margin: { l: 10, r: 140, t: 20, b: 40 },
+            margin: { l: 10, r: 160, t: 20, b: 40 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -2248,16 +2248,20 @@ class GSEAApp {
         this.readSettings();
         const scale = this.settings.exportScale;
 
-        // Use the actual rendered size but add extra padding to prevent cropping
-        const currentLayout = plotEl.layout || {};
-        let exportWidth = currentLayout.width || plotEl.offsetWidth || 800;
-        let exportHeight = currentLayout.height || plotEl.offsetHeight || 500;
+        // Read the ACTUAL rendered dimensions from Plotly's internal layout.
+        // _fullLayout includes computed automargin adjustments.
+        const fullLayout = plotEl._fullLayout || {};
+        let exportWidth = fullLayout.width || plotEl.offsetWidth || 800;
+        let exportHeight = fullLayout.height || plotEl.offsetHeight || 500;
 
-        // Add extra margin for exports to prevent text cropping
-        // Especially for bubble plot where y-axis labels can be long
-        if (plotId === 'bubblePlot') {
-            exportWidth = Math.max(exportWidth, 1100);
-            exportHeight = Math.max(exportHeight, 500);
+        // Use Plotly's computed _size (includes automargin) to ensure nothing is cropped.
+        // _size.l/.r/.t/.b are the ACTUAL margins after automargin expansion.
+        const size = fullLayout._size;
+        if (size) {
+            const fullW = Math.ceil(size.l + size.w + size.r) + 10;
+            const fullH = Math.ceil(size.t + size.h + size.b) + 10;
+            exportWidth = Math.max(exportWidth, fullW);
+            exportHeight = Math.max(exportHeight, fullH);
         }
 
         const opts = {
