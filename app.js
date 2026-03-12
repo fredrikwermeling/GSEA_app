@@ -780,7 +780,7 @@ class GSEAApp {
                     outlinewidth: 1,
                     outlinecolor: '#ccc'
                 },
-                line: { width: 1.5, color: 'white' }
+                line: { width: 1, color: 'rgba(0,0,0,0.3)' }
             },
             text: top.map(r =>
                 `<b>${this.cleanName(r.name)}</b><br>` +
@@ -825,17 +825,34 @@ class GSEAApp {
             dragmode: false
         };
 
-        // Size legend: use actual min, median, max from the displayed gene sets
+        // Size legend: use nice round values that BRACKET the actual data range
+        // Smallest legend < smallest data, largest legend > largest data, mid in between
         const actualSizes = top.map(r => r.size).sort((a, b) => a - b);
         const minActualSize = actualSizes[0];
         const maxActualSize = actualSizes[actualSizes.length - 1];
-        const medActualSize = actualSizes[Math.floor(actualSizes.length / 2)];
+        // Round down for the low end, round up for the high end
+        const roundDown = (n) => {
+            if (n <= 10) return Math.max(1, Math.floor(n / 5) * 5 || 1);
+            if (n <= 50) return Math.floor(n / 10) * 10;
+            if (n <= 200) return Math.floor(n / 20) * 20;
+            if (n <= 1000) return Math.floor(n / 50) * 50;
+            return Math.floor(n / 100) * 100;
+        };
+        const roundUp = (n) => {
+            if (n <= 10) return Math.ceil(n / 5) * 5 + 5;
+            if (n <= 50) return Math.ceil(n / 10) * 10 + 10;
+            if (n <= 200) return Math.ceil(n / 20) * 20 + 20;
+            if (n <= 1000) return Math.ceil(n / 50) * 50 + 50;
+            return Math.ceil(n / 100) * 100 + 100;
+        };
         let sizeSamples;
         if (maxActualSize <= minActualSize) {
             sizeSamples = [minActualSize];
         } else {
-            // Use actual min, median, max — show real data values
-            sizeSamples = [...new Set([minActualSize, medActualSize, maxActualSize])].sort((a, b) => a - b);
+            const lo = roundDown(minActualSize);
+            const hi = roundUp(maxActualSize);
+            const mid = Math.round((lo + hi) / 2 / 10) * 10 || Math.round((lo + hi) / 2);
+            sizeSamples = [...new Set([lo, mid, hi])].sort((a, b) => a - b);
         }
         const sizeLegendTraces = [];
         if (sizeSamples.length > 0) {
@@ -847,7 +864,7 @@ class GSEAApp {
                     marker: {
                         size: Math.max(10, Math.min(30, Math.sqrt(s) * 2)),
                         color: 'rgba(180,180,180,0.5)',
-                        line: { width: 1.5, color: 'white' },
+                        line: { width: 1, color: 'rgba(0,0,0,0.3)' },
                         sizemode: 'diameter'
                     },
                     name: `  ${s}`,
@@ -957,6 +974,7 @@ class GSEAApp {
             x: xVals,
             y: yVals,
             type: 'bar',
+            width: step * 1.05,
             marker: {
                 color: barColors,
                 line: { width: 0 }
@@ -1169,35 +1187,41 @@ class GSEAApp {
             metBarY.push(metrics[N - 1]);
         }
 
-        const traces3 = [];
+        // Build per-bar gradient colors matching the ranked plot style
+        const metBarColors = [];
         if (s.showMetricFill) {
-            // Separate positive and negative for coloring
-            const posX = [], posY = [], negX = [], negY = [];
-            for (let i = 0; i < metBarX.length; i++) {
+            const posRGB = this._parseHex(s.positiveColor);
+            const negRGB = this._parseHex(s.negativeColor);
+            const maxPos = Math.abs(metrics[0]) || 1;
+            const maxNeg = Math.abs(metrics[N - 1]) || 1;
+            for (let i = 0; i < metBarY.length; i++) {
                 if (metBarY[i] >= 0) {
-                    posX.push(metBarX[i]);
-                    posY.push(metBarY[i]);
+                    const intensity = Math.min(1, metBarY[i] / maxPos);
+                    const r = Math.round(255 - (255 - posRGB[0]) * intensity);
+                    const g = Math.round(255 - (255 - posRGB[1]) * intensity);
+                    const b = Math.round(255 - (255 - posRGB[2]) * intensity);
+                    metBarColors.push(`rgba(${r}, ${g}, ${b}, 0.85)`);
                 } else {
-                    negX.push(metBarX[i]);
-                    negY.push(metBarY[i]);
+                    const intensity = Math.min(1, Math.abs(metBarY[i]) / maxNeg);
+                    const r = Math.round(255 - (255 - negRGB[0]) * intensity);
+                    const g = Math.round(255 - (255 - negRGB[1]) * intensity);
+                    const b = Math.round(255 - (255 - negRGB[2]) * intensity);
+                    metBarColors.push(`rgba(${r}, ${g}, ${b}, 0.85)`);
                 }
             }
-            if (posX.length > 0) {
-                traces3.push({
-                    x: posX, y: posY,
-                    type: 'bar',
-                    marker: { color: this._hexToRgba(s.positiveColor, 0.5), line: { width: 0 } },
-                    showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
-                });
-            }
-            if (negX.length > 0) {
-                traces3.push({
-                    x: negX, y: negY,
-                    type: 'bar',
-                    marker: { color: this._hexToRgba(s.negativeColor, 0.5), line: { width: 0 } },
-                    showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
-                });
-            }
+        }
+
+        const traces3 = [];
+        if (s.showMetricFill) {
+            // Single bar trace with per-bar gradient colors (matches ranked plot exactly)
+            // Explicit width ensures bars don't collapse to 0px due to subpixel rounding
+            traces3.push({
+                x: metBarX, y: metBarY,
+                type: 'bar',
+                width: metStep * 1.05,
+                marker: { color: metBarColors, line: { width: 0 } },
+                showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
+            });
         } else {
             traces3.push({
                 x: metBarX, y: metBarY,
