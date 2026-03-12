@@ -13,6 +13,14 @@ class GSEAApp {
         this.worker = null;
         this.analysisDate = null;
 
+        // Gene set browser state
+        this.selectedGeneSets = new Set();     // Set of gene set names for custom selection
+        this.useCustomSelection = false;        // false = collection checkboxes; true = per-set selection
+        this._gsbAllItems = [];                 // master sorted list built when modal opens
+        this._gsbFlatList = [];                 // filtered list with section headers
+        this._gsbRowHeight = 36;
+        this._gsbBufferRows = 10;
+
         // Settings
         this.settings = {
             permutations: 1000,
@@ -104,6 +112,73 @@ class GSEAApp {
         // Custom GMT upload
         document.getElementById('gmtInput').addEventListener('change', (e) => {
             if (e.target.files[0]) this.handleGMTUpload(e.target.files[0]);
+        });
+
+        // Gene Set Browser
+        document.getElementById('openGeneSetBrowser').addEventListener('click', () => this.openGeneSetBrowser());
+        document.getElementById('gsbClose').addEventListener('click', () => this.closeGeneSetBrowser());
+        document.getElementById('gsbBackdrop').addEventListener('click', () => this.closeGeneSetBrowser());
+        document.getElementById('gsbCancelBtn').addEventListener('click', () => this.closeGeneSetBrowser());
+        document.getElementById('gsbApplyBtn').addEventListener('click', () => this.applyGeneSetSelection());
+        document.getElementById('gsbCollectionFilter').addEventListener('change', () => this.filterGeneSetBrowser());
+        document.getElementById('gsbSelectAll').addEventListener('click', () => this.gsbSelectAllVisible());
+        document.getElementById('gsbDeselectAll').addEventListener('click', () => this.gsbDeselectAll());
+        document.getElementById('gsbDownloadBtn').addEventListener('click', () => this.gsbDownloadSelectedCSV());
+
+        // Gene Set Browser: debounced search
+        let gsbSearchTimer = null;
+        document.getElementById('gsbSearch').addEventListener('input', () => {
+            clearTimeout(gsbSearchTimer);
+            gsbSearchTimer = setTimeout(() => this.filterGeneSetBrowser(), 150);
+        });
+
+        // Gene Set Browser: virtual scroll with requestAnimationFrame
+        let gsbRafPending = false;
+        document.getElementById('gsbListContainer').addEventListener('scroll', () => {
+            if (!gsbRafPending) {
+                gsbRafPending = true;
+                requestAnimationFrame(() => {
+                    this.gsbRenderVisibleRows();
+                    gsbRafPending = false;
+                });
+            }
+        });
+
+        // Gene Set Browser: event delegation for row interactions
+        const gsbRowsEl = document.getElementById('gsbRows');
+        gsbRowsEl.addEventListener('click', (e) => {
+            const row = e.target.closest('.gsb-row');
+            if (!row) return;
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (!checkbox) return;
+            const name = checkbox.dataset.name;
+            if (e.target !== checkbox) {
+                checkbox.checked = !checkbox.checked;
+            }
+            if (checkbox.checked) {
+                this.selectedGeneSets.add(name);
+                row.classList.add('selected');
+            } else {
+                this.selectedGeneSets.delete(name);
+                row.classList.remove('selected');
+            }
+            this.updateGsbSelectionCount();
+        });
+        gsbRowsEl.addEventListener('mouseover', (e) => {
+            const row = e.target.closest('.gsb-row');
+            if (!row) return;
+            const idx = parseInt(row.dataset.index);
+            const item = this._gsbFlatList[idx];
+            if (item && item.type === 'item') {
+                this.gsbShowDetail(item);
+            }
+        });
+
+        // Close gene set browser on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('gsbModal').classList.contains('open')) {
+                this.closeGeneSetBrowser();
+            }
         });
 
         // Run / Cancel
@@ -279,6 +354,10 @@ class GSEAApp {
     }
 
     async onCollectionChange() {
+        // Reset custom selection when user toggles collection checkboxes
+        this.useCustomSelection = false;
+        this.selectedGeneSets.clear();
+
         const collections = {
             checkHallmark: { id: 'hallmark', file: 'h.all.v2023.2.Hs.json' },
             checkC2: { id: 'c2', file: 'c2.all.v2023.2.Hs.json' },
@@ -307,6 +386,14 @@ class GSEAApp {
     }
 
     updateGeneSetStatus() {
+        // Custom selection mode
+        if (this.useCustomSelection) {
+            const n = this.selectedGeneSets.size;
+            this.showStatus('geneSetStatus', 'info',
+                `Custom selection: ${n.toLocaleString()} gene sets selected — click "Browse" to modify`);
+            return;
+        }
+
         const parts = [];
         let total = 0;
         const collections = {
@@ -475,6 +562,22 @@ class GSEAApp {
     }
 
     getActiveGeneSets() {
+        // Custom per-set selection mode
+        if (this.useCustomSelection && this.selectedGeneSets.size > 0) {
+            const combined = {};
+            const allData = { hallmark: this.geneSets['hallmark'], c2: this.geneSets['c2'], c5: this.geneSets['c5'], custom: this.customGeneSets };
+            for (const collData of Object.values(allData)) {
+                if (!collData) continue;
+                for (const [name, genes] of Object.entries(collData)) {
+                    if (this.selectedGeneSets.has(name)) {
+                        combined[name] = genes;
+                    }
+                }
+            }
+            return Object.keys(combined).length > 0 ? combined : null;
+        }
+
+        // Default: whole-collection mode (original behavior)
         const all = {};
         const collections = {
             checkHallmark: 'hallmark',
@@ -2314,6 +2417,10 @@ class GSEAApp {
         this.analysisDate = null;
         this._currentGeneDetailRows = null;
         this.geneInfoCache = {};
+        this.selectedGeneSets = new Set();
+        this.useCustomSelection = false;
+        this._gsbAllItems = [];
+        this._gsbFlatList = [];
 
         // Reset UI
         document.getElementById('fileInput').value = '';
@@ -2361,6 +2468,272 @@ class GSEAApp {
         // Re-create worker
         this.createWorker();
         this.updateGeneSetStatus();
+    }
+
+    // --------------------------------------------------------
+    // Gene Set Browser
+    // --------------------------------------------------------
+    openGeneSetBrowser() {
+        // Ensure at least one collection is loaded
+        const hasAny = this.geneSets['hallmark'] || this.geneSets['c2'] || this.geneSets['c5']
+            || (this.customGeneSets && Object.keys(this.customGeneSets).length > 0);
+        if (!hasAny) {
+            alert('No gene set collections are loaded yet. Please wait for loading to complete.');
+            return;
+        }
+
+        // Build master list: [{name, collection, collectionLabel, size, genes, nameLower}, ...]
+        this._gsbAllItems = [];
+        const addCollection = (id, label, data) => {
+            if (!data) return;
+            for (const [name, genes] of Object.entries(data)) {
+                this._gsbAllItems.push({
+                    name,
+                    collection: id,
+                    collectionLabel: label,
+                    size: genes.length,
+                    genes,
+                    nameLower: name.toLowerCase()
+                });
+            }
+        };
+        addCollection('hallmark', 'Hallmark', this.geneSets['hallmark']);
+        addCollection('c2', 'C2: Curated', this.geneSets['c2']);
+        addCollection('c5', 'C5: GO', this.geneSets['c5']);
+        if (this.customGeneSets && Object.keys(this.customGeneSets).length > 0) {
+            addCollection('custom', 'Custom', this.customGeneSets);
+        }
+
+        // Sort: by collection order, then alphabetically within each
+        const collOrder = { hallmark: 0, c2: 1, c5: 2, custom: 3 };
+        this._gsbAllItems.sort((a, b) => {
+            if (collOrder[a.collection] !== collOrder[b.collection]) {
+                return collOrder[a.collection] - collOrder[b.collection];
+            }
+            return a.nameLower.localeCompare(b.nameLower);
+        });
+
+        // If no prior custom selection, pre-select based on current checkbox state
+        if (!this.useCustomSelection) {
+            this.selectedGeneSets = new Set();
+            const checked = {
+                hallmark: document.getElementById('checkHallmark').checked,
+                c2: document.getElementById('checkC2').checked,
+                c5: document.getElementById('checkC5').checked,
+                custom: this.customGeneSets && Object.keys(this.customGeneSets).length > 0
+            };
+            for (const item of this._gsbAllItems) {
+                if (checked[item.collection]) {
+                    this.selectedGeneSets.add(item.name);
+                }
+            }
+        }
+
+        // Reset search and filter
+        document.getElementById('gsbSearch').value = '';
+        document.getElementById('gsbCollectionFilter').value = 'all';
+
+        // Reset detail panel
+        document.getElementById('gsbDetailTitle').textContent = 'Gene Set Details';
+        document.getElementById('gsbDetailBody').innerHTML = '<p class="gsb-detail-hint">Hover over any gene set to see its details here.</p>';
+
+        // Apply filter (all items) and open
+        this.filterGeneSetBrowser();
+        this.updateGsbSelectionCount();
+
+        document.getElementById('gsbModal').classList.add('open');
+        document.getElementById('gsbBackdrop').classList.add('open');
+        document.getElementById('gsbSearch').focus();
+    }
+
+    closeGeneSetBrowser() {
+        document.getElementById('gsbModal').classList.remove('open');
+        document.getElementById('gsbBackdrop').classList.remove('open');
+    }
+
+    filterGeneSetBrowser() {
+        const query = document.getElementById('gsbSearch').value.toLowerCase().trim();
+        const collFilter = document.getElementById('gsbCollectionFilter').value;
+
+        // Filter items
+        let filtered = this._gsbAllItems;
+        if (collFilter !== 'all') {
+            filtered = filtered.filter(item => item.collection === collFilter);
+        }
+        if (query) {
+            filtered = filtered.filter(item => item.nameLower.includes(query));
+        }
+
+        // Build flat list with section headers
+        this._gsbFlatList = [];
+        let lastCollection = null;
+        const collectionCounts = {};
+
+        // Pre-count per collection
+        for (const item of filtered) {
+            collectionCounts[item.collection] = (collectionCounts[item.collection] || 0) + 1;
+        }
+
+        for (const item of filtered) {
+            if (item.collection !== lastCollection) {
+                this._gsbFlatList.push({
+                    type: 'header',
+                    collection: item.collection,
+                    label: item.collectionLabel,
+                    count: collectionCounts[item.collection]
+                });
+                lastCollection = item.collection;
+            }
+            this._gsbFlatList.push({ type: 'item', ...item });
+        }
+
+        // Update scroll spacer height
+        const container = document.getElementById('gsbListContainer');
+        const spacer = document.getElementById('gsbScrollSpacer');
+        spacer.style.height = (this._gsbFlatList.length * this._gsbRowHeight) + 'px';
+
+        // Reset scroll
+        container.scrollTop = 0;
+        this.gsbRenderVisibleRows();
+    }
+
+    gsbRenderVisibleRows() {
+        const container = document.getElementById('gsbListContainer');
+        const rowsEl = document.getElementById('gsbRows');
+        const scrollTop = container.scrollTop;
+        const viewportHeight = container.clientHeight;
+        const rowH = this._gsbRowHeight;
+        const buffer = this._gsbBufferRows;
+
+        const startIndex = Math.max(0, Math.floor(scrollTop / rowH) - buffer);
+        const endIndex = Math.min(
+            this._gsbFlatList.length,
+            Math.ceil((scrollTop + viewportHeight) / rowH) + buffer
+        );
+
+        let html = '';
+        for (let i = startIndex; i < endIndex; i++) {
+            const item = this._gsbFlatList[i];
+            const top = i * rowH;
+
+            if (item.type === 'header') {
+                html += `<div class="gsb-section-header" style="position:absolute; top:${top}px; left:0; right:0; height:${rowH}px;">
+                    ${item.label} (${item.count.toLocaleString()} gene sets)
+                </div>`;
+            } else {
+                const checked = this.selectedGeneSets.has(item.name) ? 'checked' : '';
+                const selectedClass = this.selectedGeneSets.has(item.name) ? ' selected' : '';
+                const escapedName = this._escapeAttr(item.name);
+                html += `<div class="gsb-row${selectedClass}" data-index="${i}" style="position:absolute; top:${top}px; left:0; right:0; height:${rowH}px;">
+                    <input type="checkbox" ${checked} data-name="${escapedName}">
+                    <span class="gsb-row-name" title="${escapedName}">${this.cleanName(item.name)}</span>
+                    <span class="gsb-row-collection">${item.collectionLabel}</span>
+                    <span class="gsb-row-size">${item.size} genes</span>
+                </div>`;
+            }
+        }
+
+        rowsEl.innerHTML = html;
+    }
+
+    gsbShowDetail(item) {
+        document.getElementById('gsbDetailTitle').textContent = this.cleanName(item.name);
+
+        const genes = item.genes;
+        const previewGenes = genes.slice(0, 50);
+        const moreCount = genes.length > 50 ? genes.length - 50 : 0;
+
+        let html = `
+            <div class="gsb-detail-stat">
+                <span class="gsb-detail-stat-label">Full name</span>
+            </div>
+            <div style="font-family: 'Roboto Mono', monospace; font-size: 11px; color: #374151; margin-bottom: 10px; word-break: break-all;">
+                ${this._escapeAttr(item.name)}
+            </div>
+            <div class="gsb-detail-stat">
+                <span class="gsb-detail-stat-label">Collection</span>
+                <span class="gsb-detail-stat-value">${item.collectionLabel}</span>
+            </div>
+            <div class="gsb-detail-stat">
+                <span class="gsb-detail-stat-label">Size</span>
+                <span class="gsb-detail-stat-value">${item.size} genes</span>
+            </div>
+            <div style="margin-top: 12px;">
+                <strong style="font-size: 12px; color: #374151;">Genes:</strong>
+            </div>
+            <div class="gsb-detail-genes">
+                ${previewGenes.join(', ')}${moreCount > 0 ? `, <em>+${moreCount} more</em>` : ''}
+            </div>
+        `;
+
+        document.getElementById('gsbDetailBody').innerHTML = html;
+    }
+
+    gsbSelectAllVisible() {
+        for (const item of this._gsbFlatList) {
+            if (item.type === 'item') {
+                this.selectedGeneSets.add(item.name);
+            }
+        }
+        this.updateGsbSelectionCount();
+        this.gsbRenderVisibleRows();
+    }
+
+    gsbDeselectAll() {
+        this.selectedGeneSets.clear();
+        this.updateGsbSelectionCount();
+        this.gsbRenderVisibleRows();
+    }
+
+    updateGsbSelectionCount() {
+        const count = this.selectedGeneSets.size;
+        document.getElementById('gsbSelectionCount').textContent =
+            `${count.toLocaleString()} selected`;
+    }
+
+    applyGeneSetSelection() {
+        if (this.selectedGeneSets.size === 0) {
+            alert('No gene sets selected. Please select at least one gene set.');
+            return;
+        }
+        this.useCustomSelection = true;
+        this.closeGeneSetBrowser();
+        this.updateGeneSetStatus();
+        this.checkReady();
+    }
+
+    gsbDownloadSelectedCSV() {
+        if (this.selectedGeneSets.size === 0) {
+            alert('No gene sets selected.');
+            return;
+        }
+
+        const rows = [['Gene_Set_Name', 'Collection', 'Size', 'Genes']];
+
+        for (const item of this._gsbAllItems) {
+            if (!this.selectedGeneSets.has(item.name)) continue;
+            rows.push([
+                item.name,
+                item.collectionLabel,
+                item.size,
+                item.genes.join('; ')
+            ]);
+        }
+
+        const csv = rows.map(row =>
+            row.map(val => {
+                const s = String(val);
+                return (s.includes(',') || s.includes(';') || s.includes('"'))
+                    ? '"' + s.replace(/"/g, '""') + '"'
+                    : s;
+            }).join(',')
+        ).join('\n');
+
+        this.downloadBlob(new Blob([csv], { type: 'text/csv' }), 'selected_gene_sets.csv');
+    }
+
+    _escapeAttr(str) {
+        return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
     }
 
     // --------------------------------------------------------

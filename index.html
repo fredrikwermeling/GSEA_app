@@ -939,6 +939,293 @@
             color: var(--green-600);
             background: var(--green-50);
         }
+
+        /* ============================================
+           Gene Set Browser Modal
+           ============================================ */
+        .gsb-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 5999;
+        }
+        .gsb-backdrop.open { display: block; }
+
+        .gsb-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 92vw;
+            max-width: 1200px;
+            height: 85vh;
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            z-index: 6000;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .gsb-modal.open {
+            display: grid;
+            grid-template-rows: auto auto 1fr auto;
+            grid-template-columns: 1fr 300px;
+        }
+
+        /* Header */
+        .gsb-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: var(--green-600);
+            color: white;
+            flex-shrink: 0;
+            grid-column: 1 / -1;
+        }
+        .gsb-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+        }
+        .gsb-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .gsb-selection-count {
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+        .gsb-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+        }
+        .gsb-close:hover { opacity: 0.8; }
+
+        /* Header buttons */
+        .gsb-header .gsb-btn-outline {
+            padding: 4px 12px;
+            font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.6);
+            color: white;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .gsb-header .gsb-btn-outline:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        /* Toolbar */
+        .gsb-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--gray-200);
+            background: var(--gray-100);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            grid-column: 1 / -1;
+        }
+        .gsb-search {
+            flex: 1;
+            min-width: 200px;
+            max-width: 400px;
+            padding: 6px 10px;
+            border: 1px solid var(--gray-300);
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+        }
+        .gsb-search:focus {
+            border-color: var(--green-500);
+            box-shadow: 0 0 0 2px rgba(90,159,74,0.15);
+        }
+        .gsb-collection-filter {
+            padding: 6px 10px;
+            border: 1px solid var(--gray-300);
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+            background: white;
+            cursor: pointer;
+        }
+
+        /* List container: virtual scroll area */
+        .gsb-list-container {
+            position: relative;
+            overflow-y: auto;
+            overflow-x: hidden;
+            grid-column: 1;
+            grid-row: 3;
+        }
+        .gsb-scroll-spacer {
+            width: 1px;
+            pointer-events: none;
+        }
+        .gsb-rows {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+        }
+
+        /* Individual row */
+        .gsb-row {
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            height: 36px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.1s;
+            box-sizing: border-box;
+        }
+        .gsb-row:hover {
+            background: var(--green-50);
+        }
+        .gsb-row.selected {
+            background: #e8f5e3;
+        }
+        .gsb-row.selected:hover {
+            background: #d9edcf;
+        }
+
+        /* Section headers */
+        .gsb-section-header {
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            height: 36px;
+            background: var(--gray-100);
+            border-bottom: 1px solid var(--gray-200);
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--green-800);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-sizing: border-box;
+        }
+
+        .gsb-row input[type="checkbox"] {
+            accent-color: var(--green-600);
+            width: 15px;
+            height: 15px;
+            margin-right: 10px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .gsb-row-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .gsb-row-collection {
+            font-size: 11px;
+            color: var(--gray-500);
+            margin-left: 8px;
+            flex-shrink: 0;
+            width: 70px;
+            text-align: right;
+        }
+        .gsb-row-size {
+            font-size: 11px;
+            color: var(--gray-500);
+            margin-left: 8px;
+            flex-shrink: 0;
+            width: 65px;
+            text-align: right;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        /* Detail panel */
+        .gsb-detail-panel {
+            grid-column: 2;
+            grid-row: 3;
+            border-left: 1px solid var(--gray-200);
+            padding: 16px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .gsb-detail-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--green-700);
+            margin: 0 0 12px;
+            word-break: break-word;
+        }
+        .gsb-detail-body {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .gsb-detail-hint {
+            color: var(--gray-500);
+            font-style: italic;
+            margin: 0;
+        }
+        .gsb-detail-genes {
+            margin-top: 8px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 11px;
+            line-height: 1.6;
+            max-height: 300px;
+            overflow-y: auto;
+            color: var(--text-primary);
+        }
+        .gsb-detail-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .gsb-detail-stat-label {
+            color: var(--gray-500);
+            font-size: 12px;
+        }
+        .gsb-detail-stat-value {
+            font-weight: 600;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 12px;
+        }
+
+        /* Footer */
+        .gsb-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 12px 20px;
+            border-top: 1px solid var(--gray-200);
+            background: white;
+            flex-shrink: 0;
+            grid-column: 1 / -1;
+        }
+
+        /* Responsive: collapse detail panel on narrow screens */
+        @media (max-width: 768px) {
+            .gsb-modal.open {
+                grid-template-columns: 1fr;
+                width: 98vw;
+                height: 92vh;
+            }
+            .gsb-detail-panel {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1067,6 +1354,8 @@
                     </label>
                     <div class="checkbox-info">Gene Ontology BP, MF, CC (16,008 sets)</div>
                 </div>
+
+                <button class="btn btn-secondary btn-sm" id="openGeneSetBrowser" style="margin-top: 10px; width: 100%;">Browse &amp; Select Individual Gene Sets</button>
 
                 <div id="geneSetStatus" class="status-box status-info" style="margin-top: 8px;">
                     Hallmark: 50 gene sets loaded
@@ -1627,6 +1916,45 @@
     </div>
 </div>
 
-<script src="app.js?v=17"></script>
+<!-- Gene Set Browser Modal -->
+<div class="gsb-backdrop" id="gsbBackdrop"></div>
+<div class="gsb-modal" id="gsbModal">
+    <div class="gsb-header">
+        <h3 class="gsb-title">Gene Set Browser</h3>
+        <div class="gsb-header-actions">
+            <span class="gsb-selection-count" id="gsbSelectionCount">0 selected</span>
+            <button class="gsb-btn-outline" id="gsbDownloadBtn">Download Selected (CSV)</button>
+            <button class="gsb-close" id="gsbClose">&times;</button>
+        </div>
+    </div>
+    <div class="gsb-toolbar">
+        <input type="text" class="gsb-search" id="gsbSearch" placeholder="Search gene sets by name...">
+        <select class="gsb-collection-filter" id="gsbCollectionFilter">
+            <option value="all">All collections</option>
+            <option value="hallmark">H: Hallmark</option>
+            <option value="c2">C2: Curated</option>
+            <option value="c5">C5: GO</option>
+            <option value="custom">Custom</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" id="gsbSelectAll">Select All Visible</button>
+        <button class="btn btn-secondary btn-sm" id="gsbDeselectAll">Deselect All</button>
+    </div>
+    <div class="gsb-list-container" id="gsbListContainer">
+        <div class="gsb-scroll-spacer" id="gsbScrollSpacer"></div>
+        <div class="gsb-rows" id="gsbRows"></div>
+    </div>
+    <div class="gsb-detail-panel" id="gsbDetailPanel">
+        <h4 class="gsb-detail-title" id="gsbDetailTitle">Gene Set Details</h4>
+        <div class="gsb-detail-body" id="gsbDetailBody">
+            <p class="gsb-detail-hint">Hover over any gene set to see its details here.</p>
+        </div>
+    </div>
+    <div class="gsb-footer">
+        <button class="btn btn-secondary" id="gsbCancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="gsbApplyBtn">Apply Selection</button>
+    </div>
+</div>
+
+<script src="app.js?v=18"></script>
 </body>
 </html>
