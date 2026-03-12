@@ -48,6 +48,9 @@ class GSEAApp {
         // Gene info cache (MyGene.info)
         this.geneInfoCache = {};
 
+        // Active tab for settings panel
+        this.activeTab = 'overview';
+
         this.init();
     }
 
@@ -196,13 +199,10 @@ class GSEAApp {
             if (tooltip) tooltip.style.display = 'none';
         }, true);
 
-        // Figure settings
-        document.getElementById('updatePlotsBtn').addEventListener('click', () => this.updateSettings());
-
-        // Settings inputs
-        ['topN', 'fdrDisplayThreshold', 'colorScale', 'exportScale', 'transparentBg'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('change', () => this.readSettings());
+        // Real-time settings: update plots on every change
+        document.querySelectorAll('.settings-live').forEach(el => {
+            const evType = (el.type === 'checkbox' || el.tagName === 'SELECT') ? 'change' : 'input';
+            el.addEventListener(evType, () => this.updateSettings());
         });
 
         // Methods toggle (collapsible)
@@ -221,21 +221,18 @@ class GSEAApp {
         // Reset app
         document.getElementById('resetBtn').addEventListener('click', () => this.resetApp());
 
-        // Settings modal
+        // Floating settings panel open/close
         document.getElementById('openSettingsBtn').addEventListener('click', () => {
-            document.getElementById('settingsModalOverlay').classList.add('open');
+            const panel = document.getElementById('settingsPanel');
+            panel.classList.toggle('open');
+            this.updateSettingsTabVisibility();
         });
         document.getElementById('closeSettingsBtn').addEventListener('click', () => {
-            document.getElementById('settingsModalOverlay').classList.remove('open');
+            document.getElementById('settingsPanel').classList.remove('open');
         });
-        document.getElementById('closeSettingsBtn2').addEventListener('click', () => {
-            document.getElementById('settingsModalOverlay').classList.remove('open');
-        });
-        document.getElementById('settingsModalOverlay').addEventListener('click', (e) => {
-            if (e.target.id === 'settingsModalOverlay') {
-                e.target.classList.remove('open');
-            }
-        });
+
+        // Make settings panel draggable
+        this.initSettingsDrag();
 
         // Gene detail table sorting
         document.querySelectorAll('#geneDetailTable thead th').forEach(th => {
@@ -628,6 +625,7 @@ class GSEAApp {
         document.getElementById('overlapResults').style.display = '';
         document.getElementById('openSettingsBtn').style.display = '';
         document.getElementById('methodsCard').style.display = '';
+        this.updateSettingsTabVisibility();
 
         // Populate gene set selector
         this.populateGeneSetSelector();
@@ -798,30 +796,55 @@ class GSEAApp {
                 tickfont: { size: baseFontSize - 1, family: fontFam },
                 automargin: true,
                 gridwidth: 0,
-                showgrid: false
+                showgrid: false,
+                range: [-0.8, top.length - 0.2]
             },
             height: Math.max(440, top.length * 26 + 120),
-            margin: { l: 10, r: 40, t: 20, b: 60 },
+            margin: { l: 10, r: 40, t: 20, b: 65 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
             shapes: shapes
         };
 
+        // Apply custom dimensions
+        const dims = this.getPlotDimensions(undefined, layout.height);
+        if (dims.width) layout.width = dims.width;
+        if (dims.height) layout.height = dims.height;
+
         Plotly.newPlot('bubblePlot', [trace], layout, {
             responsive: true,
             displaylogo: false,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+            edits: { annotationPosition: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true }
         });
 
-        // Click to show ES plot
-        document.getElementById('bubblePlot').on('plotly_click', (data) => {
+        // Click to show ES plot (dot or y-axis label)
+        const bubblePlotEl = document.getElementById('bubblePlot');
+        bubblePlotEl.on('plotly_click', (data) => {
             if (data.points && data.points.length > 0) {
                 const idx = data.points[0].pointIndex;
                 const name = top[idx].name;
                 document.getElementById('geneSetSelector').value = name;
                 this.renderESPlot(name);
+                this.renderGeneSetInfo(name);
+                this.renderGeneDetailTable(name);
                 this.showTab('enrichment');
+            }
+        });
+        // Also handle clicking y-axis labels (tick text)
+        bubblePlotEl.addEventListener('click', (e) => {
+            const yTick = e.target.closest('.ytick text, .yaxislayer-above text');
+            if (yTick) {
+                const label = yTick.textContent.trim();
+                const match = top.find(r => this.cleanName(r.name) === label);
+                if (match) {
+                    document.getElementById('geneSetSelector').value = match.name;
+                    this.renderESPlot(match.name);
+                    this.renderGeneSetInfo(match.name);
+                    this.renderGeneDetailTable(match.name);
+                    this.showTab('enrichment');
+                }
             }
         });
     }
@@ -904,11 +927,16 @@ class GSEAApp {
             xanchor: 'right', yanchor: 'bottom'
         });
 
+        // Add range padding so extreme bars aren't clipped at edges
+        const yPad = Math.max(Math.abs(metrics[0]), Math.abs(metrics[N - 1])) * 0.06;
+        const xPad = N * 0.015;
+
         const layout = {
             xaxis: {
                 title: { text: 'Rank in Ordered Dataset', font: { size: baseFontSize - 1, family: fontFam } },
                 showgrid: false,
-                tickfont: { size: baseFontSize - 2, family: fontFam }
+                tickfont: { size: baseFontSize - 2, family: fontFam },
+                range: [-xPad, N - 1 + xPad]
             },
             yaxis: {
                 title: { text: 'Ranked list metric (' + metricLabel + ')', font: { size: baseFontSize - 1, family: fontFam } },
@@ -916,7 +944,8 @@ class GSEAApp {
                 zerolinewidth: 1.5,
                 zerolinecolor: '#333',
                 gridcolor: '#e5e5e5',
-                tickfont: { size: baseFontSize - 2, family: fontFam }
+                tickfont: { size: baseFontSize - 2, family: fontFam },
+                range: [Math.min(0, metrics[N - 1]) - yPad, Math.max(0, metrics[0]) + yPad]
             },
             height: 250,
             margin: { l: 65, r: 20, t: 25, b: 50 },
@@ -933,10 +962,16 @@ class GSEAApp {
             annotations: annotations
         };
 
+        // Apply custom dimensions
+        const dims = this.getPlotDimensions(undefined, layout.height);
+        if (dims.width) layout.width = dims.width;
+        if (dims.height) layout.height = dims.height;
+
         Plotly.newPlot('rankedPlot', [trace], layout, {
             responsive: true,
             displaylogo: false,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+            edits: { annotationPosition: true, annotationText: true, axisTitleText: true, titleText: false, legendPosition: true }
         });
     }
 
@@ -993,6 +1028,9 @@ class GSEAApp {
         const metBot = 0.0;
         const xLeft = 0.0;  // Use yaxis titles instead of annotations
         const xRight = 1.0;
+
+        // Range padding so extreme ends aren't clipped at borders
+        const xPad = N * 0.015;
 
         // ---- Panel 1: Running Enrichment Score ----
         const esLine = {
@@ -1120,26 +1158,45 @@ class GSEAApp {
             }
         ];
 
-        // Stats annotation — position opposite to the ES peak to avoid overlap
+        // Stats annotation — position in the quadrant least occupied by the ES curve
         if (s.showStatsBox) {
             const isPositive = result.nes >= 0;
-            // Find peak position to place stats on the opposite horizontal side
-            let peakIdx = 0;
+            // Sample the ES curve at 4 quadrants to find the emptiest corner
+            const half = Math.floor(N / 2);
+            // Average ES in left half vs right half
+            let leftSum = 0, rightSum = 0;
+            const sampleStep = Math.max(1, Math.floor(N / 200));
+            let leftCount = 0, rightCount = 0;
+            for (let i = 0; i < N; i += sampleStep) {
+                if (i < half) { leftSum += Math.abs(result.runningES[i]); leftCount++; }
+                else { rightSum += Math.abs(result.runningES[i]); rightCount++; }
+            }
+            const leftAvg = leftCount > 0 ? leftSum / leftCount : 0;
+            const rightAvg = rightCount > 0 ? rightSum / rightCount : 0;
+
+            // Find peak for vertical placement
             let peakVal = result.runningES[0];
             for (let i = 1; i < result.runningES.length; i++) {
-                if (isPositive ? result.runningES[i] > peakVal : result.runningES[i] < peakVal) {
+                if (Math.abs(result.runningES[i]) > Math.abs(peakVal)) {
                     peakVal = result.runningES[i];
-                    peakIdx = i;
                 }
             }
-            const peakIsLeft = peakIdx / (N - 1) < 0.5;
-            // Horizontal: opposite side from peak
-            const boxX = peakIsLeft ? 0.97 : 0.03;
-            const boxXanchor = peakIsLeft ? 'right' : 'left';
-            // Vertical: for positive NES place at bottom of ES panel; for negative NES also at bottom
-            // (bottom of panel is far from the peak in both cases)
-            const boxY = esBot + (esTop - esBot) * 0.04;
-            const boxYanchor = 'bottom';
+
+            // Place horizontally opposite to where the curve is densest
+            const curveIsLeft = leftAvg > rightAvg;
+            const boxX = curveIsLeft ? 0.97 : 0.03;
+            const boxXanchor = curveIsLeft ? 'right' : 'left';
+            // Place vertically opposite to the peak direction
+            let boxY, boxYanchor;
+            if (peakVal >= 0) {
+                // Peak is positive (top), so place box at bottom of ES panel
+                boxY = esBot + (esTop - esBot) * 0.04;
+                boxYanchor = 'bottom';
+            } else {
+                // Peak is negative (bottom), so place box at top of ES panel
+                boxY = esTop - (esTop - esBot) * 0.04;
+                boxYanchor = 'top';
+            }
 
             annotations.push({
                 text: `NES = ${result.nes.toFixed(2)}<br>FDR = ${this.formatPval(result.fdr)}<br>p = ${this.formatPval(result.pvalue)}<br>Size = ${result.size}`,
@@ -1194,7 +1251,7 @@ class GSEAApp {
         const layout = {
             // ES panel
             xaxis: {
-                range: [0, N - 1], showticklabels: false, showgrid: false, zeroline: false,
+                range: [-xPad, N - 1 + xPad], showticklabels: false, showgrid: false, zeroline: false,
                 domain: [xLeft, xRight], anchor: 'y', showline: false
             },
             yaxis: {
@@ -1206,7 +1263,7 @@ class GSEAApp {
             },
             // Hit marker panel
             xaxis2: {
-                range: [0, N - 1], showticklabels: false, showgrid: false, zeroline: false,
+                range: [-xPad, N - 1 + xPad], showticklabels: false, showgrid: false, zeroline: false,
                 domain: [xLeft, xRight], anchor: 'y2', showline: false
             },
             yaxis2: {
@@ -1217,7 +1274,7 @@ class GSEAApp {
             },
             // Ranked metric panel
             xaxis3: {
-                range: [0, N - 1],
+                range: [-xPad, N - 1 + xPad],
                 title: { text: 'Rank in Ordered Dataset', font: { size: baseFontSize - 1, family: fontFam }, standoff: 4 },
                 domain: [xLeft, xRight], anchor: 'y3',
                 showgrid: false,
@@ -1229,7 +1286,8 @@ class GSEAApp {
                 domain: [metBot, metTop], anchor: 'x3',
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: true, zerolinecolor: '#333', zerolinewidth: 0.8,
-                tickfont: { size: tickFontSize, family: fontFam }
+                tickfont: { size: tickFontSize, family: fontFam },
+                range: [Math.min(0, ...metSampled) * 1.08, Math.max(0, ...metSampled) * 1.08]
             },
             height: 580,
             margin: { l: 65, r: 15, t: 45, b: 60 },
@@ -1241,6 +1299,11 @@ class GSEAApp {
             bargap: 0
         };
 
+        // Apply custom dimensions
+        const dims = this.getPlotDimensions(undefined, layout.height);
+        if (dims.width) layout.width = dims.width;
+        if (dims.height) layout.height = dims.height;
+
         Plotly.newPlot('esPlot',
             [esLine, esZero, rugAnchor, ...traces3, metZero],
             layout,
@@ -1248,17 +1311,7 @@ class GSEAApp {
                 responsive: true,
                 displaylogo: false,
                 modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-                edits: {
-                    annotationPosition: true,
-                    annotationTail: true,
-                    annotationText: false,
-                    titleText: false,
-                    axisTitleText: false,
-                    legendPosition: true,
-                    colorbarPosition: true,
-                    colorbarTitleText: false,
-                    legendText: false
-                }
+                edits: { annotationPosition: true, annotationTail: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true, colorbarPosition: true }
             }
         );
     }
@@ -1327,11 +1380,15 @@ class GSEAApp {
         const tbody = document.getElementById('geneDetailBody');
         tbody.innerHTML = '';
 
-        // Update metric column header to reflect actual column name
+        // Update column headers with context
         const metricColName = document.getElementById('metricColumn').value || 'Metric';
         const metricHeader = document.getElementById('geneDetailMetricHeader');
         if (metricHeader) {
-            metricHeader.innerHTML = `${metricColName} <span class="sort-arrow">&#9650;</span>`;
+            metricHeader.innerHTML = `${metricColName} <span class="detail-col-context">(your data)</span> <span class="sort-arrow">&#9650;</span>`;
+        }
+        const rankHeader = document.getElementById('geneDetailRankHeader');
+        if (rankHeader) {
+            rankHeader.innerHTML = `Rank <span class="detail-col-context">(gene set)</span> <span class="sort-arrow">&#9650;</span>`;
         }
 
         const leadingEdgeSet = new Set((result.leadingEdge || []).map(g => g.toUpperCase()));
@@ -1364,11 +1421,11 @@ class GSEAApp {
             const tr = document.createElement('tr');
             const leStyle = row.isLE ? 'font-weight:600; color: var(--green-700);' : 'color: var(--gray-500);';
             tr.innerHTML = `
-                <td>${row.rank + 1}</td>
-                <td class="gene-hover" data-gene="${row.gene}" style="font-family: 'Roboto Mono', monospace; font-size: 0.95em; cursor: help; text-align: left;">${row.gene}</td>
-                <td style="font-family: 'Roboto Mono', monospace;">${row.metric.toFixed(4)}</td>
-                <td style="font-family: 'Roboto Mono', monospace;">${row.es.toFixed(4)}</td>
-                <td style="${leStyle}">${row.isLE ? 'Yes' : 'No'}</td>
+                <td style="text-align: center;">${row.rank + 1}</td>
+                <td class="gene-hover" data-gene="${row.gene}" style="font-family: 'Roboto Mono', monospace; font-size: 0.95em; cursor: help; text-align: center;">${row.gene}</td>
+                <td style="font-family: 'Roboto Mono', monospace; text-align: center;">${row.metric.toFixed(4)}</td>
+                <td style="font-family: 'Roboto Mono', monospace; text-align: center;">${row.es.toFixed(4)}</td>
+                <td style="${leStyle} text-align: center;">${row.isLE ? 'Yes' : 'No'}</td>
             `;
             tbody.appendChild(tr);
         }
@@ -1549,29 +1606,32 @@ class GSEAApp {
         const n = parseInt(document.getElementById('topBottomN').value) || 10;
         const genes = this.rankedList.genes;
         const metrics = this.rankedList.metrics;
+        const metricLabel = document.getElementById('metricColumn').value || 'metric';
         const el = document.getElementById('topBottomGenes');
 
-        let html = '<div style="font-weight: 600; color: #dc2626; margin-bottom: 3px;">Top ' + n + ' (highest metric):</div>';
+        let html = '<div style="font-weight: 600; color: #dc2626; margin-bottom: 3px;">Top ' + n + ' in your dataset <span style="font-weight:400;color:#888;font-size:0.9em;">(highest ' + metricLabel + ')</span></div>';
         html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">';
         for (let i = 0; i < Math.min(n, genes.length); i++) {
             html += `<tr style="border-bottom: 1px solid #f0f0f0;">
-                <td style="padding: 1px 2px; font-family: Roboto Mono, monospace; font-size: 0.95em;">${genes[i]}</td>
+                <td class="gene-hover" data-gene="${genes[i]}" style="padding: 1px 2px; font-family: Roboto Mono, monospace; font-size: 0.95em; cursor: help;">${genes[i]}</td>
                 <td style="padding: 1px 2px; text-align: right; color: #dc2626;">${metrics[i].toFixed(3)}</td>
             </tr>`;
         }
         html += '</table>';
 
-        html += '<div style="font-weight: 600; color: #2563eb; margin-bottom: 3px;">Bottom ' + n + ' (lowest metric):</div>';
+        html += '<div style="font-weight: 600; color: #2563eb; margin-bottom: 3px;">Bottom ' + n + ' in your dataset <span style="font-weight:400;color:#888;font-size:0.9em;">(lowest ' + metricLabel + ')</span></div>';
         html += '<table style="width: 100%; border-collapse: collapse;">';
         for (let i = genes.length - 1; i >= Math.max(0, genes.length - n); i--) {
             html += `<tr style="border-bottom: 1px solid #f0f0f0;">
-                <td style="padding: 1px 2px; font-family: Roboto Mono, monospace; font-size: 0.95em;">${genes[i]}</td>
+                <td class="gene-hover" data-gene="${genes[i]}" style="padding: 1px 2px; font-family: Roboto Mono, monospace; font-size: 0.95em; cursor: help;">${genes[i]}</td>
                 <td style="padding: 1px 2px; text-align: right; color: #2563eb;">${metrics[i].toFixed(3)}</td>
             </tr>`;
         }
         html += '</table>';
 
         el.innerHTML = html;
+        // Attach gene info tooltips
+        this.attachGeneTooltips(el);
     }
 
     // --------------------------------------------------------
@@ -2110,6 +2170,7 @@ class GSEAApp {
         document.getElementById('overlapEmpty').style.display = '';
         document.getElementById('overlapResults').style.display = 'none';
         document.getElementById('openSettingsBtn').style.display = 'none';
+        document.getElementById('settingsPanel').classList.remove('open');
         document.getElementById('methodsCard').style.display = 'none';
 
         // Reset checkboxes
@@ -2243,25 +2304,75 @@ class GSEAApp {
     updateSettings() {
         this.readSettings();
         if (this.results) {
-            this.renderBubblePlot();
-            this.renderRankedPlot();
-            const selected = document.getElementById('geneSetSelector').value;
-            if (selected) this.renderESPlot(selected);
+            // Re-render the plot for the active tab
+            if (this.activeTab === 'overview') {
+                this.renderBubblePlot();
+                this.renderRankedPlot();
+            } else if (this.activeTab === 'enrichment') {
+                const selected = document.getElementById('geneSetSelector').value;
+                if (selected) this.renderESPlot(selected);
+            } else if (this.activeTab === 'overlap') {
+                this.renderOverlapHeatmap();
+            }
         }
-        // Close settings modal
-        document.getElementById('settingsModalOverlay').classList.remove('open');
+    }
+
+    updateSettingsTabVisibility() {
+        // Show/hide per-tab settings sections
+        const overviewSection = document.getElementById('settingsOverview');
+        const enrichmentSection = document.getElementById('settingsEnrichment');
+        if (overviewSection) overviewSection.style.display = (this.activeTab === 'overview') ? '' : 'none';
+        if (enrichmentSection) enrichmentSection.style.display = (this.activeTab === 'enrichment') ? '' : 'none';
+    }
+
+    initSettingsDrag() {
+        const panel = document.getElementById('settingsPanel');
+        const header = document.getElementById('settingsPanelHeader');
+        let isDragging = false, startX, startY, startLeft, startTop;
+
+        header.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            isDragging = true;
+            const rect = panel.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            panel.style.left = (startLeft + dx) + 'px';
+            panel.style.top = (startTop + dy) + 'px';
+            panel.style.right = 'auto';
+        });
+        document.addEventListener('mouseup', () => { isDragging = false; });
+    }
+
+    getPlotDimensions(defaultW, defaultH) {
+        const w = parseInt(document.getElementById('plotWidth').value) || 0;
+        const h = parseInt(document.getElementById('plotHeight').value) || 0;
+        return {
+            width: w > 0 ? w : undefined,
+            height: h > 0 ? h : defaultH
+        };
     }
 
     // --------------------------------------------------------
     // Tab Navigation
     // --------------------------------------------------------
     showTab(tabName) {
+        this.activeTab = tabName;
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tab === tabName);
         });
         document.querySelectorAll('.tab-panel').forEach(panel => {
             panel.classList.toggle('active', panel.id === 'tab-' + tabName);
         });
+        // Update settings panel to show relevant controls
+        this.updateSettingsTabVisibility();
     }
 
     // --------------------------------------------------------
