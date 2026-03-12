@@ -749,10 +749,9 @@ class GSEAApp {
             yref: 'paper', y0: 0, y1: 1,
             line: { color: '#9ca3af', width: 1.5 }
         });
-        // Plot border lines at paper coordinates (top, right, bottom — no left, since labels are there)
+        // Plot border lines at paper coordinates (top + bottom only — no left/right for a clean open look)
         shapes.push(
             { type: 'line', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 1, y1: 1, line: { color: '#333', width: 1 } },  // top
-            { type: 'line', xref: 'paper', yref: 'paper', x0: 1, x1: 1, y0: 0, y1: 1, line: { color: '#333', width: 1 } },  // right
             { type: 'line', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0, y1: 0, line: { color: '#333', width: 1 } }   // bottom
         );
 
@@ -825,73 +824,31 @@ class GSEAApp {
             dragmode: false
         };
 
-        // Size legend: use nice round values that BRACKET the actual data range
-        // Smallest legend < smallest data, largest legend > largest data, mid in between
+        // Size annotation: Plotly caps legend symbol sizes at ~16px, so bubble legends
+        // are inaccurate for large markers. Use a text annotation instead.
         const actualSizes = top.map(r => r.size).sort((a, b) => a - b);
         const minActualSize = actualSizes[0];
         const maxActualSize = actualSizes[actualSizes.length - 1];
-        // Round down for the low end, round up for the high end
-        const roundDown = (n) => {
-            if (n <= 10) return Math.max(1, Math.floor(n / 5) * 5 || 1);
-            if (n <= 50) return Math.floor(n / 10) * 10;
-            if (n <= 200) return Math.floor(n / 20) * 20;
-            if (n <= 1000) return Math.floor(n / 50) * 50;
-            return Math.floor(n / 100) * 100;
-        };
-        const roundUp = (n) => {
-            if (n <= 10) return Math.ceil(n / 5) * 5 + 5;
-            if (n <= 50) return Math.ceil(n / 10) * 10 + 10;
-            if (n <= 200) return Math.ceil(n / 20) * 20 + 20;
-            if (n <= 1000) return Math.ceil(n / 50) * 50 + 50;
-            return Math.ceil(n / 100) * 100 + 100;
-        };
-        let sizeSamples;
-        if (maxActualSize <= minActualSize) {
-            sizeSamples = [minActualSize];
-        } else {
-            const lo = roundDown(minActualSize);
-            const hi = roundUp(maxActualSize);
-            const mid = Math.round((lo + hi) / 2 / 10) * 10 || Math.round((lo + hi) / 2);
-            sizeSamples = [...new Set([lo, mid, hi])].sort((a, b) => a - b);
-        }
-        const sizeLegendTraces = [];
-        if (sizeSamples.length > 0) {
-            for (const s of sizeSamples) {
-                sizeLegendTraces.push({
-                    x: [null], y: [null],
-                    mode: 'markers',
-                    type: 'scatter',
-                    marker: {
-                        size: Math.max(10, Math.min(30, Math.sqrt(s) * 2)),
-                        color: 'rgba(180,180,180,0.5)',
-                        line: { width: 1, color: 'rgba(0,0,0,0.3)' },
-                        sizemode: 'diameter'
-                    },
-                    name: `  ${s}`,
-                    showlegend: true,
-                    hoverinfo: 'skip'
-                });
-            }
-            layout.legend = {
-                title: { text: '<b>Gene set size</b>', font: { size: 10, family: fontFam, color: '#555' } },
-                x: 1.02,
-                y: 0.55,
-                xanchor: 'left',
-                yanchor: 'top',
-                itemsizing: 'trace',
-                font: { size: 10, family: fontFam, color: '#555' },
-                borderwidth: 0,
-                tracegroupgap: 0,
-                bgcolor: 'rgba(255,255,255,0)'
-            };
-        }
+        const sizeRangeText = minActualSize === maxActualSize
+            ? `${minActualSize} genes`
+            : `${minActualSize} – ${maxActualSize} genes`;
+        if (!layout.annotations) layout.annotations = [];
+        layout.annotations.push({
+            text: `<b>Bubble size</b> = gene set size<br>(${sizeRangeText})`,
+            xref: 'paper', yref: 'paper',
+            x: 1.02, y: 0.45,
+            xanchor: 'left', yanchor: 'top',
+            showarrow: false,
+            font: { size: 10, family: fontFam, color: '#555' },
+            align: 'left'
+        });
 
         // Apply custom dimensions
         const dims = this.getPlotDimensions('bubblePlot', undefined, layout.height);
         if (dims.width) layout.width = dims.width;
         if (dims.height) layout.height = dims.height;
 
-        Plotly.newPlot('bubblePlot', [trace, ...sizeLegendTraces], layout, {
+        Plotly.newPlot('bubblePlot', [trace], layout, {
             responsive: true,
             displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
