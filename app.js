@@ -225,10 +225,16 @@ class GSEAApp {
         document.getElementById('openSettingsBtn').addEventListener('click', () => {
             const panel = document.getElementById('settingsPanel');
             panel.classList.toggle('open');
-            this.updateSettingsTabVisibility();
         });
         document.getElementById('closeSettingsBtn').addEventListener('click', () => {
             document.getElementById('settingsPanel').classList.remove('open');
+        });
+
+        // Close graph settings popups when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.card-settings-btn') && !e.target.closest('.graph-settings-popup')) {
+                document.querySelectorAll('.graph-settings-popup.open').forEach(p => p.classList.remove('open'));
+            }
         });
 
         // Make settings panel draggable
@@ -761,14 +767,16 @@ class GSEAApp {
                 cmax: maxLogFdr,
                 showscale: true,
                 colorbar: {
-                    title: { text: 'FDR q-value', font: { size: 11, family: 'Open Sans' } },
-                    thickness: 18,
-                    len: 0.6,
+                    title: { text: '-log10(FDR)', font: { size: 11, family: fontFam } },
+                    thickness: 28,
+                    len: 0.5,
                     y: 0.5,
+                    x: 1.02,
                     tickvals: [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr),
                     ticktext: ['1', '0.25', '0.1', '0.05', '0.01'].slice(0, [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr).length),
-                    tickfont: { size: 10 },
-                    outlinewidth: 0
+                    tickfont: { size: 10, family: fontFam },
+                    outlinewidth: 1,
+                    outlinecolor: '#ccc'
                 },
                 line: { width: 1.5, color: 'white' }
             },
@@ -797,25 +805,47 @@ class GSEAApp {
                 automargin: true,
                 gridwidth: 0,
                 showgrid: false,
-                range: [-0.8, top.length - 0.2]
+                range: [-1.0, top.length - 0.0]
             },
-            height: Math.max(440, top.length * 26 + 120),
-            margin: { l: 10, r: 40, t: 20, b: 65 },
+            height: Math.max(440, top.length * 26 + 140),
+            margin: { l: 10, r: 100, t: 20, b: 80 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
             shapes: shapes
         };
 
+        // Add size legend annotation (shows what bubble sizes mean)
+        const sizeSamples = [20, 50, 100, 200].filter(s => s <= Math.max(...top.map(r => r.size)));
+        if (sizeSamples.length > 0) {
+            const sizeText = sizeSamples.map(s => {
+                const dotSize = Math.max(10, Math.min(30, Math.sqrt(s) * 2));
+                return `${'●'.repeat(1)} ${s}`;
+            }).join('  ');
+            layout.annotations = layout.annotations || [];
+            layout.annotations.push({
+                text: '<b>Gene set size:</b>  ' + sizeSamples.map(s => {
+                    const sz = Math.max(10, Math.min(30, Math.sqrt(s) * 2));
+                    return `<span style="font-size:${Math.round(sz * 0.7)}px">●</span> ${s}`;
+                }).join('&nbsp;&nbsp;'),
+                xref: 'paper', yref: 'paper',
+                x: 0, y: -0.06,
+                showarrow: false,
+                font: { size: 10, family: fontFam, color: '#555' },
+                xanchor: 'left', yanchor: 'top'
+            });
+        }
+
         // Apply custom dimensions
-        const dims = this.getPlotDimensions(undefined, layout.height);
+        const dims = this.getPlotDimensions('bubblePlot', undefined, layout.height);
         if (dims.width) layout.width = dims.width;
         if (dims.height) layout.height = dims.height;
 
         Plotly.newPlot('bubblePlot', [trace], layout, {
             responsive: true,
             displaylogo: false,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
+            scrollZoom: false,
             edits: { annotationPosition: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true }
         });
 
@@ -963,14 +993,15 @@ class GSEAApp {
         };
 
         // Apply custom dimensions
-        const dims = this.getPlotDimensions(undefined, layout.height);
+        const dims = this.getPlotDimensions('rankedPlot', undefined, layout.height);
         if (dims.width) layout.width = dims.width;
         if (dims.height) layout.height = dims.height;
 
         Plotly.newPlot('rankedPlot', [trace], layout, {
             responsive: true,
             displaylogo: false,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
+            scrollZoom: false,
             edits: { annotationPosition: true, annotationText: true, axisTitleText: true, titleText: false, legendPosition: true }
         });
     }
@@ -1030,7 +1061,7 @@ class GSEAApp {
         const xRight = 1.0;
 
         // Range padding so extreme ends aren't clipped at borders
-        const xPad = N * 0.015;
+        const xPad = N * 0.025;
 
         // ---- Panel 1: Running Enrichment Score ----
         const esLine = {
@@ -1158,56 +1189,72 @@ class GSEAApp {
             }
         ];
 
-        // Stats annotation — position in the quadrant least occupied by the ES curve
+        // Stats annotation — position OUTSIDE the curve area by checking all 4 corners
         if (s.showStatsBox) {
-            const isPositive = result.nes >= 0;
-            // Sample the ES curve at 4 quadrants to find the emptiest corner
-            const half = Math.floor(N / 2);
-            // Average ES in left half vs right half
-            let leftSum = 0, rightSum = 0;
-            const sampleStep = Math.max(1, Math.floor(N / 200));
-            let leftCount = 0, rightCount = 0;
-            for (let i = 0; i < N; i += sampleStep) {
-                if (i < half) { leftSum += Math.abs(result.runningES[i]); leftCount++; }
-                else { rightSum += Math.abs(result.runningES[i]); rightCount++; }
-            }
-            const leftAvg = leftCount > 0 ? leftSum / leftCount : 0;
-            const rightAvg = rightCount > 0 ? rightSum / rightCount : 0;
-
-            // Find peak for vertical placement
-            let peakVal = result.runningES[0];
+            // Find peak index and value
+            let peakIdx = 0, peakVal = result.runningES[0];
             for (let i = 1; i < result.runningES.length; i++) {
                 if (Math.abs(result.runningES[i]) > Math.abs(peakVal)) {
                     peakVal = result.runningES[i];
+                    peakIdx = i;
                 }
             }
 
-            // Place horizontally opposite to where the curve is densest
-            const curveIsLeft = leftAvg > rightAvg;
-            const boxX = curveIsLeft ? 0.97 : 0.03;
-            const boxXanchor = curveIsLeft ? 'right' : 'left';
-            // Place vertically opposite to the peak direction
-            let boxY, boxYanchor;
-            if (peakVal >= 0) {
-                // Peak is positive (top), so place box at bottom of ES panel
-                boxY = esBot + (esTop - esBot) * 0.04;
-                boxYanchor = 'bottom';
-            } else {
-                // Peak is negative (bottom), so place box at top of ES panel
-                boxY = esTop - (esTop - esBot) * 0.04;
-                boxYanchor = 'top';
+            // Sample ES at proposed box corners to find the corner with least curve activity
+            // Check actual ES values at the four corners of the ES panel
+            const corners = [
+                { x: 0.03, y: esTop - (esTop - esBot) * 0.04, xa: 'left', ya: 'top', region: 'topLeft' },
+                { x: 0.97, y: esTop - (esTop - esBot) * 0.04, xa: 'right', ya: 'top', region: 'topRight' },
+                { x: 0.03, y: esBot + (esTop - esBot) * 0.04, xa: 'left', ya: 'bottom', region: 'bottomLeft' },
+                { x: 0.97, y: esBot + (esTop - esBot) * 0.04, xa: 'right', ya: 'bottom', region: 'bottomRight' }
+            ];
+
+            // Score each corner: measure how much ES curve passes through it
+            // Box is roughly 20% wide and 25% tall in paper coords
+            const boxW = 0.20;  // approximate box width fraction
+            const boxH = (esTop - esBot) * 0.30;  // approximate box height fraction
+            const esRange = Math.max(Math.abs(Math.max(...esSampled)), Math.abs(Math.min(...esSampled))) || 1;
+
+            let bestCorner = corners[0];
+            let bestScore = Infinity;
+
+            for (const corner of corners) {
+                // Determine x range in data coords
+                const xStart = corner.xa === 'left' ? 0 : N * (1 - boxW);
+                const xEnd = corner.xa === 'left' ? N * boxW : N;
+                // Determine if box is in top or bottom of ES panel
+                const boxIsTop = corner.ya === 'top';
+
+                // Sum the |ES| values in this region, weighted by whether they're in the same vertical zone
+                let score = 0;
+                const step = Math.max(1, Math.floor(N / 300));
+                for (let i = 0; i < N; i += step) {
+                    if (i >= xStart && i <= xEnd) {
+                        const esVal = result.runningES[i];
+                        // If box is top and ES is positive, that's bad (overlap)
+                        // If box is bottom and ES is negative, that's bad
+                        if (boxIsTop && esVal > 0) score += esVal / esRange;
+                        else if (!boxIsTop && esVal < 0) score += Math.abs(esVal) / esRange;
+                        // Also penalize any large ES in the region
+                        score += Math.abs(esVal) / esRange * 0.3;
+                    }
+                }
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestCorner = corner;
+                }
             }
 
             annotations.push({
                 text: `NES = ${result.nes.toFixed(2)}<br>FDR = ${this.formatPval(result.fdr)}<br>p = ${this.formatPval(result.pvalue)}<br>Size = ${result.size}`,
                 xref: 'paper', yref: 'paper',
-                x: boxX, y: boxY,
+                x: bestCorner.x, y: bestCorner.y,
                 showarrow: false,
                 font: { size: Math.max(9, baseFontSize - 2), family: 'Roboto Mono, monospace', color: '#333' },
-                align: boxXanchor === 'right' ? 'right' : 'left',
-                xanchor: boxXanchor,
-                yanchor: boxYanchor,
-                bgcolor: 'rgba(255,255,255,0.9)',
+                align: bestCorner.xa === 'right' ? 'right' : 'left',
+                xanchor: bestCorner.xa,
+                yanchor: bestCorner.ya,
+                bgcolor: 'rgba(255,255,255,0.95)',
                 bordercolor: '#ccc',
                 borderwidth: 1,
                 borderpad: 5
@@ -1287,7 +1334,7 @@ class GSEAApp {
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: true, zerolinecolor: '#333', zerolinewidth: 0.8,
                 tickfont: { size: tickFontSize, family: fontFam },
-                range: [Math.min(0, ...metSampled) * 1.08, Math.max(0, ...metSampled) * 1.08]
+                range: [Math.min(0, ...metSampled) * 1.15, Math.max(0, ...metSampled) * 1.15]
             },
             height: 580,
             margin: { l: 65, r: 15, t: 45, b: 60 },
@@ -1300,7 +1347,7 @@ class GSEAApp {
         };
 
         // Apply custom dimensions
-        const dims = this.getPlotDimensions(undefined, layout.height);
+        const dims = this.getPlotDimensions('esPlot', undefined, layout.height);
         if (dims.width) layout.width = dims.width;
         if (dims.height) layout.height = dims.height;
 
@@ -1310,7 +1357,8 @@ class GSEAApp {
             {
                 responsive: true,
                 displaylogo: false,
-                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
+                scrollZoom: false,
                 edits: { annotationPosition: true, annotationTail: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true, colorbarPosition: true }
             }
         );
@@ -1342,10 +1390,21 @@ class GSEAApp {
 
         // Format the name nicely
         const displayName = this.cleanName(geneSetName);
-        const direction = result.nes > 0 ? 'Upregulated' : 'Downregulated';
-        const dirColor = result.nes > 0 ? '#dc2626' : '#2563eb';
-        const sigLabel = result.fdr < 0.05 ? '★ Significant' : result.fdr < 0.25 ? '◆ Suggestive' : '○ Not significant';
-        const sigColor = result.fdr < 0.05 ? '#15803d' : result.fdr < 0.25 ? '#d97706' : '#6b7280';
+        const isUp = result.nes > 0;
+        const dirLabel = isUp ? 'Upregulated' : 'Downregulated';
+        const dirColor = isUp ? '#dc2626' : '#2563eb';
+        const metricLabel = document.getElementById('metricColumn').value || 'metric';
+
+        // Build a clear interpretation of direction
+        const dirExplanation = isUp
+            ? `Genes in this set tend to have <b>high ${metricLabel}</b> values in your data, meaning this pathway is <b>activated / increased</b> in your condition.`
+            : `Genes in this set tend to have <b>low ${metricLabel}</b> values in your data, meaning this pathway is <b>suppressed / decreased</b> in your condition.`;
+
+        // FDR interpretation
+        let fdrNote = '';
+        if (result.fdr < 0.05) fdrNote = '<span style="color:#15803d; font-weight:600;">Significant (FDR < 0.05)</span>';
+        else if (result.fdr < 0.25) fdrNote = '<span style="color:#d97706; font-weight:600;">Suggestive (FDR < 0.25)</span>';
+        else fdrNote = '<span style="color:#6b7280;">Not significant (FDR ≥ 0.25)</span>';
 
         el.innerHTML = `
             <div style="font-weight: 600; margin-bottom: 6px; line-height: 1.3; word-break: break-word;">${displayName}</div>
@@ -1362,10 +1421,11 @@ class GSEAApp {
                 <span>${result.size} genes</span>
                 <span style="color: var(--gray-500);">Leading Edge:</span>
                 <span>${(result.leadingEdge || []).length} genes</span>
-                <span style="color: var(--gray-500);">Direction:</span>
-                <span style="color: ${dirColor}; font-weight: 500;">${direction}</span>
-                <span style="color: var(--gray-500);">Status:</span>
-                <span style="color: ${sigColor}; font-weight: 500;">${sigLabel}</span>
+            </div>
+            <div style="margin-top: 8px; padding: 6px 8px; background: ${isUp ? '#fef2f2' : '#eff6ff'}; border-radius: 4px; border-left: 3px solid ${dirColor};">
+                <div style="font-weight: 600; color: ${dirColor}; margin-bottom: 2px;">${dirLabel}</div>
+                <div style="font-size: 0.88em; color: var(--text-secondary); line-height: 1.4;">${dirExplanation}</div>
+                <div style="font-size: 0.88em; margin-top: 3px;">${fdrNote}</div>
             </div>
         `;
     }
@@ -1782,7 +1842,8 @@ class GSEAApp {
 
         Plotly.newPlot('overlapHeatmap', [trace], layout, {
             responsive: true, displaylogo: false,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
+            scrollZoom: false
         });
 
         // Show collapsed info
@@ -1987,10 +2048,22 @@ class GSEAApp {
         this.readSettings();
         const scale = this.settings.exportScale;
 
+        // Use the actual rendered size but add extra padding to prevent cropping
+        const currentLayout = plotEl.layout || {};
+        let exportWidth = currentLayout.width || plotEl.offsetWidth || 800;
+        let exportHeight = currentLayout.height || plotEl.offsetHeight || 500;
+
+        // Add extra margin for exports to prevent text cropping
+        // Especially for bubble plot where y-axis labels can be long
+        if (plotId === 'bubblePlot') {
+            exportWidth = Math.max(exportWidth, 1100);
+            exportHeight = Math.max(exportHeight, 500);
+        }
+
         const opts = {
             format: format,
-            width: plotEl.offsetWidth || 800,
-            height: plotEl.offsetHeight || 500
+            width: exportWidth,
+            height: exportHeight
         };
 
         if (format === 'png') {
@@ -2144,6 +2217,7 @@ class GSEAApp {
         this.results = null;
         this.analysisDate = null;
         this._currentGeneDetailRows = null;
+        this.geneInfoCache = {};
 
         // Reset UI
         document.getElementById('fileInput').value = '';
@@ -2304,7 +2378,7 @@ class GSEAApp {
     updateSettings() {
         this.readSettings();
         if (this.results) {
-            // Re-render the plot for the active tab
+            // Re-render active tab's plots
             if (this.activeTab === 'overview') {
                 this.renderBubblePlot();
                 this.renderRankedPlot();
@@ -2314,15 +2388,12 @@ class GSEAApp {
             } else if (this.activeTab === 'overlap') {
                 this.renderOverlapHeatmap();
             }
+            // Also re-render any open tab's plots if global settings changed (font, etc.)
         }
     }
 
     updateSettingsTabVisibility() {
-        // Show/hide per-tab settings sections
-        const overviewSection = document.getElementById('settingsOverview');
-        const enrichmentSection = document.getElementById('settingsEnrichment');
-        if (overviewSection) overviewSection.style.display = (this.activeTab === 'overview') ? '' : 'none';
-        if (enrichmentSection) enrichmentSection.style.display = (this.activeTab === 'enrichment') ? '' : 'none';
+        // No-op — settings are now per-graph via inline popups
     }
 
     initSettingsDrag() {
@@ -2351,9 +2422,27 @@ class GSEAApp {
         document.addEventListener('mouseup', () => { isDragging = false; });
     }
 
-    getPlotDimensions(defaultW, defaultH) {
-        const w = parseInt(document.getElementById('plotWidth').value) || 0;
-        const h = parseInt(document.getElementById('plotHeight').value) || 0;
+    toggleGraphSettings(panelId) {
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        // Close other open popups first
+        document.querySelectorAll('.graph-settings-popup.open').forEach(p => {
+            if (p.id !== panelId) p.classList.remove('open');
+        });
+        panel.classList.toggle('open');
+    }
+
+    getPlotDimensions(plotId, defaultW, defaultH) {
+        // Per-graph dimension inputs — try graph-specific first, then fallback
+        let wId, hId;
+        if (plotId === 'bubblePlot') { wId = 'plotWidth'; hId = 'plotHeight'; }
+        else if (plotId === 'rankedPlot') { wId = 'rankedPlotWidth'; hId = 'rankedPlotHeight'; }
+        else if (plotId === 'esPlot') { wId = 'esPlotWidth'; hId = 'esPlotHeight'; }
+        else if (plotId === 'overlapHeatmap') { wId = 'overlapPlotWidth'; hId = 'overlapPlotHeight'; }
+        const wEl = wId ? document.getElementById(wId) : null;
+        const hEl = hId ? document.getElementById(hId) : null;
+        const w = wEl ? (parseInt(wEl.value) || 0) : 0;
+        const h = hEl ? (parseInt(hEl.value) || 0) : 0;
         return {
             width: w > 0 ? w : undefined,
             height: h > 0 ? h : defaultH

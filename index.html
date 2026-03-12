@@ -7,6 +7,15 @@
     <link rel="icon" type="image/png" href="enrich favicon.png">
     <link rel="apple-touch-icon" href="enrich favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Aptos+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+    /* Aptos Display fallback — system font on Windows, Google Fonts elsewhere */
+    @font-face {
+        font-family: 'Aptos Display';
+        src: local('Aptos Display'), local('Aptos');
+        font-display: swap;
+    }
+    </style>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
@@ -862,6 +871,51 @@
             gap: 8px;
             margin-left: auto;
         }
+        /* Per-graph settings gear icon (in card headers) */
+        .card-settings-btn {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: var(--radius-sm);
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 2px 7px;
+            line-height: 1;
+            transition: all 0.2s;
+        }
+        .card-settings-btn:hover {
+            background: rgba(255,255,255,0.35);
+            border-color: white;
+        }
+        /* Per-graph mini settings popup */
+        .graph-settings-popup {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            z-index: 5000;
+            padding: 10px 12px;
+            min-width: 260px;
+            max-width: 340px;
+        }
+        .graph-settings-popup.open { display: block; }
+        .graph-settings-popup h4 {
+            margin: 0 0 8px;
+            font-size: 0.82em;
+            color: var(--green-800);
+            font-weight: 600;
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 4px;
+        }
+        .graph-settings-popup .form-group { margin-bottom: 6px; }
+        .graph-settings-popup .form-label { font-size: 0.78em; }
+        .graph-settings-popup .form-control { font-size: 0.82em; padding: 4px 6px; }
+
         .settings-gear-btn {
             background: none;
             border: 1px solid var(--gray-200);
@@ -1147,12 +1201,39 @@
             </div>
             <div id="overviewResults" style="display: none;">
                 <div class="card">
-                    <div class="card-title">
+                    <div class="card-title" style="position: relative;">
                         Enrichment Overview
                         <span class="info-icon">i<span class="info-tooltip"><b>Enrichment Overview (Lollipop Plot)</b><br>Shows the top enriched gene sets ranked by Normalized Enrichment Score (NES).<br>• <b>X-axis:</b> NES — positive values (right) indicate upregulated pathways; negative (left) indicate downregulated.<br>• <b>Dot size:</b> Number of genes in the set.<br>• <b>Dot color:</b> FDR significance — darker/warmer colors = more significant.<br>• <b>Click</b> any dot or label to see its full enrichment plot.</span></span>
                         <div class="title-actions">
+                            <button class="card-settings-btn" onclick="app.toggleGraphSettings('bubbleSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','png')">PNG</button>
+                        </div>
+                        <div class="graph-settings-popup" id="bubbleSettings">
+                            <h4>Overview Plot Settings</h4>
+                            <div class="form-group">
+                                <label class="form-label">Top N gene sets</label>
+                                <input type="number" class="form-control settings-live" id="topN" value="20" min="5" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">FDR threshold</label>
+                                <select class="form-control settings-live" id="fdrDisplayThreshold">
+                                    <option value="1">Show all</option>
+                                    <option value="0.25" selected>FDR &lt; 0.25</option>
+                                    <option value="0.1">FDR &lt; 0.1</option>
+                                    <option value="0.05">FDR &lt; 0.05</option>
+                                    <option value="0.01">FDR &lt; 0.01</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Color scale</label>
+                                <select class="form-control settings-live" id="colorScale">
+                                    <option value="RdBu" selected>Red-Blue (RdBu)</option>
+                                    <option value="Viridis">Viridis</option>
+                                    <option value="Plasma">Plasma</option>
+                                    <option value="YlOrRd">Yellow-Orange-Red</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div class="card-content">
@@ -1160,12 +1241,27 @@
                     </div>
                 </div>
                 <div class="card">
-                    <div class="card-title">
+                    <div class="card-title" style="position: relative;">
                         Ranked Gene List
                         <span class="info-icon">i<span class="info-tooltip"><b>Ranked Gene List</b><br>A waterfall plot of your entire dataset sorted by the ranking metric (e.g. log2FC).<br>• <b>X-axis:</b> Gene rank (1 = highest metric value).<br>• <b>Y-axis:</b> Ranking metric value from your data.<br>• <b>Red bars:</b> Positively correlated genes (metric &gt; 0).<br>• <b>Blue bars:</b> Negatively correlated genes (metric &lt; 0).<br>• The <b>zero cross</b> marks where genes transition from up- to down-regulated.<br>This is the ordered gene list that GSEA walks through to compute enrichment scores.</span></span>
                         <div class="title-actions">
+                            <button class="card-settings-btn" onclick="app.toggleGraphSettings('rankedSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">PNG</button>
+                        </div>
+                        <div class="graph-settings-popup" id="rankedSettings">
+                            <h4>Ranked Plot Settings</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Width (px)</label>
+                                    <input type="number" class="form-control settings-live" id="rankedPlotWidth" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Height (px)</label>
+                                    <input type="number" class="form-control settings-live" id="rankedPlotHeight" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                </div>
+                            </div>
+                            <div class="form-hint">Set to 0 for auto-sizing</div>
                         </div>
                     </div>
                     <div class="card-content">
@@ -1200,12 +1296,45 @@
                     <!-- Plot column -->
                     <div style="flex: 1; min-width: 0;">
                         <div class="card">
-                            <div class="card-title">
+                            <div class="card-title" style="position: relative;">
                                 Enrichment Score Plot
                                 <span class="info-icon">i<span class="info-tooltip"><b>How to read this plot:</b><br><b>Top panel</b> — The green running enrichment score (ES) curve. A peak away from zero indicates enrichment. Peaks to the left = genes are upregulated; peaks to the right = downregulated.<br><b>Middle panel</b> — Black bars show where genes in this set appear in the ranked list.<br><b>Bottom panel</b> — The ranking metric for all genes (red = positive/upregulated, blue = negative/downregulated).<br><b>Leading edge</b> = genes before the ES peak that drive the signal.</span></span>
                                 <div class="title-actions">
+                                    <button class="card-settings-btn" onclick="app.toggleGraphSettings('esSettings')">&#9881;</button>
                                     <button class="btn btn-sm" onclick="app.exportPlot('esPlot','svg')">SVG</button>
                                     <button class="btn btn-sm" onclick="app.exportPlot('esPlot','png')">PNG</button>
+                                </div>
+                                <div class="graph-settings-popup" id="esSettings">
+                                    <h4>Enrichment Plot Settings</h4>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label class="form-label">ES line color</label>
+                                            <input type="color" class="form-control settings-live" id="esLineColor" value="#15a04a" style="height: 28px; padding: 2px; max-width: 55px;">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Line width</label>
+                                            <input type="number" class="form-control settings-live" id="esLineWidth" value="2.5" min="0.5" max="6" step="0.5">
+                                        </div>
+                                    </div>
+                                    <div class="checkbox-group" style="margin-top: 4px; font-size: 0.82em;">
+                                        <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showStatsBox" checked> Stats box</label>
+                                        <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showZeroCross" checked> Zero-cross</label>
+                                        <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showCorrelationLabels" checked> Correlation labels</label>
+                                        <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showPanelBorders" checked> Panel borders</label>
+                                        <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showHitMarkers" checked> Hit markers</label>
+                                        <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showMetricFill" checked> Color by direction</label>
+                                    </div>
+                                    <div class="form-row" style="margin-top: 6px;">
+                                        <div class="form-group">
+                                            <label class="form-label">Width (px)</label>
+                                            <input type="number" class="form-control settings-live" id="esPlotWidth" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Height (px)</label>
+                                            <input type="number" class="form-control settings-live" id="esPlotHeight" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                        </div>
+                                    </div>
+                                    <div class="form-hint">Set to 0 for auto-sizing</div>
                                 </div>
                             </div>
                             <div class="card-content" style="padding: 8px;">
@@ -1218,13 +1347,12 @@
                         <div class="card" style="margin-bottom: 8px;">
                             <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Gene Set Info
                                 <span class="info-icon">i<span class="info-tooltip" id="geneSetInfoTooltip">
-                                    <b>NES</b> — Normalized Enrichment Score. Positive = genes tend to be upregulated; Negative = downregulated.<br>
-                                    <b>FDR</b> — False Discovery Rate (Benjamini-Hochberg adjusted).<br>
+                                    <b>NES</b> — Normalized Enrichment Score. The key metric for comparing across gene sets.<br>
+                                    <b>FDR</b> — False Discovery Rate (Benjamini-Hochberg). &lt;0.05 = significant, &lt;0.25 = suggestive.<br>
                                     <b>p-value</b> — Nominal enrichment p-value from permutation test.<br>
                                     <b>ES</b> — Raw (unnormalized) enrichment score.<br>
-                                    <b>Leading Edge</b> — Genes appearing before the ES peak; these drive the enrichment signal.<br>
-                                    <b>Direction</b> — Whether the gene set is enriched among upregulated (positive metric) or downregulated (negative metric) genes.<br>
-                                    <b>Status</b> — ★ Significant (FDR &lt; 0.05), ◆ Suggestive (FDR &lt; 0.25), or ○ Not significant.
+                                    <b>Leading Edge</b> — Genes before the ES peak that drive the enrichment signal.<br>
+                                    <b>Direction</b> — Tells you HOW to interpret the result. "Upregulated" means the genes in this set tend to have high positive metric values (e.g. high log2FC), so this pathway is activated/increased. "Downregulated" means the genes tend to have negative metric values, so this pathway is suppressed/decreased in your condition vs control.
                                 </span></span>
                             </div>
                             <div class="card-content" style="padding: 8px 10px; font-size: 0.85em;" id="geneSetInfoContent">
@@ -1319,12 +1447,27 @@
                     </div>
                 </div>
                 <div class="card">
-                    <div class="card-title">
+                    <div class="card-title" style="position: relative;">
                         Gene Set Overlap Heatmap
                         <span class="info-icon">i<span class="info-tooltip"><b>Gene Set Overlap</b><br>A heatmap showing how much gene sets share genes with each other (Jaccard similarity).<br>• <b>Darker green:</b> Higher overlap (more shared genes).<br>• <b>White:</b> No shared genes.<br>• Hover to see exact overlap counts and Jaccard index.<br>High overlap between sets may indicate redundant pathways. Use the "Condensed view" to collapse highly overlapping sets.</span></span>
                         <div class="title-actions">
+                            <button class="card-settings-btn" onclick="app.toggleGraphSettings('overlapSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','png')">PNG</button>
+                        </div>
+                        <div class="graph-settings-popup" id="overlapSettings">
+                            <h4>Overlap Heatmap Settings</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Width (px)</label>
+                                    <input type="number" class="form-control settings-live" id="overlapPlotWidth" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Height (px)</label>
+                                    <input type="number" class="form-control settings-live" id="overlapPlotHeight" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                </div>
+                            </div>
+                            <div class="form-hint">Set to 0 for auto-sizing</div>
                         </div>
                     </div>
                     <div class="card-content">
@@ -1400,81 +1543,13 @@
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
 </div>
 
-<!-- Floating Settings Panel (draggable) -->
+<!-- Floating Settings Panel (draggable) — Global settings only -->
 <div class="settings-floating-panel" id="settingsPanel">
     <div class="settings-panel-header" id="settingsPanelHeader">
-        <span>⚙ Settings</span>
+        <span>⚙ Global Settings</span>
         <button id="closeSettingsBtn">&times;</button>
     </div>
     <div class="settings-panel-body" id="settingsPanelBody">
-        <!-- Overview settings (shown on Overview tab) -->
-        <div id="settingsOverview" class="settings-tab-section">
-            <div class="settings-section">
-                <h3>Overview Plot</h3>
-                <div class="form-group">
-                    <label class="form-label">Top N gene sets</label>
-                    <input type="number" class="form-control settings-live" id="topN" value="20" min="5" max="100">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">FDR threshold</label>
-                    <select class="form-control settings-live" id="fdrDisplayThreshold">
-                        <option value="1">Show all</option>
-                        <option value="0.25" selected>FDR &lt; 0.25</option>
-                        <option value="0.1">FDR &lt; 0.1</option>
-                        <option value="0.05">FDR &lt; 0.05</option>
-                        <option value="0.01">FDR &lt; 0.01</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Color scale</label>
-                    <select class="form-control settings-live" id="colorScale">
-                        <option value="RdBu" selected>Red-Blue (RdBu)</option>
-                        <option value="Viridis">Viridis</option>
-                        <option value="Plasma">Plasma</option>
-                        <option value="YlOrRd">Yellow-Orange-Red</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        <!-- Enrichment settings (shown on Enrichment tab) -->
-        <div id="settingsEnrichment" class="settings-tab-section" style="display:none;">
-            <div class="settings-section">
-                <h3>Enrichment Plot</h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">ES line color</label>
-                        <input type="color" class="form-control settings-live" id="esLineColor" value="#15a04a" style="height: 28px; padding: 2px; max-width: 55px;">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Line width</label>
-                        <input type="number" class="form-control settings-live" id="esLineWidth" value="2.5" min="0.5" max="6" step="0.5">
-                    </div>
-                </div>
-                <div class="checkbox-group" style="margin-top: 4px;">
-                    <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showStatsBox" checked> Stats box</label>
-                    <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showZeroCross" checked> Zero-cross</label>
-                    <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showCorrelationLabels" checked> Correlation labels</label>
-                    <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showPanelBorders" checked> Panel borders</label>
-                    <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showHitMarkers" checked> Hit markers</label>
-                    <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showMetricFill" checked> Color by direction</label>
-                </div>
-            </div>
-        </div>
-        <!-- Always-visible sections -->
-        <div class="settings-section">
-            <h3>Dimensions</h3>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Width (px)</label>
-                    <input type="number" class="form-control settings-live" id="plotWidth" value="0" min="0" max="2000" step="50" placeholder="Auto">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Height (px)</label>
-                    <input type="number" class="form-control settings-live" id="plotHeight" value="0" min="0" max="2000" step="50" placeholder="Auto">
-                </div>
-            </div>
-            <div class="form-hint">Set to 0 for auto-sizing</div>
-        </div>
         <div class="settings-section">
             <h3>Typography</h3>
             <div class="form-row">
@@ -1487,6 +1562,7 @@
                         <option value="Times New Roman">Times New Roman</option>
                         <option value="Georgia">Georgia</option>
                         <option value="Roboto">Roboto</option>
+                        <option value="Aptos Display">Aptos Display</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -1510,10 +1586,10 @@
                 </div>
             </div>
         </div>
-        <div class="form-hint" style="margin-top: 4px;">💡 Double-click text on any graph to edit it</div>
+        <div class="form-hint" style="margin-top: 4px;">💡 Double-click text on any graph to edit it<br>💡 Per-graph settings: click ⚙ on each graph header</div>
     </div>
 </div>
 
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
