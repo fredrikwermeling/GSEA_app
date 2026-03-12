@@ -990,7 +990,7 @@ class GSEAApp {
             xanchor: 'left', yanchor: 'top',
             showarrow: false,
             font: { size: 10, family: fontFam, color: '#555' },
-            align: 'left'
+            align: 'center'
         });
 
         // Apply custom dimensions
