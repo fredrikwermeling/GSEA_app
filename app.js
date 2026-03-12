@@ -224,6 +224,9 @@ class GSEAApp {
         // Reset app
         document.getElementById('resetBtn').addEventListener('click', () => this.resetApp());
 
+        // Invert ranking & re-run
+        document.getElementById('invertBtn').addEventListener('click', () => this.invertAndRerun());
+
         // Floating settings panel open/close
         document.getElementById('openSettingsBtn').addEventListener('click', () => {
             const panel = document.getElementById('settingsPanel');
@@ -524,6 +527,47 @@ class GSEAApp {
     }
 
     // --------------------------------------------------------
+    // Invert Ranking — negate all metrics and re-run GSEA
+    // --------------------------------------------------------
+    invertAndRerun() {
+        if (!this.rankedList) return;
+        // Negate all metrics (this reverses the ranking order)
+        this.rankedList.metrics = this.rankedList.metrics.map(m => -m);
+        // Reverse the arrays so they stay sorted descending
+        this.rankedList.genes.reverse();
+        this.rankedList.metrics.reverse();
+
+        // Re-run GSEA with inverted ranking
+        const geneSets = this.getActiveGeneSets();
+        if (!geneSets) return;
+        this.readSettings();
+
+        document.getElementById('runBtn').style.display = 'none';
+        document.getElementById('invertBtn').style.display = 'none';
+        document.getElementById('cancelBtn').style.display = '';
+        const container = document.getElementById('progressContainer');
+        container.classList.add('active');
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressText').textContent = 'Re-running with inverted ranking...';
+        this.hideStatus('runStatus');
+
+        this.analysisDate = new Date();
+
+        this.worker.postMessage({
+            type: 'run',
+            rankedGenes: this.rankedList.genes,
+            rankedMetrics: this.rankedList.metrics,
+            geneSets: geneSets,
+            settings: {
+                permutations: this.settings.permutations,
+                minSize: this.settings.minSize,
+                maxSize: this.settings.maxSize,
+                weightP: this.settings.weightP
+            }
+        });
+    }
+
+    // --------------------------------------------------------
     // GSEA Execution
     // --------------------------------------------------------
     runGSEA() {
@@ -600,6 +644,9 @@ class GSEAApp {
             const nSig = this.results.filter(r => r.fdr < 0.25).length;
             this.showStatus('runStatus', 'success',
                 `Done! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25)`);
+
+            // Show the invert button now that we have results
+            document.getElementById('invertBtn').style.display = '';
 
             this.displayResults();
         }
@@ -830,11 +877,11 @@ class GSEAApp {
         const minActualSize = actualSizes[0];
         const maxActualSize = actualSizes[actualSizes.length - 1];
         const sizeRangeText = minActualSize === maxActualSize
-            ? `${minActualSize} genes`
-            : `${minActualSize} – ${maxActualSize} genes`;
+            ? `(${minActualSize} genes)`
+            : `(${minActualSize} – ${maxActualSize})`;
         if (!layout.annotations) layout.annotations = [];
         layout.annotations.push({
-            text: `<b>Bubble size</b> = gene set size<br>(${sizeRangeText})`,
+            text: `<b>Bubble size</b><br>= gene set size<br>${sizeRangeText}`,
             xref: 'paper', yref: 'paper',
             x: 1.02, y: 0.45,
             xanchor: 'left', yanchor: 'top',
@@ -1242,49 +1289,43 @@ class GSEAApp {
                 }
             }
 
-            // Sample ES at proposed box corners to find the corner with least curve activity
-            // Check actual ES values at the four corners of the ES panel
+            // Place stats box OUTSIDE the filled curve area:
+            // - If ES is mostly positive (peak > 0), the fill goes UP → place box at BOTTOM
+            // - If ES is mostly negative (peak < 0), the fill goes DOWN → place box at TOP
+            // - Prefer the side (left/right) opposite to where the peak occurs
+            const peakIsPositive = peakVal > 0;
+            const peakIsLeft = peakIdx < N / 2;
+            const preferY = peakIsPositive ? 'bottom' : 'top';
+            const preferX = peakIsLeft ? 'right' : 'left';
+
             const corners = [
-                { x: 0.03, y: esTop - (esTop - esBot) * 0.04, xa: 'left', ya: 'top', region: 'topLeft' },
-                { x: 0.97, y: esTop - (esTop - esBot) * 0.04, xa: 'right', ya: 'top', region: 'topRight' },
-                { x: 0.03, y: esBot + (esTop - esBot) * 0.04, xa: 'left', ya: 'bottom', region: 'bottomLeft' },
-                { x: 0.97, y: esBot + (esTop - esBot) * 0.04, xa: 'right', ya: 'bottom', region: 'bottomRight' }
+                { x: 0.03, y: esTop - (esTop - esBot) * 0.04, xa: 'left', ya: 'top' },
+                { x: 0.97, y: esTop - (esTop - esBot) * 0.04, xa: 'right', ya: 'top' },
+                { x: 0.03, y: esBot + (esTop - esBot) * 0.04, xa: 'left', ya: 'bottom' },
+                { x: 0.97, y: esBot + (esTop - esBot) * 0.04, xa: 'right', ya: 'bottom' }
             ];
 
-            // Score each corner: measure how much ES curve passes through it
-            // Box is roughly 20% wide and 25% tall in paper coords
-            const boxW = 0.20;  // approximate box width fraction
-            const boxH = (esTop - esBot) * 0.30;  // approximate box height fraction
-            const esRange = Math.max(Math.abs(Math.max(...esSampled)), Math.abs(Math.min(...esSampled))) || 1;
-
+            // Score: lower is better. Prefer corners opposite to the peak/fill area
             let bestCorner = corners[0];
             let bestScore = Infinity;
-
             for (const corner of corners) {
-                // Determine x range in data coords
+                let score = 0;
+                // Heavily penalize same vertical side as the fill
+                if (corner.ya !== preferY) score += 100;
+                // Lightly penalize same horizontal side as peak
+                if (corner.xa !== preferX) score += 10;
+                // Also check actual ES values in corner region for fine-tuning
+                const boxW = 0.22;
                 const xStart = corner.xa === 'left' ? 0 : N * (1 - boxW);
                 const xEnd = corner.xa === 'left' ? N * boxW : N;
-                // Determine if box is in top or bottom of ES panel
-                const boxIsTop = corner.ya === 'top';
-
-                // Sum the |ES| values in this region, weighted by whether they're in the same vertical zone
-                let score = 0;
-                const step = Math.max(1, Math.floor(N / 300));
-                for (let i = 0; i < N; i += step) {
+                const sampleStep = Math.max(1, Math.floor(N / 200));
+                const esRange = Math.max(Math.abs(peakVal), 0.1);
+                for (let i = 0; i < N; i += sampleStep) {
                     if (i >= xStart && i <= xEnd) {
-                        const esVal = result.runningES[i];
-                        // If box is top and ES is positive, that's bad (overlap)
-                        // If box is bottom and ES is negative, that's bad
-                        if (boxIsTop && esVal > 0) score += esVal / esRange;
-                        else if (!boxIsTop && esVal < 0) score += Math.abs(esVal) / esRange;
-                        // Also penalize any large ES in the region
-                        score += Math.abs(esVal) / esRange * 0.3;
+                        score += Math.abs(result.runningES[i]) / esRange * 0.1;
                     }
                 }
-                if (score < bestScore) {
-                    bestScore = score;
-                    bestCorner = corner;
-                }
+                if (score < bestScore) { bestScore = score; bestCorner = corner; }
             }
 
             annotations.push({
@@ -1448,8 +1489,8 @@ class GSEAApp {
 
         // Build a clear interpretation of direction
         const dirExplanation = isUp
-            ? `Genes in this set tend to have <b>high ${metricLabel}</b> values in your data, meaning this pathway is <b>activated / increased</b> in your condition.`
-            : `Genes in this set tend to have <b>low ${metricLabel}</b> values in your data, meaning this pathway is <b>suppressed / decreased</b> in your condition.`;
+            ? `Genes in the gene set tend to have <b>high ${metricLabel}</b> values in your data, meaning this pathway is <b>activated / increased</b> in your condition.`
+            : `Genes in the gene set tend to have <b>low ${metricLabel}</b> values in your data, meaning this pathway is <b>suppressed / decreased</b> in your condition.`;
 
         // FDR interpretation
         let fdrNote = '';
@@ -1469,7 +1510,7 @@ class GSEAApp {
                 <span style="color: var(--gray-500);">ES:</span>
                 <span>${result.es.toFixed(4)}</span>
                 <span style="color: var(--gray-500);">Size:</span>
-                <span>${result.size} genes</span>
+                <span>${result.size} genes in the gene set</span>
                 <span style="color: var(--gray-500);">Leading Edge:</span>
                 <span>${(result.leadingEdge || []).length} genes</span>
             </div>
@@ -2285,6 +2326,7 @@ class GSEAApp {
         document.getElementById('runBtn').disabled = true;
         document.getElementById('runBtn').style.display = '';
         document.getElementById('cancelBtn').style.display = 'none';
+        document.getElementById('invertBtn').style.display = 'none';
         document.getElementById('progressContainer').classList.remove('active');
         this.hideStatus('uploadStatus');
         this.hideStatus('runStatus');
