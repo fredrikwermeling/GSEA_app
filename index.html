@@ -800,6 +800,95 @@
             white-space: normal;
             overflow: visible;
         }
+        /* Gene detail table: center rank column */
+        #geneDetailTable td:first-child { text-align: center; }
+        #geneDetailTable thead th { cursor: pointer; user-select: none; white-space: nowrap; }
+        #geneDetailTable thead th .sort-arrow { margin-left: 3px; opacity: 0.4; font-size: 9px; }
+        #geneDetailTable thead th.sorted .sort-arrow { opacity: 1; }
+
+        /* Settings modal */
+        .settings-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 5000;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 60px 20px 20px;
+        }
+        .settings-modal-overlay.open { display: flex; }
+        .settings-modal {
+            background: white;
+            border-radius: var(--radius-lg);
+            max-width: 680px;
+            width: 100%;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+        }
+        .settings-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            background: var(--green-600);
+            color: white;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            font-weight: 600;
+            font-size: 0.95em;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .settings-modal-header button {
+            background: none; border: none; color: white;
+            font-size: 22px; cursor: pointer; line-height: 1;
+        }
+        .settings-modal-body {
+            padding: 14px 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .settings-modal-body .settings-section { margin-bottom: 0; }
+        .settings-modal-footer {
+            padding: 10px 16px;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        @media (max-width: 700px) {
+            .settings-modal-body { grid-template-columns: 1fr; }
+        }
+
+        /* Tab bar settings button */
+        .tab-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .settings-gear-btn {
+            background: none;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            padding: 5px 10px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--gray-500);
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .settings-gear-btn:hover {
+            border-color: var(--green-500);
+            color: var(--green-600);
+            background: var(--green-50);
+        }
     </style>
 </head>
 <body>
@@ -1017,16 +1106,17 @@
                     <div class="progress-text" id="progressText"></div>
                 </div>
                 <div id="runStatus" class="status-box hidden"></div>
+                <button class="btn btn-secondary btn-sm" id="resetBtn" style="margin-top: 10px; width: 100%;">Reset App</button>
             </div>
         </div>
 
-        <!-- Methods Section (shown after results, separate from run button) -->
+        <!-- Methods Section (shown after results, collapsible) -->
         <div class="card" id="methodsCard" style="display: none;">
-            <div class="card-title" style="font-size: 0.9em; padding: 6px 10px;">
+            <div class="card-title" style="font-size: 0.9em; padding: 6px 10px; cursor: pointer;" id="methodsToggle">
                 &#x1F4DD; Methods Section
-                <span class="info-icon">i<span class="info-tooltip">An auto-generated methods paragraph you can copy into your paper. It describes the GSEA parameters and gene set collections used in this analysis.</span></span>
+                <span style="margin-left: auto; font-size: 10px; transition: transform 0.2s;" id="methodsChevron">&#9654;</span>
             </div>
-            <div class="card-content" style="padding: 8px 10px;">
+            <div class="card-content" style="padding: 8px 10px; display: none;" id="methodsBody">
                 <div class="methods-btn-wrapper" id="methodsBtnWrapper">
                     <div class="methods-popup-text" id="methodsPopupText" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 8px;">
                         Run GSEA to generate a methods section.
@@ -1039,94 +1129,6 @@
             </div>
         </div>
 
-        <!-- Card 5: Figure Settings (shown after results) -->
-        <div class="card" id="settingsCard" style="display: none;">
-            <div class="card-title">5. Figure Settings</div>
-            <div class="card-content">
-                <div class="settings-section">
-                    <h3>Overview Plot</h3>
-                    <div class="form-group">
-                        <label class="form-label">Top N gene sets</label>
-                        <input type="number" class="form-control" id="topN" value="20" min="5" max="100">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">FDR threshold for display</label>
-                        <select class="form-control" id="fdrDisplayThreshold">
-                            <option value="1">Show all</option>
-                            <option value="0.25" selected>FDR &lt; 0.25</option>
-                            <option value="0.1">FDR &lt; 0.1</option>
-                            <option value="0.05">FDR &lt; 0.05</option>
-                            <option value="0.01">FDR &lt; 0.01</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Color scale</label>
-                        <select class="form-control" id="colorScale">
-                            <option value="RdBu" selected>Red-Blue (RdBu)</option>
-                            <option value="Viridis">Viridis</option>
-                            <option value="Plasma">Plasma</option>
-                            <option value="YlOrRd">Yellow-Orange-Red</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="settings-section">
-                    <h3>Enrichment Plot</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">ES line color</label>
-                            <input type="color" class="form-control" id="esLineColor" value="#15a04a" style="height: 30px; padding: 2px; max-width: 60px;">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Line width</label>
-                            <input type="number" class="form-control" id="esLineWidth" value="2.5" min="0.5" max="6" step="0.5">
-                        </div>
-                    </div>
-                    <div class="checkbox-group" style="margin-top: 4px;">
-                        <label class="checkbox-label"><input type="checkbox" id="showStatsBox" checked> Show stats box (NES, FDR, p)</label>
-                        <label class="checkbox-label"><input type="checkbox" id="showZeroCross" checked> Show zero-cross annotation</label>
-                        <label class="checkbox-label"><input type="checkbox" id="showCorrelationLabels" checked> Show correlation labels</label>
-                        <label class="checkbox-label"><input type="checkbox" id="showPanelBorders" checked> Show panel borders</label>
-                        <label class="checkbox-label"><input type="checkbox" id="showHitMarkers" checked> Show hit markers</label>
-                        <label class="checkbox-label"><input type="checkbox" id="showMetricFill" checked> Color metric by direction</label>
-                    </div>
-                    <div class="form-hint" style="margin-top: 4px;">Tip: Drag annotations directly on the plot to reposition them</div>
-                </div>
-                <div class="settings-section">
-                    <h3>Typography</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Font family</label>
-                            <select class="form-control" id="figFontFamily">
-                                <option value="Open Sans" selected>Open Sans</option>
-                                <option value="Arial">Arial</option>
-                                <option value="Helvetica">Helvetica</option>
-                                <option value="Times New Roman">Times New Roman</option>
-                                <option value="Georgia">Georgia</option>
-                                <option value="Roboto">Roboto</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Base font size</label>
-                            <input type="number" class="form-control" id="figFontSize" value="12" min="8" max="20">
-                        </div>
-                    </div>
-                </div>
-                <div class="settings-section">
-                    <h3>Export Options</h3>
-                    <div class="form-group">
-                        <label class="form-label">Scale factor (PNG)</label>
-                        <input type="number" class="form-control" id="exportScale" value="4" min="1" max="8">
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="transparentBg">
-                            Transparent background
-                        </label>
-                    </div>
-                </div>
-                <button class="btn btn-outline" id="updatePlotsBtn" style="width: 100%; margin-top: 4px;">Update Plots</button>
-            </div>
-        </div>
     </div>
 
     <!-- ============================
@@ -1140,6 +1142,9 @@
             <button class="tab-btn" data-tab="enrichment">Enrichment Plot</button>
             <button class="tab-btn" data-tab="overlap">Overlap</button>
             <button class="tab-btn" data-tab="table">Results Table</button>
+            <div class="tab-bar-right">
+                <button class="settings-gear-btn" id="openSettingsBtn" style="display: none;" title="Figure Settings">&#9881; Settings</button>
+            </div>
         </div>
 
         <!-- Tab: Overview -->
@@ -1282,11 +1287,11 @@
                             <table class="data-table" id="geneDetailTable" style="font-size: 0.82em;">
                                 <thead>
                                     <tr>
-                                        <th>Rank</th>
-                                        <th>Gene</th>
-                                        <th>Metric</th>
-                                        <th>Running ES</th>
-                                        <th>Leading Edge</th>
+                                        <th data-detail-col="rank">Rank <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-detail-col="gene">Gene <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-detail-col="metric" id="geneDetailMetricHeader">Metric <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-detail-col="es">Running ES <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-detail-col="isLE">Leading Edge <span class="sort-arrow">&#9650;</span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="geneDetailBody"></tbody>
@@ -1398,6 +1403,103 @@
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
 </div>
 
-<script src="app.js?v=8"></script>
+<!-- Settings Modal Overlay -->
+<div class="settings-modal-overlay" id="settingsModalOverlay">
+    <div class="settings-modal" id="settingsCard">
+        <div class="settings-modal-header">
+            Figure Settings
+            <button id="closeSettingsBtn">&times;</button>
+        </div>
+        <div class="settings-modal-body">
+            <div class="settings-section">
+                <h3>Overview Plot</h3>
+                <div class="form-group">
+                    <label class="form-label">Top N gene sets</label>
+                    <input type="number" class="form-control" id="topN" value="20" min="5" max="100">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">FDR threshold for display</label>
+                    <select class="form-control" id="fdrDisplayThreshold">
+                        <option value="1">Show all</option>
+                        <option value="0.25" selected>FDR &lt; 0.25</option>
+                        <option value="0.1">FDR &lt; 0.1</option>
+                        <option value="0.05">FDR &lt; 0.05</option>
+                        <option value="0.01">FDR &lt; 0.01</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Color scale</label>
+                    <select class="form-control" id="colorScale">
+                        <option value="RdBu" selected>Red-Blue (RdBu)</option>
+                        <option value="Viridis">Viridis</option>
+                        <option value="Plasma">Plasma</option>
+                        <option value="YlOrRd">Yellow-Orange-Red</option>
+                    </select>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h3>Enrichment Plot</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">ES line color</label>
+                        <input type="color" class="form-control" id="esLineColor" value="#15a04a" style="height: 30px; padding: 2px; max-width: 60px;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Line width</label>
+                        <input type="number" class="form-control" id="esLineWidth" value="2.5" min="0.5" max="6" step="0.5">
+                    </div>
+                </div>
+                <div class="checkbox-group" style="margin-top: 4px;">
+                    <label class="checkbox-label"><input type="checkbox" id="showStatsBox" checked> Stats box</label>
+                    <label class="checkbox-label"><input type="checkbox" id="showZeroCross" checked> Zero-cross</label>
+                    <label class="checkbox-label"><input type="checkbox" id="showCorrelationLabels" checked> Correlation labels</label>
+                    <label class="checkbox-label"><input type="checkbox" id="showPanelBorders" checked> Panel borders</label>
+                    <label class="checkbox-label"><input type="checkbox" id="showHitMarkers" checked> Hit markers</label>
+                    <label class="checkbox-label"><input type="checkbox" id="showMetricFill" checked> Color by direction</label>
+                </div>
+                <div class="form-hint" style="margin-top: 4px;">Tip: Drag annotations on the plot to reposition</div>
+            </div>
+            <div class="settings-section">
+                <h3>Typography</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Font family</label>
+                        <select class="form-control" id="figFontFamily">
+                            <option value="Open Sans" selected>Open Sans</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Roboto">Roboto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Font size</label>
+                        <input type="number" class="form-control" id="figFontSize" value="12" min="8" max="20">
+                    </div>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h3>Export</h3>
+                <div class="form-group">
+                    <label class="form-label">Scale factor (PNG)</label>
+                    <input type="number" class="form-control" id="exportScale" value="4" min="1" max="8">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="transparentBg">
+                        Transparent background
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="settings-modal-footer">
+            <button class="btn btn-primary" id="updatePlotsBtn">Apply &amp; Update Plots</button>
+            <button class="btn btn-secondary" id="closeSettingsBtn2">Close</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js?v=9"></script>
 </body>
 </html>

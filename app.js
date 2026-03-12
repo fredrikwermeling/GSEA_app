@@ -41,6 +41,13 @@ class GSEAApp {
         this.sortCol = 'nes';
         this.sortAsc = false;
 
+        // Gene detail table sort state
+        this.detailSortCol = 'rank';
+        this.detailSortAsc = true;
+
+        // Gene info cache (MyGene.info)
+        this.geneInfoCache = {};
+
         this.init();
     }
 
@@ -196,6 +203,54 @@ class GSEAApp {
         ['topN', 'fdrDisplayThreshold', 'colorScale', 'exportScale', 'transparentBg'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', () => this.readSettings());
+        });
+
+        // Methods toggle (collapsible)
+        document.getElementById('methodsToggle').addEventListener('click', () => {
+            const body = document.getElementById('methodsBody');
+            const chevron = document.getElementById('methodsChevron');
+            if (body.style.display === 'none') {
+                body.style.display = '';
+                chevron.style.transform = 'rotate(90deg)';
+            } else {
+                body.style.display = 'none';
+                chevron.style.transform = '';
+            }
+        });
+
+        // Reset app
+        document.getElementById('resetBtn').addEventListener('click', () => this.resetApp());
+
+        // Settings modal
+        document.getElementById('openSettingsBtn').addEventListener('click', () => {
+            document.getElementById('settingsModalOverlay').classList.add('open');
+        });
+        document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+            document.getElementById('settingsModalOverlay').classList.remove('open');
+        });
+        document.getElementById('closeSettingsBtn2').addEventListener('click', () => {
+            document.getElementById('settingsModalOverlay').classList.remove('open');
+        });
+        document.getElementById('settingsModalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'settingsModalOverlay') {
+                e.target.classList.remove('open');
+            }
+        });
+
+        // Gene detail table sorting
+        document.querySelectorAll('#geneDetailTable thead th').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.detailCol;
+                if (!col) return;
+                if (this.detailSortCol === col) {
+                    this.detailSortAsc = !this.detailSortAsc;
+                } else {
+                    this.detailSortCol = col;
+                    this.detailSortAsc = col === 'gene'; // ascending for gene name
+                }
+                const sel = document.getElementById('geneSetSelector').value;
+                if (sel) this.renderGeneDetailTable(sel);
+            });
         });
     }
 
@@ -571,7 +626,7 @@ class GSEAApp {
         document.getElementById('tableResults').style.display = '';
         document.getElementById('overlapEmpty').style.display = 'none';
         document.getElementById('overlapResults').style.display = '';
-        document.getElementById('settingsCard').style.display = '';
+        document.getElementById('openSettingsBtn').style.display = '';
         document.getElementById('methodsCard').style.display = '';
 
         // Populate gene set selector
@@ -1065,19 +1120,36 @@ class GSEAApp {
             }
         ];
 
-        // Stats annotation (positioned opposite to the ES peak)
+        // Stats annotation — position opposite to the ES peak to avoid overlap
         if (s.showStatsBox) {
             const isPositive = result.nes >= 0;
+            // Find peak position to place stats on the opposite horizontal side
+            let peakIdx = 0;
+            let peakVal = result.runningES[0];
+            for (let i = 1; i < result.runningES.length; i++) {
+                if (isPositive ? result.runningES[i] > peakVal : result.runningES[i] < peakVal) {
+                    peakVal = result.runningES[i];
+                    peakIdx = i;
+                }
+            }
+            const peakIsLeft = peakIdx / (N - 1) < 0.5;
+            // Horizontal: opposite side from peak
+            const boxX = peakIsLeft ? 0.97 : 0.03;
+            const boxXanchor = peakIsLeft ? 'right' : 'left';
+            // Vertical: for positive NES place at bottom of ES panel; for negative NES also at bottom
+            // (bottom of panel is far from the peak in both cases)
+            const boxY = esBot + (esTop - esBot) * 0.04;
+            const boxYanchor = 'bottom';
+
             annotations.push({
                 text: `NES = ${result.nes.toFixed(2)}<br>FDR = ${this.formatPval(result.fdr)}<br>p = ${this.formatPval(result.pvalue)}<br>Size = ${result.size}`,
                 xref: 'paper', yref: 'paper',
-                x: isPositive ? 0.97 : 0.03,
-                y: isPositive ? 0.58 : esTop - 0.02,
+                x: boxX, y: boxY,
                 showarrow: false,
                 font: { size: Math.max(9, baseFontSize - 2), family: 'Roboto Mono, monospace', color: '#333' },
-                align: isPositive ? 'right' : 'left',
-                xanchor: isPositive ? 'right' : 'left',
-                yanchor: isPositive ? 'top' : 'top',
+                align: boxXanchor === 'right' ? 'right' : 'left',
+                xanchor: boxXanchor,
+                yanchor: boxYanchor,
                 bgcolor: 'rgba(255,255,255,0.9)',
                 bordercolor: '#ccc',
                 borderwidth: 1,
@@ -1123,11 +1195,11 @@ class GSEAApp {
             // ES panel
             xaxis: {
                 range: [0, N - 1], showticklabels: false, showgrid: false, zeroline: false,
-                domain: [xLeft, xRight]
+                domain: [xLeft, xRight], anchor: 'y', showline: false
             },
             yaxis: {
                 title: { text: 'Enrichment score (ES)', font: { size: baseFontSize - 1, family: fontFam }, standoff: 8 },
-                domain: [esBot, esTop],
+                domain: [esBot, esTop], anchor: 'x',
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: false,
                 tickfont: { size: tickFontSize, family: fontFam }
@@ -1135,10 +1207,10 @@ class GSEAApp {
             // Hit marker panel
             xaxis2: {
                 range: [0, N - 1], showticklabels: false, showgrid: false, zeroline: false,
-                domain: [xLeft, xRight], matches: 'x'
+                domain: [xLeft, xRight], anchor: 'y2', showline: false
             },
             yaxis2: {
-                domain: [hitBot, hitTop],
+                domain: [hitBot, hitTop], anchor: 'x2',
                 range: [0, 1],
                 showticklabels: false, showgrid: false, zeroline: false, fixedrange: true,
                 title: ''
@@ -1147,13 +1219,14 @@ class GSEAApp {
             xaxis3: {
                 range: [0, N - 1],
                 title: { text: 'Rank in Ordered Dataset', font: { size: baseFontSize - 1, family: fontFam }, standoff: 4 },
-                domain: [xLeft, xRight], matches: 'x',
+                domain: [xLeft, xRight], anchor: 'y3',
                 showgrid: false,
-                tickfont: { size: tickFontSize, family: fontFam }
+                tickfont: { size: tickFontSize, family: fontFam },
+                side: 'bottom'
             },
             yaxis3: {
                 title: { text: metricLabel, font: { size: baseFontSize - 2, family: fontFam }, standoff: 5 },
-                domain: [metBot, metTop],
+                domain: [metBot, metTop], anchor: 'x3',
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: true, zerolinecolor: '#333', zerolinewidth: 0.8,
                 tickfont: { size: tickFontSize, family: fontFam }
@@ -1254,6 +1327,13 @@ class GSEAApp {
         const tbody = document.getElementById('geneDetailBody');
         tbody.innerHTML = '';
 
+        // Update metric column header to reflect actual column name
+        const metricColName = document.getElementById('metricColumn').value || 'Metric';
+        const metricHeader = document.getElementById('geneDetailMetricHeader');
+        if (metricHeader) {
+            metricHeader.innerHTML = `${metricColName} <span class="sort-arrow">&#9650;</span>`;
+        }
+
         const leadingEdgeSet = new Set((result.leadingEdge || []).map(g => g.toUpperCase()));
         const genes = this.rankedList.genes;
         const metrics = this.rankedList.metrics;
@@ -1268,21 +1348,46 @@ class GSEAApp {
             rows.push({ rank: hitIdx, gene, metric, es, isLE });
         }
 
-        // Sort by rank
-        rows.sort((a, b) => a.rank - b.rank);
+        // Sort
+        const col = this.detailSortCol;
+        const asc = this.detailSortAsc;
+        rows.sort((a, b) => {
+            let va = a[col], vb = b[col];
+            if (col === 'gene') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+            if (col === 'isLE') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+            if (va < vb) return asc ? -1 : 1;
+            if (va > vb) return asc ? 1 : -1;
+            return 0;
+        });
 
         for (const row of rows) {
             const tr = document.createElement('tr');
             const leStyle = row.isLE ? 'font-weight:600; color: var(--green-700);' : 'color: var(--gray-500);';
             tr.innerHTML = `
                 <td>${row.rank + 1}</td>
-                <td style="font-family: 'Roboto Mono', monospace; font-size: 0.95em;">${row.gene}</td>
+                <td class="gene-hover" data-gene="${row.gene}" style="font-family: 'Roboto Mono', monospace; font-size: 0.95em; cursor: help; text-align: left;">${row.gene}</td>
                 <td style="font-family: 'Roboto Mono', monospace;">${row.metric.toFixed(4)}</td>
                 <td style="font-family: 'Roboto Mono', monospace;">${row.es.toFixed(4)}</td>
                 <td style="${leStyle}">${row.isLE ? 'Yes' : 'No'}</td>
             `;
             tbody.appendChild(tr);
         }
+
+        // Update sort indicators
+        document.querySelectorAll('#geneDetailTable thead th').forEach(th => {
+            const arrow = th.querySelector('.sort-arrow');
+            if (!arrow) return;
+            if (th.dataset.detailCol === this.detailSortCol) {
+                th.classList.add('sorted');
+                arrow.textContent = this.detailSortAsc ? '\u25B2' : '\u25BC';
+            } else {
+                th.classList.remove('sorted');
+                arrow.textContent = '\u25B2';
+            }
+        });
+
+        // Attach gene hover tooltips
+        this.attachGeneTooltips(tbody);
 
         this._currentGeneDetailRows = rows;
     }
@@ -1316,25 +1421,50 @@ class GSEAApp {
         const metrics = this.rankedList.metrics;
         const resultsEl = document.getElementById('geneSearchResults');
 
+        // Get current gene set to check membership
+        const currentSetName = document.getElementById('geneSetSelector').value;
+        const currentResult = currentSetName ? this.results.find(r => r.name === currentSetName) : null;
+        const hitsSet = currentResult ? new Set(currentResult.hits.map(i => genes[i])) : new Set();
+
         let html = '';
-        const found = [];
+        const foundInSet = [];
+        const foundInData = [];
         const notFound = [];
 
         for (const sg of searchGenes) {
             const idx = genes.indexOf(sg);
             if (idx >= 0) {
-                found.push({ gene: sg, rank: idx, metric: metrics[idx] });
+                const inGeneSet = hitsSet.has(sg);
+                const entry = { gene: sg, rank: idx, metric: metrics[idx], inGeneSet };
+                if (inGeneSet) {
+                    foundInSet.push(entry);
+                } else {
+                    foundInData.push(entry);
+                }
             } else {
                 notFound.push(sg);
             }
         }
 
-        found.sort((a, b) => a.rank - b.rank);
+        const allFound = [...foundInSet, ...foundInData].sort((a, b) => a.rank - b.rank);
 
-        if (found.length > 0) {
-            html += `<div style="color: var(--green-700); font-weight: 600; margin-bottom: 3px;">Found ${found.length}:</div>`;
+        if (foundInSet.length > 0) {
+            html += `<div style="color: var(--green-700); font-weight: 600; margin-bottom: 3px;">In gene set (${foundInSet.length}):</div>`;
             html += '<table style="width:100%; border-collapse: collapse;">';
-            for (const f of found) {
+            for (const f of foundInSet.sort((a, b) => a.rank - b.rank)) {
+                const color = f.metric >= 0 ? '#dc2626' : '#2563eb';
+                html += `<tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 1px 4px; font-family: Roboto Mono, monospace;">${f.gene}</td>
+                    <td style="padding: 1px 4px; text-align: right;">Rank ${f.rank + 1}</td>
+                    <td style="padding: 1px 4px; text-align: right; color: ${color};">${f.metric.toFixed(3)}</td>
+                </tr>`;
+            }
+            html += '</table>';
+        }
+        if (foundInData.length > 0) {
+            html += `<div style="color: #6b7280; font-weight: 600; margin-top: 4px; margin-bottom: 3px;">In data only (${foundInData.length}):</div>`;
+            html += '<table style="width:100%; border-collapse: collapse;">';
+            for (const f of foundInData.sort((a, b) => a.rank - b.rank)) {
                 const color = f.metric >= 0 ? '#dc2626' : '#2563eb';
                 html += `<tr style="border-bottom: 1px solid #eee;">
                     <td style="padding: 1px 4px; font-family: Roboto Mono, monospace;">${f.gene}</td>
@@ -1351,11 +1481,11 @@ class GSEAApp {
         resultsEl.innerHTML = html;
 
         // Highlight on the ES plot if it's showing
-        this._highlightGenesOnPlot(found.map(f => ({ gene: f.gene, rank: f.rank })));
+        this._highlightGenesOnPlot(allFound.map(f => ({ gene: f.gene, rank: f.rank, inGeneSet: f.inGeneSet })));
     }
 
     _highlightGenesOnPlot(geneData) {
-        // geneData: array of { gene, rank }
+        // geneData: array of { gene, rank, inGeneSet }
         const plotEl = document.getElementById('esPlot');
         if (!plotEl || !plotEl.data) return;
 
@@ -1364,26 +1494,31 @@ class GSEAApp {
         const currentAnnotations = (currentLayout.annotations || []).filter(a => !a._isHighlight);
 
         for (const g of geneData) {
+            const lineColor = g.inGeneSet ? 'rgba(255, 140, 0, 0.7)' : 'rgba(100, 100, 255, 0.5)';
+            const lineStyle = g.inGeneSet ? 'dot' : 'dashdot';
+            const labelColor = g.inGeneSet ? '#e65100' : '#4444cc';
+
             currentShapes.push({
                 type: 'line',
                 x0: g.rank, x1: g.rank,
                 y0: 0, y1: 1,
                 xref: 'x', yref: 'paper',
-                line: { color: 'rgba(255, 140, 0, 0.7)', width: 2, dash: 'dot' },
+                line: { color: lineColor, width: 2, dash: lineStyle },
                 _isHighlight: true
             });
-            // Gene name label at top of the line
+            // Gene name label BELOW the graph (in the margin area)
+            const suffix = g.inGeneSet === false ? ' *' : '';
             currentAnnotations.push({
-                text: `<b>${g.gene}</b>`,
+                text: `<b>${g.gene}${suffix}</b>`,
                 x: g.rank,
-                y: 0.98,
-                xref: 'x', yref: 'paper',
+                y: -0.02,
+                xref: 'x3', yref: 'paper',
                 showarrow: true,
                 arrowhead: 0,
                 arrowwidth: 1,
-                arrowcolor: 'rgba(255,140,0,0.5)',
-                ax: 0, ay: -20,
-                font: { size: 9, color: '#e65100', family: this.settings.fontFamily + ', sans-serif' },
+                arrowcolor: lineColor,
+                ax: 0, ay: 18,
+                font: { size: 9, color: labelColor, family: this.settings.fontFamily + ', sans-serif' },
                 bgcolor: 'rgba(255,255,255,0.85)',
                 borderpad: 2,
                 xanchor: 'center',
@@ -1936,6 +2071,144 @@ class GSEAApp {
     }
 
     // --------------------------------------------------------
+    // Reset App
+    // --------------------------------------------------------
+    resetApp() {
+        // Terminate worker
+        if (this.worker) this.worker.terminate();
+
+        // Reset state
+        this.rawData = null;
+        this.rankedList = null;
+        this.customGeneSets = {};
+        this.results = null;
+        this.analysisDate = null;
+        this._currentGeneDetailRows = null;
+
+        // Reset UI
+        document.getElementById('fileInput').value = '';
+        const geneCol = document.getElementById('geneColumn');
+        geneCol.innerHTML = '<option value="">Upload a file first...</option>';
+        geneCol.disabled = true;
+        const metricCol = document.getElementById('metricColumn');
+        metricCol.innerHTML = '<option value="">Upload a file first...</option>';
+        metricCol.disabled = true;
+        document.getElementById('runBtn').disabled = true;
+        document.getElementById('runBtn').style.display = '';
+        document.getElementById('cancelBtn').style.display = 'none';
+        document.getElementById('progressContainer').classList.remove('active');
+        this.hideStatus('uploadStatus');
+        this.hideStatus('runStatus');
+
+        // Hide results
+        document.getElementById('overviewEmpty').style.display = '';
+        document.getElementById('overviewResults').style.display = 'none';
+        document.getElementById('enrichmentEmpty').style.display = '';
+        document.getElementById('enrichmentResults').style.display = 'none';
+        document.getElementById('tableEmpty').style.display = '';
+        document.getElementById('tableResults').style.display = 'none';
+        document.getElementById('overlapEmpty').style.display = '';
+        document.getElementById('overlapResults').style.display = 'none';
+        document.getElementById('openSettingsBtn').style.display = 'none';
+        document.getElementById('methodsCard').style.display = 'none';
+
+        // Reset checkboxes
+        document.getElementById('checkHallmark').checked = true;
+        document.getElementById('checkC2').checked = false;
+        document.getElementById('checkC5').checked = false;
+
+        // Clear plots
+        ['bubblePlot', 'rankedPlot', 'esPlot', 'overlapHeatmap'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) Plotly.purge(el);
+        });
+
+        // Show default tab
+        this.showTab('overview');
+
+        // Re-create worker
+        this.createWorker();
+        this.updateGeneSetStatus();
+    }
+
+    // --------------------------------------------------------
+    // Gene Info Tooltips (MyGene.info)
+    // --------------------------------------------------------
+    async fetchGeneInfo(gene) {
+        if (this.geneInfoCache[gene]) return this.geneInfoCache[gene];
+        try {
+            const res = await fetch(`https://mygene.info/v3/query?q=symbol:${gene}&species=human&fields=symbol,name,summary&size=1`);
+            const data = await res.json();
+            if (data.hits && data.hits.length > 0) {
+                const hit = data.hits[0];
+                const info = {
+                    symbol: hit.symbol || gene,
+                    name: hit.name || '',
+                    summary: hit.summary || ''
+                };
+                this.geneInfoCache[gene] = info;
+                return info;
+            }
+        } catch (e) {
+            console.warn('Gene info fetch failed:', e);
+        }
+        return null;
+    }
+
+    showGeneTooltip(event, gene) {
+        this.hideGeneTooltip();
+        const tooltip = document.createElement('div');
+        tooltip.id = 'geneTooltip';
+        tooltip.style.cssText = 'position:fixed; z-index:10001; background:white; border:1px solid #d1d5db; border-radius:8px; padding:10px 14px; max-width:350px; box-shadow:0 4px 12px rgba(0,0,0,0.15); font-size:12px; line-height:1.5; pointer-events:none;';
+        tooltip.innerHTML = `<div style="color:#6b7280;">Loading ${gene} info...</div>`;
+
+        const x = Math.min(event.clientX + 12, window.innerWidth - 370);
+        const y = Math.min(event.clientY + 12, window.innerHeight - 200);
+        tooltip.style.left = x + 'px';
+        tooltip.style.top = y + 'px';
+        document.body.appendChild(tooltip);
+
+        this.fetchGeneInfo(gene).then(info => {
+            const el = document.getElementById('geneTooltip');
+            if (!el) return;
+            if (!info) {
+                el.innerHTML = `<b>${gene}</b><br><span style="color:#999;">No info available</span>`;
+                return;
+            }
+            let html = `<div style="margin-bottom:4px;"><b style="color:#5a9f4a; font-size:13px;">${info.symbol}</b> <span style="color:#374151;">${info.name}</span></div>`;
+            if (info.summary) {
+                const short = info.summary.length > 200 ? info.summary.substring(0, 200) + '...' : info.summary;
+                html += `<div style="color:#4b5563; font-size:11px;">${short}</div>`;
+            }
+            el.innerHTML = html;
+            // Reposition if needed
+            const rect = el.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight) {
+                el.style.top = (window.innerHeight - rect.height - 10) + 'px';
+            }
+        });
+    }
+
+    hideGeneTooltip() {
+        const existing = document.getElementById('geneTooltip');
+        if (existing) existing.remove();
+    }
+
+    attachGeneTooltips(container) {
+        container.querySelectorAll('.gene-hover').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                this._tooltipTimer = setTimeout(() => {
+                    this.showGeneTooltip(e, el.dataset.gene);
+                }, 400);
+            });
+            el.addEventListener('mouseleave', () => {
+                clearTimeout(this._tooltipTimer);
+                this.hideGeneTooltip();
+            });
+        });
+    }
+
+    // --------------------------------------------------------
     // Settings
     // --------------------------------------------------------
     readSettings() {
@@ -1975,6 +2248,8 @@ class GSEAApp {
             const selected = document.getElementById('geneSetSelector').value;
             if (selected) this.renderESPlot(selected);
         }
+        // Close settings modal
+        document.getElementById('settingsModalOverlay').classList.remove('open');
     }
 
     // --------------------------------------------------------
