@@ -21,7 +21,7 @@ class GSEAApp {
             weightP: 1,
             topN: 20,
             fdrDisplayThreshold: 0.25,
-            colorScale: 'RdBu',
+            colorScale: 'YlOrRd',
             exportScale: 4,
             transparentBg: false,
             // Figure customization
@@ -34,7 +34,10 @@ class GSEAApp {
             showCorrelationLabels: true,
             showPanelBorders: true,
             showHitMarkers: true,
-            showMetricFill: true
+            showMetricFill: true,
+            positiveColor: '#dc2626',
+            negativeColor: '#2563eb',
+            overlapColorScheme: 'green'
         };
 
         // Table sort state
@@ -755,22 +758,15 @@ class GSEAApp {
             marker: {
                 size: top.map(r => Math.max(10, Math.min(30, Math.sqrt(r.size) * 2))),
                 color: fdrColors,
-                colorscale: [
-                    [0, '#d4d4d8'],
-                    [0.2, '#93c5fd'],
-                    [0.4, '#3b82f6'],
-                    [0.6, '#f97316'],
-                    [0.8, '#ef4444'],
-                    [1.0, '#991b1b']
-                ],
+                colorscale: this.settings.colorScale,
                 cmin: 0,
                 cmax: maxLogFdr,
                 showscale: true,
                 colorbar: {
-                    title: { text: '-log10(FDR)', font: { size: 11, family: fontFam } },
-                    thickness: 28,
-                    len: 0.5,
-                    y: 0.5,
+                    title: { text: 'FDR', font: { size: 11, family: fontFam } },
+                    thickness: 20,
+                    len: 0.35,
+                    y: 0.8,
                     x: 1.02,
                     tickvals: [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr),
                     ticktext: ['1', '0.25', '0.1', '0.05', '0.01'].slice(0, [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr).length),
@@ -787,7 +783,9 @@ class GSEAApp {
                 `p-value: ${this.formatPval(r.pvalue)}<br>` +
                 `Size: ${r.size} genes`
             ),
-            hoverinfo: 'text'
+            hoverinfo: 'text',
+            cliponaxis: false,
+            showlegend: false
         };
 
         const layout = {
@@ -805,35 +803,51 @@ class GSEAApp {
                 automargin: true,
                 gridwidth: 0,
                 showgrid: false,
-                range: [-1.0, top.length - 0.0]
+                range: [-2.0, top.length + 0.5]
             },
             height: Math.max(440, top.length * 26 + 140),
-            margin: { l: 10, r: 100, t: 20, b: 80 },
+            margin: { l: 10, r: 140, t: 20, b: 40 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
             shapes: shapes
         };
 
-        // Add size legend annotation (shows what bubble sizes mean)
-        const sizeSamples = [20, 50, 100, 200].filter(s => s <= Math.max(...top.map(r => r.size)));
+        // Size legend as actual Plotly legend entries (right side, below colorbar)
+        const sizeSamples = [20, 50, 100, 200, 500].filter(s => {
+            const maxSize = Math.max(...top.map(r => r.size));
+            return s <= maxSize;
+        });
+        const sizeLegendTraces = [];
         if (sizeSamples.length > 0) {
-            const sizeText = sizeSamples.map(s => {
-                const dotSize = Math.max(10, Math.min(30, Math.sqrt(s) * 2));
-                return `${'●'.repeat(1)} ${s}`;
-            }).join('  ');
-            layout.annotations = layout.annotations || [];
-            layout.annotations.push({
-                text: '<b>Gene set size:</b>  ' + sizeSamples.map(s => {
-                    const sz = Math.max(10, Math.min(30, Math.sqrt(s) * 2));
-                    return `<span style="font-size:${Math.round(sz * 0.7)}px">●</span> ${s}`;
-                }).join('&nbsp;&nbsp;'),
-                xref: 'paper', yref: 'paper',
-                x: 0, y: -0.06,
-                showarrow: false,
+            for (const s of sizeSamples) {
+                sizeLegendTraces.push({
+                    x: [null], y: [null],
+                    mode: 'markers',
+                    type: 'scatter',
+                    marker: {
+                        size: Math.max(10, Math.min(30, Math.sqrt(s) * 2)),
+                        color: 'rgba(180,180,180,0.5)',
+                        line: { width: 1.5, color: 'white' },
+                        sizemode: 'diameter'
+                    },
+                    name: `  ${s}`,
+                    showlegend: true,
+                    hoverinfo: 'skip'
+                });
+            }
+            layout.legend = {
+                title: { text: '<b>Gene set size</b>', font: { size: 10, family: fontFam, color: '#555' } },
+                x: 1.02,
+                y: 0.0,
+                xanchor: 'left',
+                yanchor: 'bottom',
+                itemsizing: 'trace',
                 font: { size: 10, family: fontFam, color: '#555' },
-                xanchor: 'left', yanchor: 'top'
-            });
+                borderwidth: 0,
+                tracegroupgap: 0,
+                bgcolor: 'rgba(255,255,255,0)'
+            };
         }
 
         // Apply custom dimensions
@@ -841,7 +855,7 @@ class GSEAApp {
         if (dims.width) layout.width = dims.width;
         if (dims.height) layout.height = dims.height;
 
-        Plotly.newPlot('bubblePlot', [trace], layout, {
+        Plotly.newPlot('bubblePlot', [trace, ...sizeLegendTraces], layout, {
             responsive: true,
             displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
@@ -896,16 +910,26 @@ class GSEAApp {
         const yVals = [];
         const barColors = [];
 
+        // Parse positive/negative base colors for gradient
+        const posRGB = this._parseHex(this.settings.positiveColor);
+        const negRGB = this._parseHex(this.settings.negativeColor);
+
         for (let i = 0; i < N; i += step) {
             xVals.push(i);
             yVals.push(metrics[i]);
-            // Gradient: red for positive, blue for negative, intensity by magnitude
+            // Gradient: interpolate from light to full color based on magnitude
             if (metrics[i] >= 0) {
                 const intensity = Math.min(1, metrics[i] / (Math.abs(metrics[0]) || 1));
-                barColors.push(`rgba(${Math.round(180 + 60 * intensity)}, ${Math.round(50 * (1 - intensity))}, ${Math.round(50 * (1 - intensity))}, 0.85)`);
+                const r = Math.round(255 - (255 - posRGB[0]) * intensity);
+                const g = Math.round(255 - (255 - posRGB[1]) * intensity);
+                const b = Math.round(255 - (255 - posRGB[2]) * intensity);
+                barColors.push(`rgba(${r}, ${g}, ${b}, 0.85)`);
             } else {
                 const intensity = Math.min(1, Math.abs(metrics[i]) / (Math.abs(metrics[N - 1]) || 1));
-                barColors.push(`rgba(${Math.round(50 * (1 - intensity))}, ${Math.round(60 + 50 * (1 - intensity))}, ${Math.round(180 + 60 * intensity)}, 0.85)`);
+                const r = Math.round(255 - (255 - negRGB[0]) * intensity);
+                const g = Math.round(255 - (255 - negRGB[1]) * intensity);
+                const b = Math.round(255 - (255 - negRGB[2]) * intensity);
+                barColors.push(`rgba(${r}, ${g}, ${b}, 0.85)`);
             }
         }
 
@@ -947,13 +971,13 @@ class GSEAApp {
         annotations.push({
             text: '<b>Positively correlated</b>',
             xref: 'paper', yref: 'paper', x: 0.02, y: 1.02,
-            showarrow: false, font: { size: 9, color: '#dc2626' },
+            showarrow: false, font: { size: 9, color: this.settings.positiveColor },
             xanchor: 'left', yanchor: 'bottom'
         });
         annotations.push({
             text: '<b>Negatively correlated</b>',
             xref: 'paper', yref: 'paper', x: 0.98, y: 1.02,
-            showarrow: false, font: { size: 9, color: '#2563eb' },
+            showarrow: false, font: { size: 9, color: this.settings.negativeColor },
             xanchor: 'right', yanchor: 'bottom'
         });
 
@@ -1125,7 +1149,7 @@ class GSEAApp {
                 traces3.push({
                     x: posX, y: posY,
                     type: 'bar',
-                    marker: { color: 'rgba(220, 38, 38, 0.5)', line: { width: 0 } },
+                    marker: { color: this._hexToRgba(s.positiveColor, 0.5), line: { width: 0 } },
                     showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
                 });
             }
@@ -1133,7 +1157,7 @@ class GSEAApp {
                 traces3.push({
                     x: negX, y: negY,
                     type: 'bar',
-                    marker: { color: 'rgba(37, 99, 235, 0.5)', line: { width: 0 } },
+                    marker: { color: this._hexToRgba(s.negativeColor, 0.5), line: { width: 0 } },
                     showlegend: false, xaxis: 'x3', yaxis: 'y3', hoverinfo: 'skip'
                 });
             }
@@ -1280,20 +1304,26 @@ class GSEAApp {
                     text: '<i>Positively correlated</i>',
                     xref: 'paper', yref: 'paper', x: 0.0, y: -0.07,
                     showarrow: false,
-                    font: { size: Math.max(8, baseFontSize - 3), color: '#dc2626', family: fontFam },
+                    font: { size: Math.max(8, baseFontSize - 3), color: s.positiveColor, family: fontFam },
                     xanchor: 'left', yanchor: 'top'
                 },
                 {
                     text: '<i>Negatively correlated</i>',
                     xref: 'paper', yref: 'paper', x: 1.0, y: -0.07,
                     showarrow: false,
-                    font: { size: Math.max(8, baseFontSize - 3), color: '#2563eb', family: fontFam },
+                    font: { size: Math.max(8, baseFontSize - 3), color: s.negativeColor, family: fontFam },
                     xanchor: 'right', yanchor: 'top'
                 }
             );
         }
 
         const tickFontSize = Math.max(8, baseFontSize - 3);
+
+        // Compute y-range for metric panel using percentile to avoid extreme outliers stretching axis
+        const metSorted = [...metSampled].sort((a, b) => a - b);
+        const metTrimN = Math.max(1, Math.floor(metSorted.length * 0.02));
+        const metYMin = Math.min(0, metSorted[metTrimN]) * 1.08;
+        const metYMax = Math.max(0, metSorted[metSorted.length - 1 - metTrimN]) * 1.08;
 
         const layout = {
             // ES panel
@@ -1334,7 +1364,7 @@ class GSEAApp {
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: true, zerolinecolor: '#333', zerolinewidth: 0.8,
                 tickfont: { size: tickFontSize, family: fontFam },
-                range: [Math.min(0, ...metSampled) * 1.15, Math.max(0, ...metSampled) * 1.15]
+                range: [metYMin, metYMax]
             },
             height: 580,
             margin: { l: 65, r: 15, t: 45, b: 60 },
@@ -1806,19 +1836,21 @@ class GSEAApp {
             textMatrix.push(textRow);
         }
 
+        // Get overlap colorscale from settings
+        const overlapColorscales = {
+            green: [[0,'#ffffff'],[0.2,'#e0f2e9'],[0.4,'#a8d89a'],[0.6,'#5a9f4a'],[0.8,'#3a7333'],[1.0,'#2d5a27']],
+            blues: [[0,'#ffffff'],[0.2,'#deebf7'],[0.4,'#9ecae1'],[0.6,'#4292c6'],[0.8,'#2171b5'],[1.0,'#084594']],
+            purples: [[0,'#ffffff'],[0.2,'#efedf5'],[0.4,'#bcbddc'],[0.6,'#807dba'],[0.8,'#6a51a3'],[1.0,'#3f007d']],
+            YlGnBu: [[0,'#ffffff'],[0.2,'#edf8b1'],[0.4,'#7fcdbb'],[0.6,'#41b6c4'],[0.8,'#1d91c0'],[1.0,'#0c2c84']]
+        };
+        const overlapCS = overlapColorscales[this.settings.overlapColorScheme] || overlapColorscales.green;
+
         const trace = {
             z: matrix,
             x: labels,
             y: labels,
             type: 'heatmap',
-            colorscale: [
-                [0, '#ffffff'],
-                [0.2, '#e0f2e9'],
-                [0.4, '#a8d89a'],
-                [0.6, '#5a9f4a'],
-                [0.8, '#3a7333'],
-                [1.0, '#2d5a27']
-            ],
+            colorscale: overlapCS,
             text: textMatrix,
             hovertemplate: '%{y} vs %{x}<br>%{text}<extra></extra>',
             showscale: true,
@@ -2373,6 +2405,13 @@ class GSEAApp {
         this.settings.showPanelBorders = cb('showPanelBorders');
         this.settings.showHitMarkers = cb('showHitMarkers');
         this.settings.showMetricFill = cb('showMetricFill');
+        // Per-graph color settings
+        const posColorEl = document.getElementById('positiveColor');
+        if (posColorEl) this.settings.positiveColor = posColorEl.value;
+        const negColorEl = document.getElementById('negativeColor');
+        if (negColorEl) this.settings.negativeColor = negColorEl.value;
+        const overlapSchemeEl = document.getElementById('overlapColorScheme');
+        if (overlapSchemeEl) this.settings.overlapColorScheme = overlapSchemeEl.value;
     }
 
     updateSettings() {
@@ -2476,6 +2515,21 @@ class GSEAApp {
 
     hideStatus(elementId) {
         document.getElementById(elementId).classList.add('hidden');
+    }
+
+    _hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    _parseHex(hex) {
+        return [
+            parseInt(hex.slice(1, 3), 16),
+            parseInt(hex.slice(3, 5), 16),
+            parseInt(hex.slice(5, 7), 16)
+        ];
     }
 
     cleanName(name) {

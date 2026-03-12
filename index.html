@@ -900,10 +900,14 @@
             box-shadow: 0 8px 24px rgba(0,0,0,0.18);
             z-index: 5000;
             padding: 10px 12px;
-            min-width: 260px;
-            max-width: 340px;
+            min-width: 300px;
+            max-width: 380px;
         }
         .graph-settings-popup.open { display: block; }
+        .graph-settings-popup { color: var(--text-primary); }
+        .graph-settings-popup label, .graph-settings-popup input, .graph-settings-popup select,
+        .graph-settings-popup .form-label, .graph-settings-popup .form-hint,
+        .graph-settings-popup .checkbox-label { color: var(--text-primary); }
         .graph-settings-popup h4 {
             margin: 0 0 8px;
             font-size: 0.82em;
@@ -1226,14 +1230,26 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Color scale</label>
+                                <label class="form-label">FDR Color scale</label>
                                 <select class="form-control settings-live" id="colorScale">
-                                    <option value="RdBu" selected>Red-Blue (RdBu)</option>
+                                    <option value="YlOrRd" selected>Yellow-Orange-Red (standard)</option>
+                                    <option value="RdBu">Red-Blue</option>
                                     <option value="Viridis">Viridis</option>
                                     <option value="Plasma">Plasma</option>
-                                    <option value="YlOrRd">Yellow-Orange-Red</option>
+                                    <option value="Greys">Grayscale</option>
                                 </select>
                             </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Width (px)</label>
+                                    <input type="number" class="form-control settings-live" id="plotWidth" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Height (px)</label>
+                                    <input type="number" class="form-control settings-live" id="plotHeight" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                </div>
+                            </div>
+                            <div class="form-hint">Set to 0 for auto-sizing</div>
                         </div>
                     </div>
                     <div class="card-content">
@@ -1251,6 +1267,17 @@
                         </div>
                         <div class="graph-settings-popup" id="rankedSettings">
                             <h4>Ranked Plot Settings</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Positive color</label>
+                                    <input type="color" class="form-control settings-live" id="positiveColor" value="#dc2626" style="height: 28px; padding: 2px; max-width: 55px;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Negative color</label>
+                                    <input type="color" class="form-control settings-live" id="negativeColor" value="#2563eb" style="height: 28px; padding: 2px; max-width: 55px;">
+                                </div>
+                            </div>
+                            <div class="form-hint" style="margin-bottom: 6px;">These colors also apply to the enrichment score metric panel</div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label">Width (px)</label>
@@ -1457,6 +1484,15 @@
                         </div>
                         <div class="graph-settings-popup" id="overlapSettings">
                             <h4>Overlap Heatmap Settings</h4>
+                            <div class="form-group">
+                                <label class="form-label">Color scheme</label>
+                                <select class="form-control settings-live" id="overlapColorScheme">
+                                    <option value="green" selected>Green (default)</option>
+                                    <option value="blues">Blues</option>
+                                    <option value="purples">Purples</option>
+                                    <option value="YlGnBu">Yellow-Green-Blue</option>
+                                </select>
+                            </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label">Width (px)</label>
@@ -1590,6 +1626,6 @@
     </div>
 </div>
 
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
