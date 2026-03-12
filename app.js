@@ -2515,7 +2515,8 @@ class GSEAApp {
                     collectionLabel: label,
                     size: genes.length,
                     genes,
-                    nameLower: name.toLowerCase()
+                    nameLower: name.toLowerCase(),
+                    searchText: name.toLowerCase().replace(/_/g, ' ')
                 });
             }
         };
@@ -2541,12 +2542,9 @@ class GSEAApp {
             this._gsbItemMap.set(item.name, item);
         }
 
-        // If first time opening (no prior custom selection), select ALL gene sets
+        // If first time opening (no prior custom selection), start with nothing selected
         if (!this.useCustomSelection) {
             this.selectedGeneSets = new Set();
-            for (const item of this._gsbAllItems) {
-                this.selectedGeneSets.add(item.name);
-            }
         }
 
         // Reset search and filter
@@ -2578,7 +2576,7 @@ class GSEAApp {
             filtered = filtered.filter(item => item.collection === collFilter);
         }
         if (query) {
-            filtered = filtered.filter(item => item.nameLower.includes(query));
+            filtered = filtered.filter(item => item.searchText.includes(query));
         }
 
         // Build flat list with section headers
