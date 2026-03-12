@@ -749,6 +749,13 @@ class GSEAApp {
             yref: 'paper', y0: 0, y1: 1,
             line: { color: '#9ca3af', width: 1.5 }
         });
+        // Plot border at paper coordinates (won't coincide with any data point)
+        shapes.push({
+            type: 'rect', xref: 'paper', yref: 'paper',
+            x0: 0, x1: 1, y0: 0, y1: 1,
+            line: { color: '#333', width: 1 },
+            fillcolor: 'rgba(0,0,0,0)'
+        });
 
         const trace = {
             x: top.map(r => r.nes),
@@ -794,7 +801,9 @@ class GSEAApp {
                 zeroline: false,
                 gridcolor: '#f0f0f0',
                 side: 'bottom',
-                tickfont: { size: baseFontSize - 2, family: fontFam }
+                tickfont: { size: baseFontSize - 2, family: fontFam },
+                showline: false,
+                fixedrange: true
             },
             yaxis: {
                 tickvals: top.map((_, i) => i),
@@ -803,21 +812,45 @@ class GSEAApp {
                 automargin: true,
                 gridwidth: 0,
                 showgrid: false,
-                range: [-2.0, top.length + 0.5]
+                zeroline: false,
+                showline: false,
+                range: [-1.5, top.length + 0.5],
+                fixedrange: true
             },
             height: Math.max(440, top.length * 26 + 140),
             margin: { l: 10, r: 140, t: 20, b: 40 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
-            shapes: shapes
+            shapes: shapes,
+            dragmode: false
         };
 
-        // Size legend as actual Plotly legend entries (right side, below colorbar)
-        const sizeSamples = [20, 50, 100, 200, 500].filter(s => {
-            const maxSize = Math.max(...top.map(r => r.size));
-            return s <= maxSize;
-        });
+        // Size legend: compute representative sizes from actual data
+        const actualSizes = top.map(r => r.size);
+        const minActualSize = Math.min(...actualSizes);
+        const maxActualSize = Math.max(...actualSizes);
+        let sizeSamples;
+        if (maxActualSize <= minActualSize) {
+            sizeSamples = [minActualSize];
+        } else {
+            // Generate nice round values spanning the actual range
+            const niceRound = (n) => {
+                if (n <= 5) return n;
+                if (n <= 15) return Math.round(n / 5) * 5;
+                if (n <= 50) return Math.round(n / 10) * 10;
+                if (n <= 200) return Math.round(n / 25) * 25;
+                if (n <= 1000) return Math.round(n / 50) * 50;
+                return Math.round(n / 100) * 100;
+            };
+            const mid = (minActualSize + maxActualSize) / 2;
+            const candidates = [niceRound(minActualSize), niceRound(mid), niceRound(maxActualSize)];
+            sizeSamples = [...new Set(candidates)].sort((a, b) => a - b);
+            // Ensure we have at least 2 entries
+            if (sizeSamples.length < 2) {
+                sizeSamples = [minActualSize, maxActualSize];
+            }
+        }
         const sizeLegendTraces = [];
         if (sizeSamples.length > 0) {
             for (const s of sizeSamples) {
@@ -839,9 +872,9 @@ class GSEAApp {
             layout.legend = {
                 title: { text: '<b>Gene set size</b>', font: { size: 10, family: fontFam, color: '#555' } },
                 x: 1.02,
-                y: 0.0,
+                y: 0.55,
                 xanchor: 'left',
-                yanchor: 'bottom',
+                yanchor: 'top',
                 itemsizing: 'trace',
                 font: { size: 10, family: fontFam, color: '#555' },
                 borderwidth: 0,
@@ -860,6 +893,7 @@ class GSEAApp {
             displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
             scrollZoom: false,
+            doubleClick: false,
             edits: { annotationPosition: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true }
         });
 
@@ -990,7 +1024,8 @@ class GSEAApp {
                 title: { text: 'Rank in Ordered Dataset', font: { size: baseFontSize - 1, family: fontFam } },
                 showgrid: false,
                 tickfont: { size: baseFontSize - 2, family: fontFam },
-                range: [-xPad, N - 1 + xPad]
+                range: [-xPad, N - 1 + xPad],
+                fixedrange: true
             },
             yaxis: {
                 title: { text: 'Ranked list metric (' + metricLabel + ')', font: { size: baseFontSize - 1, family: fontFam } },
@@ -999,7 +1034,8 @@ class GSEAApp {
                 zerolinecolor: '#333',
                 gridcolor: '#e5e5e5',
                 tickfont: { size: baseFontSize - 2, family: fontFam },
-                range: [Math.min(0, metrics[N - 1]) - yPad, Math.max(0, metrics[0]) + yPad]
+                range: [Math.min(0, metrics[N - 1]) - yPad, Math.max(0, metrics[0]) + yPad],
+                fixedrange: true
             },
             height: 250,
             margin: { l: 65, r: 20, t: 25, b: 50 },
@@ -1013,7 +1049,8 @@ class GSEAApp {
                 line: { color: '#333', width: 1.5 },
                 fillcolor: 'rgba(0,0,0,0)'
             }],
-            annotations: annotations
+            annotations: annotations,
+            dragmode: false
         };
 
         // Apply custom dimensions
@@ -1026,6 +1063,7 @@ class GSEAApp {
             displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
             scrollZoom: false,
+            doubleClick: false,
             edits: { annotationPosition: true, annotationText: true, axisTitleText: true, titleText: false, legendPosition: true }
         });
     }
@@ -1319,29 +1357,28 @@ class GSEAApp {
 
         const tickFontSize = Math.max(8, baseFontSize - 3);
 
-        // Compute y-range for metric panel using percentile to avoid extreme outliers stretching axis
-        const metSorted = [...metSampled].sort((a, b) => a - b);
-        const metTrimN = Math.max(1, Math.floor(metSorted.length * 0.02));
-        const metYMin = Math.min(0, metSorted[metTrimN]) * 1.08;
-        const metYMax = Math.max(0, metSorted[metSorted.length - 1 - metTrimN]) * 1.08;
+        // Compute y-range for metric panel — use actual min/max of sampled data
+        const metYMin = Math.min(0, Math.min(...metSampled)) * 1.05;
+        const metYMax = Math.max(0, Math.max(...metSampled)) * 1.05;
 
         const layout = {
             // ES panel
             xaxis: {
                 range: [-xPad, N - 1 + xPad], showticklabels: false, showgrid: false, zeroline: false,
-                domain: [xLeft, xRight], anchor: 'y', showline: false
+                domain: [xLeft, xRight], anchor: 'y', showline: false, fixedrange: true
             },
             yaxis: {
                 title: { text: 'Enrichment score (ES)', font: { size: baseFontSize - 1, family: fontFam }, standoff: 8 },
                 domain: [esBot, esTop], anchor: 'x',
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: false,
-                tickfont: { size: tickFontSize, family: fontFam }
+                tickfont: { size: tickFontSize, family: fontFam },
+                fixedrange: true
             },
             // Hit marker panel
             xaxis2: {
                 range: [-xPad, N - 1 + xPad], showticklabels: false, showgrid: false, zeroline: false,
-                domain: [xLeft, xRight], anchor: 'y2', showline: false
+                domain: [xLeft, xRight], anchor: 'y2', showline: false, fixedrange: true
             },
             yaxis2: {
                 domain: [hitBot, hitTop], anchor: 'x2',
@@ -1356,7 +1393,8 @@ class GSEAApp {
                 domain: [xLeft, xRight], anchor: 'y3',
                 showgrid: false,
                 tickfont: { size: tickFontSize, family: fontFam },
-                side: 'bottom'
+                side: 'bottom',
+                fixedrange: true
             },
             yaxis3: {
                 title: { text: metricLabel, font: { size: baseFontSize - 2, family: fontFam }, standoff: 5 },
@@ -1364,7 +1402,8 @@ class GSEAApp {
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: true, zerolinecolor: '#333', zerolinewidth: 0.8,
                 tickfont: { size: tickFontSize, family: fontFam },
-                range: [metYMin, metYMax]
+                range: [metYMin, metYMax],
+                fixedrange: true
             },
             height: 580,
             margin: { l: 65, r: 15, t: 45, b: 60 },
@@ -1373,7 +1412,8 @@ class GSEAApp {
             plot_bgcolor: '#fff',
             shapes: panelShapes,
             annotations: annotations,
-            bargap: 0
+            bargap: 0,
+            dragmode: false
         };
 
         // Apply custom dimensions
@@ -1389,6 +1429,7 @@ class GSEAApp {
                 displaylogo: false,
                 modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
                 scrollZoom: false,
+                doubleClick: false,
                 edits: { annotationPosition: true, annotationTail: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true, colorbarPosition: true }
             }
         );
@@ -1865,17 +1906,19 @@ class GSEAApp {
             height: size,
             width: size + 50,
             margin: { l: 10, r: 50, t: 20, b: 10 },
-            xaxis: { tickfont: { size: 10, family: fontFam }, tickangle: -45, automargin: true, showgrid: false },
-            yaxis: { tickfont: { size: 10, family: fontFam }, automargin: true, showgrid: false, autorange: 'reversed' },
+            xaxis: { tickfont: { size: 10, family: fontFam }, tickangle: -45, automargin: true, showgrid: false, fixedrange: true },
+            yaxis: { tickfont: { size: 10, family: fontFam }, automargin: true, showgrid: false, autorange: 'reversed', fixedrange: true },
             font: { family: fontFam },
             paper_bgcolor: '#fff',
-            plot_bgcolor: '#fff'
+            plot_bgcolor: '#fff',
+            dragmode: false
         };
 
         Plotly.newPlot('overlapHeatmap', [trace], layout, {
             responsive: true, displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
-            scrollZoom: false
+            scrollZoom: false,
+            doubleClick: false
         });
 
         // Show collapsed info
