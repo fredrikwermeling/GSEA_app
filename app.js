@@ -749,13 +749,12 @@ class GSEAApp {
             yref: 'paper', y0: 0, y1: 1,
             line: { color: '#9ca3af', width: 1.5 }
         });
-        // Plot border at paper coordinates (won't coincide with any data point)
-        shapes.push({
-            type: 'rect', xref: 'paper', yref: 'paper',
-            x0: 0, x1: 1, y0: 0, y1: 1,
-            line: { color: '#333', width: 1 },
-            fillcolor: 'rgba(0,0,0,0)'
-        });
+        // Plot border lines at paper coordinates (top, right, bottom — no left, since labels are there)
+        shapes.push(
+            { type: 'line', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 1, y1: 1, line: { color: '#333', width: 1 } },  // top
+            { type: 'line', xref: 'paper', yref: 'paper', x0: 1, x1: 1, y0: 0, y1: 1, line: { color: '#333', width: 1 } },  // right
+            { type: 'line', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0, y1: 0, line: { color: '#333', width: 1 } }   // bottom
+        );
 
         const trace = {
             x: top.map(r => r.nes),
@@ -826,30 +825,17 @@ class GSEAApp {
             dragmode: false
         };
 
-        // Size legend: compute representative sizes from actual data
-        const actualSizes = top.map(r => r.size);
-        const minActualSize = Math.min(...actualSizes);
-        const maxActualSize = Math.max(...actualSizes);
+        // Size legend: use actual min, median, max from the displayed gene sets
+        const actualSizes = top.map(r => r.size).sort((a, b) => a - b);
+        const minActualSize = actualSizes[0];
+        const maxActualSize = actualSizes[actualSizes.length - 1];
+        const medActualSize = actualSizes[Math.floor(actualSizes.length / 2)];
         let sizeSamples;
         if (maxActualSize <= minActualSize) {
             sizeSamples = [minActualSize];
         } else {
-            // Generate nice round values spanning the actual range
-            const niceRound = (n) => {
-                if (n <= 5) return n;
-                if (n <= 15) return Math.round(n / 5) * 5;
-                if (n <= 50) return Math.round(n / 10) * 10;
-                if (n <= 200) return Math.round(n / 25) * 25;
-                if (n <= 1000) return Math.round(n / 50) * 50;
-                return Math.round(n / 100) * 100;
-            };
-            const mid = (minActualSize + maxActualSize) / 2;
-            const candidates = [niceRound(minActualSize), niceRound(mid), niceRound(maxActualSize)];
-            sizeSamples = [...new Set(candidates)].sort((a, b) => a - b);
-            // Ensure we have at least 2 entries
-            if (sizeSamples.length < 2) {
-                sizeSamples = [minActualSize, maxActualSize];
-            }
+            // Use actual min, median, max — show real data values
+            sizeSamples = [...new Set([minActualSize, medActualSize, maxActualSize])].sort((a, b) => a - b);
         }
         const sizeLegendTraces = [];
         if (sizeSamples.length > 0) {
@@ -1170,17 +1156,30 @@ class GSEAApp {
         };
 
         // ---- Panel 3: Ranked list metric ----
+        // Use coarser subsampling (~600 bars) to match the ranked plot visual appearance
+        const metMaxBars = 600;
+        const metStep = Math.max(1, Math.ceil(N / metMaxBars));
+        const metBarX = [], metBarY = [];
+        for (let i = 0; i < N; i += metStep) {
+            metBarX.push(i);
+            metBarY.push(metrics[i]);
+        }
+        if (metBarX[metBarX.length - 1] !== N - 1) {
+            metBarX.push(N - 1);
+            metBarY.push(metrics[N - 1]);
+        }
+
         const traces3 = [];
         if (s.showMetricFill) {
             // Separate positive and negative for coloring
             const posX = [], posY = [], negX = [], negY = [];
-            for (let i = 0; i < xSampled.length; i++) {
-                if (metSampled[i] >= 0) {
-                    posX.push(xSampled[i]);
-                    posY.push(metSampled[i]);
+            for (let i = 0; i < metBarX.length; i++) {
+                if (metBarY[i] >= 0) {
+                    posX.push(metBarX[i]);
+                    posY.push(metBarY[i]);
                 } else {
-                    negX.push(xSampled[i]);
-                    negY.push(metSampled[i]);
+                    negX.push(metBarX[i]);
+                    negY.push(metBarY[i]);
                 }
             }
             if (posX.length > 0) {
@@ -1201,7 +1200,7 @@ class GSEAApp {
             }
         } else {
             traces3.push({
-                x: xSampled, y: metSampled,
+                x: metBarX, y: metBarY,
                 type: 'scatter', mode: 'lines',
                 line: { color: '#999', width: 0.8 },
                 fill: 'tozeroy',
@@ -1357,9 +1356,9 @@ class GSEAApp {
 
         const tickFontSize = Math.max(8, baseFontSize - 3);
 
-        // Compute y-range for metric panel — use actual min/max of sampled data
-        const metYMin = Math.min(0, Math.min(...metSampled)) * 1.05;
-        const metYMax = Math.max(0, Math.max(...metSampled)) * 1.05;
+        // Compute y-range for metric panel — use actual min/max of the full ranked list
+        const metYMin = Math.min(0, metrics[N - 1]) * 1.05;
+        const metYMax = Math.max(0, metrics[0]) * 1.05;
 
         const layout = {
             // ES panel
