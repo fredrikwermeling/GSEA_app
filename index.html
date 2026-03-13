@@ -1441,7 +1441,8 @@
         <li><strong>Start with Hallmark</strong> (50 sets) &mdash; well-defined biological pathways, fast and highly interpretable</li>
         <li><strong>Explore specific collections</strong> &mdash; if Hallmark shows inflammatory signals, try C7 (Immunologic); for metabolic hits, try C2 (Curated: KEGG/Reactome)</li>
         <li><strong>Use the Gene Set Browser</strong> &mdash; search for specific pathways or genes of interest across all collections</li>
-        <li><strong>Use the Data Type selector</strong> &mdash; set to "CRISPR screen" or "Perturbation" if your data is not standard gene expression, for correct interpretation</li>
+        <li><strong>Iterative permutation strategy</strong> &mdash; for large analyses, run with low permutations (100&ndash;200) first for a fast screen, then select interesting hits from the results table and re-run them with higher permutations (1000) for accurate p-values</li>
+        <li><strong>Use the Data Type selector</strong> &mdash; set to "CRISPR / Perturbation" if your data is from a genetic screen or perturbation experiment, for correct interpretation</li>
     </ol>
 </div>
 
@@ -1485,15 +1486,13 @@
                             <span class="info-tooltip">
                                 <strong>Data type</strong> controls how enrichment results are interpreted.<br><br>
                                 <b>Expression:</b> Gene expression (RNA-seq, microarray). Positive NES = upregulated pathway.<br>
-                                <b>CRISPR screen:</b> Genetic screen data. Positive NES = essential genes.<br>
-                                <b>Perturbation:</b> Generic perturbation. Neutral interpretation.
+                                <b>CRISPR / Perturbation:</b> Screen or perturbation data. Positive NES = enriched/positively selected. Negative NES = depleted/negatively selected.
                             </span>
                         </span>
                     </label>
                     <select class="form-control" id="dataType">
                         <option value="expression" selected>Expression data</option>
-                        <option value="crispr">CRISPR screen</option>
-                        <option value="perturbation">Perturbation (generic)</option>
+                        <option value="crispr">CRISPR / Perturbation</option>
                     </select>
                 </div>
             </div>
@@ -1896,8 +1895,7 @@
                                 <label style="font-size: 0.78em; color: var(--gray-500); white-space: nowrap;">Interpret as:</label>
                                 <select class="form-control" id="dataTypeInline" style="font-size: 0.78em; padding: 2px 6px; flex: 1;">
                                     <option value="expression">Expression</option>
-                                    <option value="crispr">CRISPR screen</option>
-                                    <option value="perturbation">Perturbation</option>
+                                    <option value="crispr">CRISPR / Perturbation</option>
                                 </select>
                             </div>
                             <div class="card-content" style="padding: 8px 10px; font-size: 0.85em;" id="geneSetInfoContent">
@@ -2066,6 +2064,7 @@
                                 <option value="down">Downregulated (NES &lt; 0)</option>
                             </select>
                             <button class="btn btn-outline btn-sm" id="downloadCSVBtn">Download CSV</button>
+                            <button class="btn btn-outline btn-sm" id="rerunFilteredBtn" style="background: var(--green-50); border-color: var(--green-600); color: var(--green-700);" title="Re-run GSEA on only the currently visible (filtered) gene sets, e.g. with higher permutations for accurate p-values">🔄 Re-run filtered</button>
                             <span class="result-count" id="resultCount"></span>
                         </div>
                         <div class="table-container">

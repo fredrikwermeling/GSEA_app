@@ -48,7 +48,7 @@ class GSEAApp {
             positiveColor: '#dc2626',
             negativeColor: '#2563eb',
             overlapColorScheme: 'green',
-            dataType: 'expression',      // 'expression' | 'crispr' | 'perturbation'
+            dataType: 'expression',      // 'expression' | 'crispr'
             // Height controls
             esPlotHeight: 580,
             bubblePlotHeight: 0,         // 0 = auto
@@ -294,6 +294,9 @@ class GSEAApp {
         // Download CSV
         document.getElementById('downloadCSVBtn').addEventListener('click', () => this.downloadCSV());
 
+        // Re-run filtered gene sets
+        document.getElementById('rerunFilteredBtn').addEventListener('click', () => this.rerunFiltered());
+
         // Methods card buttons
         document.getElementById('copyMethodsBtn').addEventListener('click', () => this.copyMethods());
         document.getElementById('downloadMethodsBtn').addEventListener('click', () => this.downloadMethods());
@@ -376,10 +379,21 @@ class GSEAApp {
             document.getElementById('settingsPanel').classList.remove('open');
         });
 
-        // Close graph settings popups when clicking outside
+        // Close popups when clicking outside
         document.addEventListener('click', (e) => {
+            // Graph settings popups
             if (!e.target.closest('.card-settings-btn') && !e.target.closest('.graph-settings-popup')) {
                 document.querySelectorAll('.graph-settings-popup.open').forEach(p => p.classList.remove('open'));
+            }
+            // Text settings panel
+            const tsp = document.getElementById('textSettingsPanel');
+            if (tsp && tsp.style.display !== 'none' && !e.target.closest('.text-settings-panel') && !e.target.closest('button[onclick*="openTextSettings"]')) {
+                this.closeTextSettings();
+            }
+            // Global settings panel
+            const sp = document.getElementById('settingsPanel');
+            if (sp && sp.classList.contains('open') && !e.target.closest('#settingsPanel') && !e.target.closest('#openSettingsBtn')) {
+                sp.classList.remove('open');
             }
         });
 
@@ -490,7 +504,7 @@ class GSEAApp {
             if (total > 2000) {
                 this.showStatus('geneSetStatus', 'warning',
                     `${parts.join(' | ')} — ${total.toLocaleString()} total gene sets. ` +
-                    `Large analysis — consider starting with Hallmark (50 sets) for a quick overview, then exploring specific collections.`);
+                    `Tip: lower permutations (e.g. 100) for a fast screen, then re-run interesting hits with 1000 permutations. Or start with Hallmark (50 sets).`);
             } else {
                 this.showStatus('geneSetStatus', 'info',
                     `${parts.join(' | ')} — ${total.toLocaleString()} total gene sets`);
@@ -789,7 +803,8 @@ class GSEAApp {
             const proceed = confirm(
                 `You are about to analyze ${nSets.toLocaleString()} gene sets with ${this.settings.permutations.toLocaleString()} permutations.\n\n` +
                 `Estimated time: ~${estMinutes} minute${estMinutes > 1 ? 's' : ''}.\n\n` +
-                `Tip: Start with Hallmark (50 sets) for a quick overview, then explore specific collections for deeper analysis.\n\nContinue?`
+                `Tip: Consider lowering permutations (e.g. 100–200) for a fast initial screen, then re-run interesting hits with more permutations (1000) for accurate p-values. ` +
+                `Or start with Hallmark (50 sets) for a quick overview.\n\nContinue?`
             );
             if (!proceed) {
                 document.getElementById('progressContainer').classList.add('hidden');
@@ -821,6 +836,74 @@ class GSEAApp {
         document.getElementById('cancelBtn').style.display = 'none';
         document.getElementById('progressContainer').classList.remove('active');
         this.showStatus('runStatus', 'warning', 'Analysis cancelled.');
+    }
+
+    rerunFiltered() {
+        if (!this.results || !this.rankedList) {
+            alert('No results to re-run. Run GSEA first.');
+            return;
+        }
+
+        // Get the currently filtered gene set names (same logic as filterAndRenderTable)
+        const query = document.getElementById('tableFilter').value.toLowerCase();
+        const fdrVal = document.getElementById('fdrFilter').value;
+        const dirVal = document.getElementById('directionFilter').value;
+
+        let filtered = this.results.slice();
+        if (query) filtered = filtered.filter(r => r.name.toLowerCase().includes(query));
+        if (fdrVal !== 'all') {
+            const thresh = parseFloat(fdrVal);
+            filtered = filtered.filter(r => r.fdr < thresh);
+        }
+        if (dirVal === 'up') filtered = filtered.filter(r => r.nes > 0);
+        else if (dirVal === 'down') filtered = filtered.filter(r => r.nes < 0);
+
+        if (filtered.length === 0) {
+            alert('No gene sets match the current filters. Adjust filters to select gene sets for re-analysis.');
+            return;
+        }
+
+        const perms = this.settings.permutations;
+        const proceed = confirm(
+            `Re-run GSEA on ${filtered.length} filtered gene sets with ${perms.toLocaleString()} permutations?\n\n` +
+            `This is useful for refining p-values after an initial screen — e.g. first run all sets with 100 permutations, ` +
+            `then re-run significant hits with 1000 permutations.\n\nContinue?`
+        );
+        if (!proceed) return;
+
+        // Build a gene set dict from only the filtered results
+        const activeGeneSets = this.getActiveGeneSets();
+        const rerunSets = {};
+        for (const r of filtered) {
+            if (activeGeneSets[r.name]) {
+                rerunSets[r.name] = activeGeneSets[r.name];
+            }
+        }
+
+        if (Object.keys(rerunSets).length === 0) {
+            alert('Could not find gene set data for the filtered results. The gene set collections may have changed since the last run.');
+            return;
+        }
+
+        // Run GSEA with only the filtered sets
+        this.readSettings();
+        const s = this.settings;
+
+        document.getElementById('runBtn').style.display = 'none';
+        document.getElementById('cancelBtn').style.display = '';
+        document.getElementById('progressContainer').classList.add('active');
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressText').textContent = `Re-running ${Object.keys(rerunSets).length} gene sets...`;
+
+        this.worker.postMessage({
+            genes: this.rankedList.genes,
+            metrics: this.rankedList.metrics,
+            geneSets: rerunSets,
+            permutations: s.permutations,
+            minSize: s.minSize,
+            maxSize: s.maxSize,
+            weightP: s.weightP
+        });
     }
 
     handleWorkerMessage(e) {
@@ -1207,8 +1290,8 @@ class GSEAApp {
         }
         // Positive / Negative labels (data-type-aware)
         const rpDataType = this.settings.dataType || 'expression';
-        const rpPosLabel = rpDataType === 'crispr' ? 'Enriched in screen' : rpDataType === 'perturbation' ? 'Positive response' : 'Positively correlated';
-        const rpNegLabel = rpDataType === 'crispr' ? 'Depleted in screen' : rpDataType === 'perturbation' ? 'Negative response' : 'Negatively correlated';
+        const rpPosLabel = rpDataType === 'crispr' ? 'Enriched in screen' : 'Positively correlated';
+        const rpNegLabel = rpDataType === 'crispr' ? 'Depleted in screen' : 'Negatively correlated';
         const rpPosFont = this._getTextFont('ranked', 'posLabel');
         const rpNegFont = this._getTextFont('ranked', 'negLabel');
         if (rpPosFont.visible) {
@@ -1565,8 +1648,8 @@ class GSEAApp {
         // Correlation labels — position below the x-axis title (data-type-aware)
         if (s.showCorrelationLabels && zeroCross >= 0) {
             const esDT = this.settings.dataType || 'expression';
-            const esPosLabel = esDT === 'crispr' ? 'Enriched in screen' : esDT === 'perturbation' ? 'Positive response' : 'Positively correlated';
-            const esNegLabel = esDT === 'crispr' ? 'Depleted in screen' : esDT === 'perturbation' ? 'Negative response' : 'Negatively correlated';
+            const esPosLabel = esDT === 'crispr' ? 'Enriched in screen' : 'Positively correlated';
+            const esNegLabel = esDT === 'crispr' ? 'Depleted in screen' : 'Negatively correlated';
             const esPosFont = this._getTextFont('es', 'posLabel');
             const esNegFont = this._getTextFont('es', 'negLabel');
             if (esPosFont.visible) {
@@ -1703,15 +1786,10 @@ class GSEAApp {
         // Build data-type-aware interpretation
         let dirLabel, dirExplanation;
         if (dataType === 'crispr') {
-            dirLabel = isUp ? 'Essential' : 'Dispensable / Growth-promoting';
+            dirLabel = isUp ? 'Enriched (positive selection)' : 'Depleted (negative selection)';
             dirExplanation = isUp
-                ? `Genes in this set tend to have <b>high ${metricLabel}</b> values (enriched in screen). These genes are <b>essential</b> for the phenotype — loss of these genes <b>impairs</b> the selected phenotype.`
-                : `Genes in this set tend to have <b>low ${metricLabel}</b> values (depleted in screen). Loss of these genes <b>promotes</b> the phenotype, or these genes are <b>dispensable</b> for it.`;
-        } else if (dataType === 'perturbation') {
-            dirLabel = isUp ? 'Positive response' : 'Negative response';
-            dirExplanation = isUp
-                ? `Genes in this set tend to have <b>high ${metricLabel}</b> values — they <b>respond positively</b> to the perturbation.`
-                : `Genes in this set tend to have <b>low ${metricLabel}</b> values — they <b>respond negatively</b> to the perturbation.`;
+                ? `Genes in this set tend to have <b>high ${metricLabel}</b> values (enriched in screen). These genes are <b>positively selected</b> — they score high in your screen phenotype (e.g. essential for survival, enriched in a sorted population, etc.).`
+                : `Genes in this set tend to have <b>low ${metricLabel}</b> values (depleted in screen). These genes are <b>negatively selected</b> — they score low in your screen phenotype (e.g. dispensable, depleted from a sorted population, etc.).`;
         } else {
             dirLabel = isUp ? 'Upregulated' : 'Downregulated';
             dirExplanation = isUp
