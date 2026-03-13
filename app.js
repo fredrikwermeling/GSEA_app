@@ -294,8 +294,12 @@ class GSEAApp {
         // Download CSV
         document.getElementById('downloadCSVBtn').addEventListener('click', () => this.downloadCSV());
 
-        // Re-run filtered gene sets
+        // Re-run filtered gene sets (results table button)
         document.getElementById('rerunFilteredBtn').addEventListener('click', () => this.rerunFiltered());
+
+        // Re-run significant hits (Card 4 button)
+        document.getElementById('rerunSignificantBtn').addEventListener('click', () => this.rerunSignificant());
+        document.getElementById('rerunFdrThreshold').addEventListener('change', () => this.updateRerunHitCount());
 
         // Methods card buttons
         document.getElementById('copyMethodsBtn').addEventListener('click', () => this.copyMethods());
@@ -743,7 +747,7 @@ class GSEAApp {
         this.readSettings();
 
         document.getElementById('runBtn').style.display = 'none';
-        document.getElementById('invertBtn').style.display = 'none';
+        document.getElementById('rerunSection').style.display = 'none';
         document.getElementById('cancelBtn').style.display = '';
         const container = document.getElementById('progressContainer');
         container.classList.add('active');
@@ -909,6 +913,72 @@ class GSEAApp {
         });
     }
 
+    rerunSignificant() {
+        if (!this.results || !this.rankedList) {
+            alert('No results to re-run. Run GSEA first.');
+            return;
+        }
+
+        const fdrThresh = parseFloat(document.getElementById('rerunFdrThreshold').value);
+        const hits = this.results.filter(r => r.fdr < fdrThresh);
+
+        if (hits.length === 0) {
+            alert(`No gene sets with FDR < ${fdrThresh}. Try a less strict threshold.`);
+            return;
+        }
+
+        this.readSettings();
+        const perms = this.settings.permutations;
+
+        const proceed = confirm(
+            `Re-run ${hits.length} gene sets (FDR < ${fdrThresh}) with ${perms.toLocaleString()} permutations?\n\n` +
+            `This refines p-values and FDR for your hits. Use ≥1000 permutations for publication-quality statistics.\n\nContinue?`
+        );
+        if (!proceed) return;
+
+        // Build gene set dict from only the significant results
+        const activeGeneSets = this.getActiveGeneSets();
+        const rerunSets = {};
+        for (const r of hits) {
+            if (activeGeneSets[r.name]) {
+                rerunSets[r.name] = activeGeneSets[r.name];
+            }
+        }
+
+        if (Object.keys(rerunSets).length === 0) {
+            alert('Could not find gene set data for the hits. The collections may have changed since the last run.');
+            return;
+        }
+
+        const s = this.settings;
+        document.getElementById('runBtn').style.display = 'none';
+        document.getElementById('rerunSection').style.display = 'none';
+        document.getElementById('cancelBtn').style.display = '';
+        document.getElementById('progressContainer').classList.add('active');
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressText').textContent = `Re-running ${Object.keys(rerunSets).length} gene sets...`;
+
+        this.worker.postMessage({
+            type: 'run',
+            rankedGenes: this.rankedList.genes,
+            rankedMetrics: this.rankedList.metrics,
+            geneSets: rerunSets,
+            settings: {
+                permutations: s.permutations,
+                minSize: s.minSize,
+                maxSize: s.maxSize,
+                weightP: s.weightP
+            }
+        });
+    }
+
+    updateRerunHitCount() {
+        if (!this.results) return;
+        const fdrThresh = parseFloat(document.getElementById('rerunFdrThreshold').value);
+        const count = this.results.filter(r => r.fdr < fdrThresh).length;
+        document.getElementById('rerunHitCount').textContent = `(${count} set${count !== 1 ? 's' : ''})`;
+    }
+
     handleWorkerMessage(e) {
         const data = e.data;
 
@@ -927,8 +997,9 @@ class GSEAApp {
             this.showStatus('runStatus', 'success',
                 `Done! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25)`);
 
-            // Show the invert button now that we have results
-            document.getElementById('invertBtn').style.display = '';
+            // Show re-run options now that we have results
+            document.getElementById('rerunSection').style.display = '';
+            this.updateRerunHitCount();
 
             this.displayResults();
         }
@@ -2646,7 +2717,7 @@ class GSEAApp {
         document.getElementById('runBtn').disabled = true;
         document.getElementById('runBtn').style.display = '';
         document.getElementById('cancelBtn').style.display = 'none';
-        document.getElementById('invertBtn').style.display = 'none';
+        document.getElementById('rerunSection').style.display = 'none';
         document.getElementById('progressContainer').classList.remove('active');
         this.hideStatus('uploadStatus');
         this.hideStatus('runStatus');

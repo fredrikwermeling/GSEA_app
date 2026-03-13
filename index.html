@@ -1636,7 +1636,6 @@
             <div class="card-content">
                 <button class="btn btn-primary btn-lg" id="runBtn" disabled>Run GSEA</button>
                 <button class="btn btn-secondary btn-lg" id="cancelBtn" style="display:none; margin-top: 8px;">Cancel</button>
-                <button class="btn btn-secondary btn-sm" id="invertBtn" style="display:none; margin-top: 8px; width: 100%;" title="Negate all metric values and re-run (swap comparison direction)">⇅ Invert Ranking &amp; Re-run</button>
                 <div class="progress-container" id="progressContainer">
                     <div class="progress-bar-bg">
                         <div class="progress-bar-fill" id="progressBar"></div>
@@ -1644,6 +1643,32 @@
                     <div class="progress-text" id="progressText"></div>
                 </div>
                 <div id="runStatus" class="status-box hidden"></div>
+
+                <!-- Re-run options (shown after results) -->
+                <div id="rerunSection" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                    <div style="font-size: 0.82em; font-weight: 600; color: var(--gray-600); margin-bottom: 6px;">Re-run options</div>
+
+                    <!-- Re-run significant hits -->
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+                        <button class="btn btn-sm" id="rerunSignificantBtn" style="background: var(--green-50); border: 1px solid var(--green-600); color: var(--green-700); font-size: 0.82em; white-space: nowrap;">🔄 Re-run hits</button>
+                        <select class="form-control" id="rerunFdrThreshold" style="font-size: 0.82em; padding: 3px 6px; width: auto; min-width: 130px;">
+                            <option value="0.25">FDR &lt; 0.25</option>
+                            <option value="0.1">FDR &lt; 0.1</option>
+                            <option value="0.05" selected>FDR &lt; 0.05</option>
+                            <option value="0.01">FDR &lt; 0.01</option>
+                        </select>
+                        <span id="rerunHitCount" style="font-size: 0.78em; color: var(--gray-500); white-space: nowrap;"></span>
+                        <span class="info-icon" style="font-size: 0.75em;">?<span class="info-tooltip"><b>Re-run significant hits</b><br>Re-runs GSEA on only the gene sets below the selected FDR threshold. Use this after an initial fast screen (low permutations) to refine p-values for your hits with higher permutations. The current permutation setting (in Card 3) is used.</span></span>
+                    </div>
+
+                    <!-- Invert ranking -->
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                        <button class="btn btn-secondary btn-sm" id="invertBtn" style="font-size: 0.82em; white-space: nowrap; flex-shrink: 0;">⇅ Invert &amp; re-run</button>
+                        <span style="font-size: 0.78em; color: var(--gray-500);">Swap comparison direction</span>
+                        <span class="info-icon" style="font-size: 0.75em;">?<span class="info-tooltip"><b>Invert Ranking &amp; Re-run</b><br>Negates all metric values (multiplies by -1) and re-runs the full analysis. This swaps the comparison direction — e.g. if you ranked by condition vs. control, this re-runs as control vs. condition.</span></span>
+                    </div>
+                </div>
+
                 <button class="btn btn-secondary btn-sm" id="resetBtn" style="margin-top: 10px; width: 100%;">Reset App</button>
             </div>
         </div>
