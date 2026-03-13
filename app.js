@@ -896,13 +896,16 @@ class GSEAApp {
         document.getElementById('progressText').textContent = `Re-running ${Object.keys(rerunSets).length} gene sets...`;
 
         this.worker.postMessage({
-            genes: this.rankedList.genes,
-            metrics: this.rankedList.metrics,
+            type: 'run',
+            rankedGenes: this.rankedList.genes,
+            rankedMetrics: this.rankedList.metrics,
             geneSets: rerunSets,
-            permutations: s.permutations,
-            minSize: s.minSize,
-            maxSize: s.maxSize,
-            weightP: s.weightP
+            settings: {
+                permutations: s.permutations,
+                minSize: s.minSize,
+                maxSize: s.maxSize,
+                weightP: s.weightP
+            }
         });
     }
 

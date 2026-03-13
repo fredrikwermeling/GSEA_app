@@ -91,8 +91,9 @@ function runGSEA({ rankedGenes, rankedMetrics, geneSets, settings }) {
         }
     }
 
-    // ---- STEP 2: Permutation testing ----
-    // Memory-efficient: track running statistics instead of storing all permuted ES
+    // ---- STEP 2: Adaptive permutation testing ----
+    // fgsea-style: stop testing a gene set early once we have enough evidence
+    // it's non-significant. Significant hits run full permutations for max precision.
     const permStats = observedResults.map(r => ({
         nPosPerms: 0,
         sumPosPerms: 0,
@@ -101,8 +102,18 @@ function runGSEA({ rankedGenes, rankedMetrics, geneSets, settings }) {
         nMoreExtreme: 0
     }));
 
+    // Adaptive stopping: gene sets stop when nMoreExtreme >= earlyStopCount
+    // This means clearly non-significant sets (p > ~0.05) stop early,
+    // while significant/borderline sets run full permutations.
+    const active = new Uint8Array(totalSets).fill(1);
+    let activeSets = totalSets;
+    const earlyStopCount = 50;
+    const checkInterval = 100;
+
     for (let perm = 0; perm < permutations; perm++) {
         for (let si = 0; si < totalSets; si++) {
+            if (!active[si]) continue;
+
             const setSize = observedResults[si].size;
             const randomHits = sampleWithoutReplacement(N, setSize);
             randomHits.sort((a, b) => a - b);
@@ -127,11 +138,25 @@ function runGSEA({ rankedGenes, rankedMetrics, geneSets, settings }) {
             }
         }
 
+        // Check adaptive stopping periodically (not on last perm — let it finish)
+        if ((perm + 1) % checkInterval === 0 && perm + 1 < permutations) {
+            for (let si = 0; si < totalSets; si++) {
+                if (!active[si]) continue;
+                if (permStats[si].nMoreExtreme >= earlyStopCount) {
+                    active[si] = 0;
+                    activeSets--;
+                }
+            }
+        }
+
         if (perm % 10 === 0 || perm === permutations - 1) {
+            const refining = activeSets < totalSets
+                ? ` (${activeSets} of ${totalSets} still refining)`
+                : '';
             self.postMessage({
                 type: 'progress',
                 percent: 10 + (perm / permutations) * 80,
-                text: `Permutation ${perm + 1}/${permutations}...`
+                text: `Permutation ${perm + 1}/${permutations}${refining}`
             });
         }
     }
