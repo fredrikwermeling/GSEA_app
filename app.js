@@ -504,7 +504,7 @@ class GSEAApp {
             if (total > 2000) {
                 this.showStatus('geneSetStatus', 'warning',
                     `${parts.join(' | ')} — ${total.toLocaleString()} total gene sets. ` +
-                    `Tip: lower permutations (e.g. 100) for a fast screen, then re-run interesting hits with 1000 permutations. Or start with Hallmark (50 sets).`);
+                    `Tip: start with Hallmark (50 sets) for a quick overview. For large runs, you can lower permutations for faster screening, but note that borderline hits (FDR ~0.2–0.3) may be missed — re-run interesting results with ≥1000 permutations.`);
             } else {
                 this.showStatus('geneSetStatus', 'info',
                     `${parts.join(' | ')} — ${total.toLocaleString()} total gene sets`);
@@ -803,8 +803,8 @@ class GSEAApp {
             const proceed = confirm(
                 `You are about to analyze ${nSets.toLocaleString()} gene sets with ${this.settings.permutations.toLocaleString()} permutations.\n\n` +
                 `Estimated time: ~${estMinutes} minute${estMinutes > 1 ? 's' : ''}.\n\n` +
-                `Tip: Consider lowering permutations (e.g. 100–200) for a fast initial screen, then re-run interesting hits with more permutations (1000) for accurate p-values. ` +
-                `Or start with Hallmark (50 sets) for a quick overview.\n\nContinue?`
+                `Tip: Start with Hallmark (50 sets) for a quick overview. You can lower permutations (e.g. 100–200) for faster screening, ` +
+                `but note that borderline hits may be missed — always re-run interesting results with ≥1000 permutations for accurate p-values.\n\nContinue?`
             );
             if (!proceed) {
                 document.getElementById('progressContainer').classList.add('hidden');
@@ -866,8 +866,8 @@ class GSEAApp {
         const perms = this.settings.permutations;
         const proceed = confirm(
             `Re-run GSEA on ${filtered.length} filtered gene sets with ${perms.toLocaleString()} permutations?\n\n` +
-            `This is useful for refining p-values after an initial screen — e.g. first run all sets with 100 permutations, ` +
-            `then re-run significant hits with 1000 permutations.\n\nContinue?`
+            `This refines p-values and FDR estimates for your hits of interest. ` +
+            `Use ≥1000 permutations here for publication-quality statistics.\n\nContinue?`
         );
         if (!proceed) return;
 
