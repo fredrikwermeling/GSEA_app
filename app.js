@@ -99,7 +99,7 @@ class GSEAApp {
         document.getElementById('metricColumn').addEventListener('change', () => this.checkReady());
 
         // Gene set collection checkboxes
-        ['checkHallmark', 'checkC2', 'checkC5'].forEach(id => {
+        ['checkHallmark', 'checkC2', 'checkC3', 'checkC5', 'checkC6', 'checkC7', 'checkC8'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => this.onCollectionChange());
         });
 
@@ -362,7 +362,11 @@ class GSEAApp {
         const collections = {
             checkHallmark: { id: 'hallmark', file: 'h.all.v2023.2.Hs.json' },
             checkC2: { id: 'c2', file: 'c2.all.v2023.2.Hs.json' },
-            checkC5: { id: 'c5', file: 'c5.all.v2023.2.Hs.json' }
+            checkC3: { id: 'c3', file: 'c3.all.v2023.2.Hs.json' },
+            checkC5: { id: 'c5', file: 'c5.all.v2023.2.Hs.json' },
+            checkC6: { id: 'c6', file: 'c6.all.v2023.2.Hs.json' },
+            checkC7: { id: 'c7', file: 'c7.all.v2023.2.Hs.json' },
+            checkC8: { id: 'c8', file: 'c8.all.v2023.2.Hs.json' }
         };
 
         for (const [checkId, info] of Object.entries(collections)) {
@@ -400,7 +404,11 @@ class GSEAApp {
         const collections = {
             checkHallmark: { id: 'hallmark', label: 'Hallmark' },
             checkC2: { id: 'c2', label: 'C2' },
-            checkC5: { id: 'c5', label: 'C5' }
+            checkC3: { id: 'c3', label: 'C3' },
+            checkC5: { id: 'c5', label: 'C5' },
+            checkC6: { id: 'c6', label: 'C6' },
+            checkC7: { id: 'c7', label: 'C7' },
+            checkC8: { id: 'c8', label: 'C8' }
         };
         for (const [checkId, info] of Object.entries(collections)) {
             if (document.getElementById(checkId).checked && this.geneSets[info.id]) {
@@ -566,7 +574,7 @@ class GSEAApp {
         // Custom per-set selection mode
         if (this.useCustomSelection && this.selectedGeneSets.size > 0) {
             const combined = {};
-            const allData = { hallmark: this.geneSets['hallmark'], c2: this.geneSets['c2'], c5: this.geneSets['c5'], custom: this.customGeneSets };
+            const allData = { hallmark: this.geneSets['hallmark'], c2: this.geneSets['c2'], c3: this.geneSets['c3'], c5: this.geneSets['c5'], c6: this.geneSets['c6'], c7: this.geneSets['c7'], c8: this.geneSets['c8'], custom: this.customGeneSets };
             for (const collData of Object.values(allData)) {
                 if (!collData) continue;
                 for (const [name, genes] of Object.entries(collData)) {
@@ -583,7 +591,11 @@ class GSEAApp {
         const collections = {
             checkHallmark: 'hallmark',
             checkC2: 'c2',
-            checkC5: 'c5'
+            checkC3: 'c3',
+            checkC5: 'c5',
+            checkC6: 'c6',
+            checkC7: 'c7',
+            checkC8: 'c8'
         };
         for (const [checkId, id] of Object.entries(collections)) {
             if (document.getElementById(checkId).checked && this.geneSets[id]) {
@@ -2485,7 +2497,11 @@ class GSEAApp {
         const collections = [
             { id: 'hallmark', file: 'h.all.v2023.2.Hs.json' },
             { id: 'c2', file: 'c2.all.v2023.2.Hs.json' },
-            { id: 'c5', file: 'c5.all.v2023.2.Hs.json' }
+            { id: 'c3', file: 'c3.all.v2023.2.Hs.json' },
+            { id: 'c5', file: 'c5.all.v2023.2.Hs.json' },
+            { id: 'c6', file: 'c6.all.v2023.2.Hs.json' },
+            { id: 'c7', file: 'c7.all.v2023.2.Hs.json' },
+            { id: 'c8', file: 'c8.all.v2023.2.Hs.json' }
         ];
 
         // Show modal immediately with a loading state
@@ -2522,13 +2538,17 @@ class GSEAApp {
         };
         addCollection('hallmark', 'Hallmark', this.geneSets['hallmark']);
         addCollection('c2', 'C2: Curated', this.geneSets['c2']);
+        addCollection('c3', 'C3: Regulatory', this.geneSets['c3']);
         addCollection('c5', 'C5: GO', this.geneSets['c5']);
+        addCollection('c6', 'C6: Oncogenic', this.geneSets['c6']);
+        addCollection('c7', 'C7: Immunologic', this.geneSets['c7']);
+        addCollection('c8', 'C8: Cell Type', this.geneSets['c8']);
         if (this.customGeneSets && Object.keys(this.customGeneSets).length > 0) {
             addCollection('custom', 'Custom', this.customGeneSets);
         }
 
         // Sort: by collection order, then alphabetically within each
-        const collOrder = { hallmark: 0, c2: 1, c5: 2, custom: 3 };
+        const collOrder = { hallmark: 0, c2: 1, c3: 2, c5: 3, c6: 4, c7: 5, c8: 6, custom: 7 };
         this._gsbAllItems.sort((a, b) => {
             if (collOrder[a.collection] !== collOrder[b.collection]) {
                 return collOrder[a.collection] - collOrder[b.collection];
@@ -2668,6 +2688,15 @@ class GSEAApp {
         }
         flushItems();
 
+        // Update results count
+        const totalItems = this._gsbFlatList.filter(e => e.type === 'item').length;
+        const countEl = document.getElementById('gsbResultsCount');
+        if (query || collFilter !== 'all') {
+            countEl.textContent = `${totalItems.toLocaleString()} gene sets found`;
+        } else {
+            countEl.textContent = `${totalItems.toLocaleString()} gene sets`;
+        }
+
         // Update scroll spacer height
         const container = document.getElementById('gsbListContainer');
         const spacer = document.getElementById('gsbScrollSpacer');
@@ -2731,8 +2760,6 @@ class GSEAApp {
         document.getElementById('gsbDetailTitle').textContent = this.cleanName(item.name);
 
         const genes = item.genes;
-        const previewGenes = genes.slice(0, 50);
-        const moreCount = genes.length > 50 ? genes.length - 50 : 0;
 
         let html = `
             <div class="gsb-detail-stat">
@@ -2750,10 +2777,10 @@ class GSEAApp {
                 <span class="gsb-detail-stat-value">${item.size} genes</span>
             </div>
             <div style="margin-top: 12px;">
-                <strong style="font-size: 12px; color: #374151;">Genes:</strong>
+                <strong style="font-size: 12px; color: #374151;">Genes (${genes.length}):</strong>
             </div>
             <div class="gsb-detail-genes">
-                ${previewGenes.join(', ')}${moreCount > 0 ? `, <em>+${moreCount} more</em>` : ''}
+                ${genes.join(', ')}
             </div>
         `;
 
@@ -2790,9 +2817,9 @@ class GSEAApp {
         this.useCustomSelection = true;
 
         // Uncheck collection checkboxes — the browser selection takes over
-        document.getElementById('checkHallmark').checked = false;
-        document.getElementById('checkC2').checked = false;
-        document.getElementById('checkC5').checked = false;
+        ['checkHallmark', 'checkC2', 'checkC3', 'checkC5', 'checkC6', 'checkC7', 'checkC8'].forEach(id => {
+            document.getElementById(id).checked = false;
+        });
 
         this.closeGeneSetBrowser();
         this.updateGeneSetStatus();

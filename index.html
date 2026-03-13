@@ -1063,6 +1063,12 @@
             cursor: pointer;
         }
 
+        .gsb-results-count {
+            font-size: 12px;
+            color: var(--gray-500);
+            margin-left: auto;
+        }
+
         /* List container: virtual scroll area */
         .gsb-list-container {
             position: relative;
@@ -1189,8 +1195,6 @@
             font-family: 'Roboto Mono', monospace;
             font-size: 11px;
             line-height: 1.6;
-            max-height: 300px;
-            overflow-y: auto;
             color: var(--text-primary);
         }
         .gsb-detail-stat {
@@ -1359,6 +1363,30 @@
                         <strong>C5: GO</strong>
                     </label>
                     <div class="checkbox-info">Gene Ontology BP, MF, CC (16,008 sets)</div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="checkC3">
+                        <strong>C3: Regulatory</strong>
+                    </label>
+                    <div class="checkbox-info">Transcription factor and miRNA targets (3,713 sets)</div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="checkC6">
+                        <strong>C6: Oncogenic</strong>
+                    </label>
+                    <div class="checkbox-info">Oncogenic signature gene sets (189 sets)</div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="checkC7">
+                        <strong>C7: Immunologic</strong>
+                    </label>
+                    <div class="checkbox-info">Immunologic signature gene sets (5,219 sets)</div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="checkC8">
+                        <strong>C8: Cell Type</strong>
+                    </label>
+                    <div class="checkbox-info">Cell type signature gene sets (830 sets)</div>
                 </div>
 
                 <button class="btn btn-secondary btn-sm" id="openGeneSetBrowser" style="margin-top: 10px; width: 100%;">Browse &amp; Select Individual Gene Sets</button>
@@ -1939,11 +1967,16 @@
             <option value="all">All collections</option>
             <option value="hallmark">H: Hallmark</option>
             <option value="c2">C2: Curated</option>
+            <option value="c3">C3: Regulatory</option>
             <option value="c5">C5: GO</option>
+            <option value="c6">C6: Oncogenic</option>
+            <option value="c7">C7: Immunologic</option>
+            <option value="c8">C8: Cell Type</option>
             <option value="custom">Custom</option>
         </select>
         <button class="btn btn-secondary btn-sm" id="gsbSelectAll">Select All Visible</button>
         <button class="btn btn-secondary btn-sm" id="gsbDeselectAll">Deselect All</button>
+        <span class="gsb-results-count" id="gsbResultsCount"></span>
     </div>
     <div class="gsb-list-container" id="gsbListContainer">
         <div class="gsb-scroll-spacer" id="gsbScrollSpacer"></div>
@@ -1961,6 +1994,6 @@
     </div>
 </div>
 
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
