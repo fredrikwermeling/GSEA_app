@@ -47,8 +47,52 @@ class GSEAApp {
             showMetricFill: true,
             positiveColor: '#dc2626',
             negativeColor: '#2563eb',
-            overlapColorScheme: 'green'
+            overlapColorScheme: 'green',
+            dataType: 'expression',      // 'expression' | 'crispr' | 'perturbation'
+            // Height controls
+            esPlotHeight: 580,
+            bubblePlotHeight: 0,         // 0 = auto
+            rankedPlotHeight: 250,
+            overlapPlotHeight: 0,        // 0 = auto
+            // ES panel proportions (%)
+            esPanelES: 55,
+            esPanelHits: 8,
+            esPanelMetric: 28
         };
+
+        // Per-text-element font settings
+        this.textElements = {
+            bubble: [
+                { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Normalized Enrichment Score (NES)', defaultSize: 12 },
+                { key: 'yTickFont', label: 'Y-axis labels', editable: false, defaultSize: 11 },
+                { key: 'colorbarTitle', label: 'Colorbar title', editable: true, defaultText: 'FDR', defaultSize: 11 },
+                { key: 'sizeAnnotation', label: 'Size annotation', editable: false, defaultSize: 10 }
+            ],
+            ranked: [
+                { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Rank in Ordered Dataset', defaultSize: 11 },
+                { key: 'yAxisLabel', label: 'Y-axis label', editable: true, defaultText: 'Ranked list metric', defaultSize: 11 },
+                { key: 'xTickFont', label: 'X-axis ticks', editable: false, defaultSize: 10 },
+                { key: 'yTickFont', label: 'Y-axis ticks', editable: false, defaultSize: 10 },
+                { key: 'posLabel', label: 'Positive label', editable: true, defaultText: 'Positively correlated', defaultSize: 9 },
+                { key: 'negLabel', label: 'Negative label', editable: true, defaultText: 'Negatively correlated', defaultSize: 9 }
+            ],
+            es: [
+                { key: 'title', label: 'Title', editable: false, defaultSize: 13 },
+                { key: 'esYLabel', label: 'ES Y-axis label', editable: true, defaultText: 'Enrichment score (ES)', defaultSize: 11 },
+                { key: 'metricYLabel', label: 'Metric Y-axis label', editable: false, defaultSize: 10 },
+                { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Rank in Ordered Dataset', defaultSize: 11 },
+                { key: 'statsBox', label: 'Stats box', editable: false, defaultSize: 10, defaultFamily: 'Roboto Mono' },
+                { key: 'posLabel', label: 'Positive label', editable: true, defaultText: 'Positively correlated', defaultSize: 9 },
+                { key: 'negLabel', label: 'Negative label', editable: true, defaultText: 'Negatively correlated', defaultSize: 9 },
+                { key: 'tickFont', label: 'Axis ticks', editable: false, defaultSize: 9 }
+            ],
+            overlap: [
+                { key: 'colorbarTitle', label: 'Colorbar title', editable: true, defaultText: 'Jaccard Index', defaultSize: 11 },
+                { key: 'tickFont', label: 'Axis labels', editable: false, defaultSize: 10 }
+            ]
+        };
+        this.textFonts = {};
+        this._initTextFonts();
 
         // Table sort state
         this.sortCol = 'nes';
@@ -98,6 +142,22 @@ class GSEAApp {
         document.getElementById('geneColumn').addEventListener('change', () => this.checkReady());
         document.getElementById('metricColumn').addEventListener('change', () => this.checkReady());
 
+        // Data type selector (sidebar + inline sync)
+        document.getElementById('dataType').addEventListener('change', (e) => {
+            this.settings.dataType = e.target.value;
+            document.getElementById('dataTypeInline').value = e.target.value;
+            const sel = document.getElementById('geneSetSelector');
+            if (sel && sel.value) this.renderGeneSetInfo(sel.value);
+            if (this.results) this.updateSettings();
+        });
+        document.getElementById('dataTypeInline').addEventListener('change', (e) => {
+            this.settings.dataType = e.target.value;
+            document.getElementById('dataType').value = e.target.value;
+            const sel = document.getElementById('geneSetSelector');
+            if (sel && sel.value) this.renderGeneSetInfo(sel.value);
+            if (this.results) this.updateSettings();
+        });
+
         // Gene set collection checkboxes
         ['checkHallmark', 'checkC2', 'checkC3', 'checkC5', 'checkC6', 'checkC7', 'checkC8'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => this.onCollectionChange());
@@ -123,6 +183,10 @@ class GSEAApp {
         document.getElementById('gsbCancelBtn').addEventListener('click', () => this.closeGeneSetBrowser());
         document.getElementById('gsbApplyBtn').addEventListener('click', () => this.applyGeneSetSelection());
         document.getElementById('gsbCollectionFilter').addEventListener('change', () => this.filterGeneSetBrowser());
+        document.getElementById('gsbTierFilter').addEventListener('change', () => {
+            this._updateCollectionFilterForTier();
+            this.filterGeneSetBrowser();
+        });
         document.getElementById('gsbSelectAll').addEventListener('click', () => this.gsbSelectAllVisible());
         document.getElementById('gsbDeselectAll').addEventListener('click', () => this.gsbDeselectAll());
         document.getElementById('gsbDownloadBtn').addEventListener('click', () => this.gsbDownloadSelectedCSV());
@@ -423,8 +487,14 @@ class GSEAApp {
             total += n;
         }
         if (parts.length > 0) {
-            this.showStatus('geneSetStatus', 'info',
-                `${parts.join(' | ')} — ${total} total gene sets`);
+            if (total > 2000) {
+                this.showStatus('geneSetStatus', 'warning',
+                    `${parts.join(' | ')} — ${total.toLocaleString()} total gene sets. ` +
+                    `Large analysis — consider starting with Hallmark (50 sets) for a quick overview, then exploring specific collections.`);
+            } else {
+                this.showStatus('geneSetStatus', 'info',
+                    `${parts.join(' | ')} — ${total.toLocaleString()} total gene sets`);
+            }
         } else {
             this.showStatus('geneSetStatus', 'warning', 'No gene set collections selected');
         }
@@ -715,8 +785,18 @@ class GSEAApp {
         // Warn about large jobs
         const nSets = Object.keys(geneSets).length;
         if (nSets > 5000) {
+            const estMinutes = Math.max(1, Math.round(nSets * this.settings.permutations / 500000));
+            const proceed = confirm(
+                `You are about to analyze ${nSets.toLocaleString()} gene sets with ${this.settings.permutations.toLocaleString()} permutations.\n\n` +
+                `Estimated time: ~${estMinutes} minute${estMinutes > 1 ? 's' : ''}.\n\n` +
+                `Tip: Start with Hallmark (50 sets) for a quick overview, then explore specific collections for deeper analysis.\n\nContinue?`
+            );
+            if (!proceed) {
+                document.getElementById('progressContainer').classList.add('hidden');
+                return;
+            }
             document.getElementById('progressText').textContent =
-                `Processing ${nSets} gene sets — this may take several minutes...`;
+                `Processing ${nSets.toLocaleString()} gene sets — this may take several minutes...`;
         }
 
         this.analysisDate = new Date();
@@ -931,7 +1011,7 @@ class GSEAApp {
                 cmax: maxLogFdr,
                 showscale: true,
                 colorbar: {
-                    title: { text: 'FDR', font: { size: 11, family: fontFam } },
+                    title: { text: this._getTextFont('bubble', 'colorbarTitle').wrap(this._getTextFont('bubble', 'colorbarTitle').text || 'FDR'), font: { size: this._getTextFont('bubble', 'colorbarTitle').size, family: this._getTextFont('bubble', 'colorbarTitle').family } },
                     thickness: 20,
                     len: 0.35,
                     y: 0.8,
@@ -958,18 +1038,18 @@ class GSEAApp {
 
         const layout = {
             xaxis: {
-                title: { text: 'Normalized Enrichment Score (NES)', font: { size: baseFontSize, family: fontFam } },
+                title: { text: this._getTextFont('bubble', 'xAxisLabel').wrap(this._getTextFont('bubble', 'xAxisLabel').text || 'Normalized Enrichment Score (NES)'), font: { size: this._getTextFont('bubble', 'xAxisLabel').size, family: this._getTextFont('bubble', 'xAxisLabel').family } },
                 zeroline: false,
                 gridcolor: '#f0f0f0',
                 side: 'bottom',
-                tickfont: { size: baseFontSize - 2, family: fontFam },
+                tickfont: { size: this._getTextFont('bubble', 'yTickFont').size, family: this._getTextFont('bubble', 'yTickFont').family },
                 showline: false,
                 fixedrange: true
             },
             yaxis: {
                 tickvals: top.map((_, i) => i),
                 ticktext: top.map(r => this.cleanName(r.name)),
-                tickfont: { size: baseFontSize - 1, family: fontFam },
+                tickfont: { size: this._getTextFont('bubble', 'yTickFont').size, family: this._getTextFont('bubble', 'yTickFont').family },
                 automargin: true,
                 gridwidth: 0,
                 showgrid: false,
@@ -1002,7 +1082,7 @@ class GSEAApp {
             x: 1.02, y: 0.45,
             xanchor: 'left', yanchor: 'top',
             showarrow: false,
-            font: { size: 10, family: fontFam, color: '#555' },
+            font: { size: this._getTextFont('bubble', 'sizeAnnotation').size, family: this._getTextFont('bubble', 'sizeAnnotation').family, color: '#555' },
             align: 'center'
         });
 
@@ -1125,19 +1205,28 @@ class GSEAApp {
                 font: { size: 9, color: '#666' }
             });
         }
-        // Positive / Negative labels
-        annotations.push({
-            text: '<b>Positively correlated</b>',
-            xref: 'paper', yref: 'paper', x: 0.02, y: 1.02,
-            showarrow: false, font: { size: 9, color: this.settings.positiveColor },
-            xanchor: 'left', yanchor: 'bottom'
-        });
-        annotations.push({
-            text: '<b>Negatively correlated</b>',
-            xref: 'paper', yref: 'paper', x: 0.98, y: 1.02,
-            showarrow: false, font: { size: 9, color: this.settings.negativeColor },
-            xanchor: 'right', yanchor: 'bottom'
-        });
+        // Positive / Negative labels (data-type-aware)
+        const rpDataType = this.settings.dataType || 'expression';
+        const rpPosLabel = rpDataType === 'crispr' ? 'Enriched in screen' : rpDataType === 'perturbation' ? 'Positive response' : 'Positively correlated';
+        const rpNegLabel = rpDataType === 'crispr' ? 'Depleted in screen' : rpDataType === 'perturbation' ? 'Negative response' : 'Negatively correlated';
+        const rpPosFont = this._getTextFont('ranked', 'posLabel');
+        const rpNegFont = this._getTextFont('ranked', 'negLabel');
+        if (rpPosFont.visible) {
+            annotations.push({
+                text: rpPosFont.wrap(rpPosFont.text || rpPosLabel),
+                xref: 'paper', yref: 'paper', x: 0.02, y: 1.02,
+                showarrow: false, font: { size: rpPosFont.size, family: rpPosFont.family, color: this.settings.positiveColor },
+                xanchor: 'left', yanchor: 'bottom'
+            });
+        }
+        if (rpNegFont.visible) {
+            annotations.push({
+                text: rpNegFont.wrap(rpNegFont.text || rpNegLabel),
+                xref: 'paper', yref: 'paper', x: 0.98, y: 1.02,
+                showarrow: false, font: { size: rpNegFont.size, family: rpNegFont.family, color: this.settings.negativeColor },
+                xanchor: 'right', yanchor: 'bottom'
+            });
+        }
 
         // Add range padding so extreme bars aren't clipped at edges
         const yPad = Math.max(Math.abs(metrics[0]), Math.abs(metrics[N - 1])) * 0.06;
@@ -1145,14 +1234,14 @@ class GSEAApp {
 
         const layout = {
             xaxis: {
-                title: { text: 'Rank in Ordered Dataset', font: { size: baseFontSize - 1, family: fontFam } },
+                title: { text: this._getTextFont('ranked', 'xAxisLabel').wrap(this._getTextFont('ranked', 'xAxisLabel').text || 'Rank in Ordered Dataset'), font: { size: this._getTextFont('ranked', 'xAxisLabel').size, family: this._getTextFont('ranked', 'xAxisLabel').family } },
                 showgrid: false,
-                tickfont: { size: baseFontSize - 2, family: fontFam },
+                tickfont: { size: this._getTextFont('ranked', 'xTickFont').size, family: this._getTextFont('ranked', 'xTickFont').family },
                 range: [-xPad, N - 1 + xPad],
                 fixedrange: true
             },
             yaxis: {
-                title: { text: 'Ranked list metric (' + metricLabel + ')', font: { size: baseFontSize - 1, family: fontFam } },
+                title: { text: this._getTextFont('ranked', 'yAxisLabel').wrap(this._getTextFont('ranked', 'yAxisLabel').text || ('Ranked list metric (' + metricLabel + ')')), font: { size: this._getTextFont('ranked', 'yAxisLabel').size, family: this._getTextFont('ranked', 'yAxisLabel').family } },
                 zeroline: true,
                 zerolinewidth: 1.5,
                 zerolinecolor: '#333',
@@ -1234,16 +1323,22 @@ class GSEAApp {
             }
         }
 
-        // ---- Panel domain proportions (classic GSEA style) ----
-        // Top: ES curve (55%), Middle: Hit markers (8%), Bottom: Ranked metric (28%)
-        // Gaps between panels to prevent overlap
-        const esTop = 0.97;
-        const esBot = 0.42;
-        const hitTop = 0.39;
-        const hitBot = 0.31;
-        const metTop = 0.28;
+        // ---- Panel domain proportions (from settings) ----
+        const pES = s.esPanelES || 55;
+        const pHits = s.esPanelHits || 8;
+        const pMetric = s.esPanelMetric || 28;
+        const pTotal = pES + pHits + pMetric;
+        const gapPct = Math.max(0, (100 - pTotal) / 2);  // Two gaps between three panels
+        const usable = 0.97;  // 0.0 to 0.97 (top 3% for title)
+        const scale = usable / 100;
+
         const metBot = 0.0;
-        const xLeft = 0.0;  // Use yaxis titles instead of annotations
+        const metTop = pMetric * scale;
+        const hitBot = (pMetric + gapPct) * scale;
+        const hitTop = (pMetric + gapPct + pHits) * scale;
+        const esBot = (pMetric + gapPct + pHits + gapPct) * scale;
+        const esTop = usable;
+        const xLeft = 0.0;
         const xRight = 1.0;
 
         // Range padding so extreme ends aren't clipped at borders
@@ -1383,36 +1478,27 @@ class GSEAApp {
         const metricLabel = document.getElementById('metricColumn').value || 'Ranking metric';
 
         // Annotations
+        const esTitleFont = this._getTextFont('es', 'title');
         const annotations = [
             // Title
             {
-                text: `<b>${geneSetName.replace(/_/g, ' ')}</b>`,
+                text: esTitleFont.wrap(esTitleFont.text || geneSetName.replace(/_/g, ' ')),
                 xref: 'paper', yref: 'paper', x: 0.5, y: 1.06,
                 showarrow: false,
-                font: { size: baseFontSize + 1, family: fontFam },
-                xanchor: 'center'
+                font: { size: esTitleFont.size, family: esTitleFont.family },
+                xanchor: 'center',
+                visible: esTitleFont.visible !== false
             }
         ];
 
-        // Stats annotation — position OUTSIDE the curve area by checking all 4 corners
+        // Stats annotation — position in corner with least overlap with ES curve fill
         if (s.showStatsBox) {
-            // Find peak index and value
-            let peakIdx = 0, peakVal = result.runningES[0];
-            for (let i = 1; i < result.runningES.length; i++) {
-                if (Math.abs(result.runningES[i]) > Math.abs(peakVal)) {
-                    peakVal = result.runningES[i];
-                    peakIdx = i;
-                }
-            }
-
-            // Place stats box OUTSIDE the filled curve area:
-            // - If ES is mostly positive (peak > 0), the fill goes UP → place box at BOTTOM
-            // - If ES is mostly negative (peak < 0), the fill goes DOWN → place box at TOP
-            // - Prefer the side (left/right) opposite to where the peak occurs
-            const peakIsPositive = peakVal > 0;
-            const peakIsLeft = peakIdx < N / 2;
-            const preferY = peakIsPositive ? 'bottom' : 'top';
-            const preferX = peakIsLeft ? 'right' : 'left';
+            const esValues = result.runningES;
+            const esRange = Math.max(
+                Math.abs(Math.max(...esValues)),
+                Math.abs(Math.min(...esValues)),
+                0.1
+            );
 
             const corners = [
                 { x: 0.03, y: esTop - (esTop - esBot) * 0.04, xa: 'left', ya: 'top' },
@@ -1421,42 +1507,46 @@ class GSEAApp {
                 { x: 0.97, y: esBot + (esTop - esBot) * 0.04, xa: 'right', ya: 'bottom' }
             ];
 
-            // Score: lower is better. Prefer corners opposite to the peak/fill area
+            // Data-driven scoring: sample actual ES curve in each corner's quadrant
+            // Score = mean overlap with fill area. Lower is better.
             let bestCorner = corners[0];
             let bestScore = Infinity;
+            const boxFraction = 0.28; // stats box covers ~28% of x-range
+
             for (const corner of corners) {
-                let score = 0;
-                // Heavily penalize same vertical side as the fill
-                if (corner.ya !== preferY) score += 100;
-                // Lightly penalize same horizontal side as peak
-                if (corner.xa !== preferX) score += 10;
-                // Also check actual ES values in corner region for fine-tuning
-                const boxW = 0.22;
-                const xStart = corner.xa === 'left' ? 0 : N * (1 - boxW);
-                const xEnd = corner.xa === 'left' ? N * boxW : N;
-                const sampleStep = Math.max(1, Math.floor(N / 200));
-                const esRange = Math.max(Math.abs(peakVal), 0.1);
-                for (let i = 0; i < N; i += sampleStep) {
-                    if (i >= xStart && i <= xEnd) {
-                        score += Math.abs(result.runningES[i]) / esRange * 0.1;
-                    }
+                const isTop = corner.ya === 'top';
+                const xStart = corner.xa === 'left' ? 0 : Math.floor(N * (1 - boxFraction));
+                const xEnd = corner.xa === 'left' ? Math.floor(N * boxFraction) : N - 1;
+                const sampleStep = Math.max(1, Math.floor((xEnd - xStart) / 50));
+
+                let overlapSum = 0;
+                let count = 0;
+                for (let i = xStart; i <= xEnd; i += sampleStep) {
+                    const v = esValues[i] || 0;
+                    // Fill goes from 0 to ES value. Top corners overlap positive fill, bottom overlap negative.
+                    if (isTop && v > 0) overlapSum += v / esRange;
+                    else if (!isTop && v < 0) overlapSum += Math.abs(v) / esRange;
+                    count++;
                 }
+                const score = count > 0 ? overlapSum / count : 0;
                 if (score < bestScore) { bestScore = score; bestCorner = corner; }
             }
 
+            const esStatsFont = this._getTextFont('es', 'statsBox');
             annotations.push({
                 text: `NES = ${result.nes.toFixed(2)}<br>FDR = ${this.formatPval(result.fdr)}<br>p = ${this.formatPval(result.pvalue)}<br>Size = ${result.size}`,
                 xref: 'paper', yref: 'paper',
                 x: bestCorner.x, y: bestCorner.y,
                 showarrow: false,
-                font: { size: Math.max(9, baseFontSize - 2), family: 'Roboto Mono, monospace', color: '#333' },
+                font: { size: esStatsFont.size, family: esStatsFont.family || 'Roboto Mono, monospace', color: '#333' },
                 align: bestCorner.xa === 'right' ? 'right' : 'left',
                 xanchor: bestCorner.xa,
                 yanchor: bestCorner.ya,
                 bgcolor: 'rgba(255,255,255,0.95)',
                 bordercolor: '#ccc',
                 borderwidth: 1,
-                borderpad: 5
+                borderpad: 5,
+                visible: esStatsFont.visible !== false
             });
         }
 
@@ -1472,24 +1562,31 @@ class GSEAApp {
             });
         }
 
-        // Correlation labels — position below the x-axis title to avoid overlap
+        // Correlation labels — position below the x-axis title (data-type-aware)
         if (s.showCorrelationLabels && zeroCross >= 0) {
-            annotations.push(
-                {
-                    text: '<i>Positively correlated</i>',
+            const esDT = this.settings.dataType || 'expression';
+            const esPosLabel = esDT === 'crispr' ? 'Enriched in screen' : esDT === 'perturbation' ? 'Positive response' : 'Positively correlated';
+            const esNegLabel = esDT === 'crispr' ? 'Depleted in screen' : esDT === 'perturbation' ? 'Negative response' : 'Negatively correlated';
+            const esPosFont = this._getTextFont('es', 'posLabel');
+            const esNegFont = this._getTextFont('es', 'negLabel');
+            if (esPosFont.visible) {
+                annotations.push({
+                    text: esPosFont.wrap(esPosFont.text || esPosLabel),
                     xref: 'paper', yref: 'paper', x: 0.0, y: -0.07,
                     showarrow: false,
-                    font: { size: Math.max(8, baseFontSize - 3), color: s.positiveColor, family: fontFam },
+                    font: { size: esPosFont.size, family: esPosFont.family, color: s.positiveColor },
                     xanchor: 'left', yanchor: 'top'
-                },
-                {
-                    text: '<i>Negatively correlated</i>',
+                });
+            }
+            if (esNegFont.visible) {
+                annotations.push({
+                    text: esNegFont.wrap(esNegFont.text || esNegLabel),
                     xref: 'paper', yref: 'paper', x: 1.0, y: -0.07,
                     showarrow: false,
-                    font: { size: Math.max(8, baseFontSize - 3), color: s.negativeColor, family: fontFam },
+                    font: { size: esNegFont.size, family: esNegFont.family, color: s.negativeColor },
                     xanchor: 'right', yanchor: 'top'
-                }
-            );
+                });
+            }
         }
 
         const tickFontSize = Math.max(8, baseFontSize - 3);
@@ -1505,7 +1602,7 @@ class GSEAApp {
                 domain: [xLeft, xRight], anchor: 'y', showline: false, fixedrange: true
             },
             yaxis: {
-                title: { text: 'Enrichment score (ES)', font: { size: baseFontSize - 1, family: fontFam }, standoff: 8 },
+                title: { text: this._getTextFont('es', 'esYLabel').wrap(this._getTextFont('es', 'esYLabel').text || 'Enrichment score (ES)'), font: { size: this._getTextFont('es', 'esYLabel').size, family: this._getTextFont('es', 'esYLabel').family }, standoff: 8 },
                 domain: [esBot, esTop], anchor: 'x',
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: false,
@@ -1526,23 +1623,23 @@ class GSEAApp {
             // Ranked metric panel
             xaxis3: {
                 range: [-xPad, N - 1 + xPad],
-                title: { text: 'Rank in Ordered Dataset', font: { size: baseFontSize - 1, family: fontFam }, standoff: 4 },
+                title: { text: this._getTextFont('es', 'xAxisLabel').wrap(this._getTextFont('es', 'xAxisLabel').text || 'Rank in Ordered Dataset'), font: { size: this._getTextFont('es', 'xAxisLabel').size, family: this._getTextFont('es', 'xAxisLabel').family }, standoff: 4 },
                 domain: [xLeft, xRight], anchor: 'y3',
                 showgrid: false,
-                tickfont: { size: tickFontSize, family: fontFam },
+                tickfont: { size: this._getTextFont('es', 'tickFont').size, family: this._getTextFont('es', 'tickFont').family },
                 side: 'bottom',
                 fixedrange: true
             },
             yaxis3: {
-                title: { text: metricLabel, font: { size: baseFontSize - 2, family: fontFam }, standoff: 5 },
+                title: { text: this._getTextFont('es', 'metricYLabel').wrap(this._getTextFont('es', 'metricYLabel').text || metricLabel), font: { size: this._getTextFont('es', 'metricYLabel').size, family: this._getTextFont('es', 'metricYLabel').family }, standoff: 5 },
                 domain: [metBot, metTop], anchor: 'x3',
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: true, zerolinecolor: '#333', zerolinewidth: 0.8,
-                tickfont: { size: tickFontSize, family: fontFam },
+                tickfont: { size: this._getTextFont('es', 'tickFont').size, family: this._getTextFont('es', 'tickFont').family },
                 range: [metYMin, metYMax],
                 fixedrange: true
             },
-            height: 580,
+            height: s.esPlotHeight || 580,
             margin: { l: 65, r: 15, t: 45, b: 60 },
             font: { family: fontFam },
             paper_bgcolor: s.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
@@ -1599,14 +1696,28 @@ class GSEAApp {
         // Format the name nicely
         const displayName = this.cleanName(geneSetName);
         const isUp = result.nes > 0;
-        const dirLabel = isUp ? 'Upregulated' : 'Downregulated';
         const dirColor = isUp ? '#dc2626' : '#2563eb';
         const metricLabel = document.getElementById('metricColumn').value || 'metric';
+        const dataType = this.settings.dataType || 'expression';
 
-        // Build a clear interpretation of direction
-        const dirExplanation = isUp
-            ? `Genes in the gene set tend to have <b>high ${metricLabel}</b> values in your data, meaning this pathway is <b>activated / increased</b> in your condition.`
-            : `Genes in the gene set tend to have <b>low ${metricLabel}</b> values in your data, meaning this pathway is <b>suppressed / decreased</b> in your condition.`;
+        // Build data-type-aware interpretation
+        let dirLabel, dirExplanation;
+        if (dataType === 'crispr') {
+            dirLabel = isUp ? 'Essential' : 'Dispensable / Growth-promoting';
+            dirExplanation = isUp
+                ? `Genes in this set tend to have <b>high ${metricLabel}</b> values (enriched in screen). These genes are <b>essential</b> for the phenotype — loss of these genes <b>impairs</b> the selected phenotype.`
+                : `Genes in this set tend to have <b>low ${metricLabel}</b> values (depleted in screen). Loss of these genes <b>promotes</b> the phenotype, or these genes are <b>dispensable</b> for it.`;
+        } else if (dataType === 'perturbation') {
+            dirLabel = isUp ? 'Positive response' : 'Negative response';
+            dirExplanation = isUp
+                ? `Genes in this set tend to have <b>high ${metricLabel}</b> values — they <b>respond positively</b> to the perturbation.`
+                : `Genes in this set tend to have <b>low ${metricLabel}</b> values — they <b>respond negatively</b> to the perturbation.`;
+        } else {
+            dirLabel = isUp ? 'Upregulated' : 'Downregulated';
+            dirExplanation = isUp
+                ? `Genes in the gene set tend to have <b>high ${metricLabel}</b> values in your data, meaning this pathway is <b>activated / upregulated</b> in your condition.`
+                : `Genes in the gene set tend to have <b>low ${metricLabel}</b> values in your data, meaning this pathway is <b>suppressed / downregulated</b> in your condition.`;
+        }
 
         // FDR interpretation
         let fdrNote = '';
@@ -2033,18 +2144,20 @@ class GSEAApp {
             hovertemplate: '%{y} vs %{x}<br>%{text}<extra></extra>',
             showscale: true,
             colorbar: {
-                title: { text: 'Jaccard Index', font: { size: 11, family: fontFam } },
+                title: { text: this._getTextFont('overlap', 'colorbarTitle').wrap(this._getTextFont('overlap', 'colorbarTitle').text || 'Jaccard Index'), font: { size: this._getTextFont('overlap', 'colorbarTitle').size, family: this._getTextFont('overlap', 'colorbarTitle').family } },
                 thickness: 12, len: 0.5
             }
         };
 
-        const size = Math.max(450, n * 28 + 150);
+        const overlapTickFont = this._getTextFont('overlap', 'tickFont');
+        const overlapHeight = this.settings.overlapPlotHeight > 0 ? this.settings.overlapPlotHeight : Math.max(450, n * 28 + 150);
+        const size = this.settings.overlapPlotHeight > 0 ? this.settings.overlapPlotHeight : Math.max(450, n * 28 + 150);
         const layout = {
-            height: size,
+            height: overlapHeight,
             width: size + 50,
             margin: { l: 10, r: 50, t: 20, b: 10 },
-            xaxis: { tickfont: { size: 10, family: fontFam }, tickangle: -45, automargin: true, showgrid: false, fixedrange: true },
-            yaxis: { tickfont: { size: 10, family: fontFam }, automargin: true, showgrid: false, autorange: 'reversed', fixedrange: true },
+            xaxis: { tickfont: { size: overlapTickFont.size, family: overlapTickFont.family }, tickangle: -45, automargin: true, showgrid: false, fixedrange: true },
+            yaxis: { tickfont: { size: overlapTickFont.size, family: overlapTickFont.family }, automargin: true, showgrid: false, autorange: 'reversed', fixedrange: true },
             font: { family: fontFam },
             paper_bgcolor: '#fff',
             plot_bgcolor: '#fff',
@@ -2522,6 +2635,7 @@ class GSEAApp {
 
         // Build master list
         this._gsbAllItems = [];
+        const tierMap = { hallmark: 1, c2: 2, c5: 2, c3: 3, c6: 3, c7: 4, c8: 4, custom: 0 };
         const addCollection = (id, label, data) => {
             if (!data) return;
             for (const [name, genes] of Object.entries(data)) {
@@ -2529,6 +2643,7 @@ class GSEAApp {
                     name,
                     collection: id,
                     collectionLabel: label,
+                    tier: tierMap[id] || 0,
                     size: genes.length,
                     genes,
                     nameLower: name.toLowerCase(),
@@ -2579,6 +2694,8 @@ class GSEAApp {
 
         // Reset search and filter
         document.getElementById('gsbSearch').value = '';
+        document.getElementById('gsbTierFilter').value = 'all';
+        this._updateCollectionFilterForTier();
         document.getElementById('gsbCollectionFilter').value = 'all';
 
         // Reset detail panel
@@ -2596,12 +2713,52 @@ class GSEAApp {
         document.getElementById('gsbBackdrop').classList.remove('open');
     }
 
+    _updateCollectionFilterForTier() {
+        const tierFilter = document.getElementById('gsbTierFilter').value;
+        const collEl = document.getElementById('gsbCollectionFilter');
+        const tierCollections = {
+            'all': null,
+            '1': ['hallmark'],
+            '2': ['c2', 'c5'],
+            '3': ['c3', 'c6'],
+            '4': ['c7', 'c8']
+        };
+        const allOptions = [
+            { value: 'all', label: 'All collections' },
+            { value: 'hallmark', label: 'H: Hallmark' },
+            { value: 'c2', label: 'C2: Curated' },
+            { value: 'c3', label: 'C3: Regulatory' },
+            { value: 'c5', label: 'C5: GO' },
+            { value: 'c6', label: 'C6: Oncogenic' },
+            { value: 'c7', label: 'C7: Immunologic' },
+            { value: 'c8', label: 'C8: Cell Type' },
+            { value: 'custom', label: 'Custom' }
+        ];
+        const allowed = tierCollections[tierFilter];
+        collEl.innerHTML = '';
+        for (const opt of allOptions) {
+            if (opt.value === 'all' || !allowed || allowed.includes(opt.value)) {
+                const o = document.createElement('option');
+                o.value = opt.value;
+                o.textContent = opt.label;
+                collEl.appendChild(o);
+            }
+        }
+        collEl.value = 'all';
+    }
+
     filterGeneSetBrowser() {
         const query = document.getElementById('gsbSearch').value.toLowerCase().trim();
         const collFilter = document.getElementById('gsbCollectionFilter').value;
+        const tierFilter = document.getElementById('gsbTierFilter').value;
 
         // Filter items
         let filtered = this._gsbAllItems;
+        if (tierFilter !== 'all') {
+            const tierCollections = { '1': ['hallmark'], '2': ['c2', 'c5'], '3': ['c3', 'c6'], '4': ['c7', 'c8'] };
+            const allowed = new Set(tierCollections[tierFilter] || []);
+            filtered = filtered.filter(item => allowed.has(item.collection));
+        }
         if (collFilter !== 'all') {
             filtered = filtered.filter(item => item.collection === collFilter);
         }
@@ -2657,6 +2814,7 @@ class GSEAApp {
                     type: 'header',
                     collection: item.collection,
                     label: item.collectionLabel,
+                    tier: item.tier,
                     count: collectionCounts[item.collection]
                 });
                 lastCollection = item.collection;
@@ -2733,8 +2891,10 @@ class GSEAApp {
                     ${vrow.text}
                 </div>`;
             } else if (vrow.type === 'header') {
+                const tierNames = { 1: 'Core', 2: 'Standard', 3: 'Specialized', 4: 'Extended' };
+                const tierBadge = vrow.tier ? `<span class="gsb-tier-badge tier-${vrow.tier}">${tierNames[vrow.tier]}</span>` : '';
                 html += `<div class="gsb-section-header" style="position:absolute; top:${top}px; left:0; right:0; height:${rowH}px;">
-                    ${vrow.label} (${vrow.count.toLocaleString()} gene sets)
+                    ${vrow.label} (${vrow.count.toLocaleString()} gene sets)${tierBadge}
                 </div>`;
             } else {
                 // Render N items side by side
@@ -2807,6 +2967,19 @@ class GSEAApp {
         const count = this.selectedGeneSets.size;
         document.getElementById('gsbSelectionCount').textContent =
             `${count.toLocaleString()} selected`;
+
+        // Show/hide warning banner for large selections
+        const warningEl = document.getElementById('gsbWarningBanner');
+        if (warningEl) {
+            if (count > 1000) {
+                warningEl.style.display = '';
+                warningEl.textContent = `⚠ You have selected ${count.toLocaleString()} gene sets. ` +
+                    `Analysis with many sets takes longer and produces stricter FDR corrections. ` +
+                    `Consider starting with Hallmark (50 sets) for a quick overview.`;
+            } else {
+                warningEl.style.display = 'none';
+            }
+        }
     }
 
     applyGeneSetSelection() {
@@ -2974,6 +3147,27 @@ class GSEAApp {
         if (negColorEl) this.settings.negativeColor = negColorEl.value;
         const overlapSchemeEl = document.getElementById('overlapColorScheme');
         if (overlapSchemeEl) this.settings.overlapColorScheme = overlapSchemeEl.value;
+        const dataTypeEl = document.getElementById('dataType');
+        if (dataTypeEl) this.settings.dataType = dataTypeEl.value;
+        // ES panel proportions
+        const esPanelESEl = document.getElementById('esPanelES');
+        if (esPanelESEl) {
+            this.settings.esPanelES = parseInt(esPanelESEl.value) || 55;
+            document.getElementById('esPanelESLabel').textContent = this.settings.esPanelES + '%';
+        }
+        const esPanelHitsEl = document.getElementById('esPanelHits');
+        if (esPanelHitsEl) {
+            this.settings.esPanelHits = parseInt(esPanelHitsEl.value) || 8;
+            document.getElementById('esPanelHitsLabel').textContent = this.settings.esPanelHits + '%';
+        }
+        const esPanelMetricEl = document.getElementById('esPanelMetric');
+        if (esPanelMetricEl) {
+            this.settings.esPanelMetric = parseInt(esPanelMetricEl.value) || 28;
+            document.getElementById('esPanelMetricLabel').textContent = this.settings.esPanelMetric + '%';
+        }
+        // Plot heights
+        const esHeightEl = document.getElementById('esPlotHeight');
+        if (esHeightEl) this.settings.esPlotHeight = parseInt(esHeightEl.value) || 580;
     }
 
     updateSettings() {
@@ -2995,6 +3189,151 @@ class GSEAApp {
 
     updateSettingsTabVisibility() {
         // No-op — settings are now per-graph via inline popups
+    }
+
+    // --------------------------------------------------------
+    // Per-Text-Element Settings
+    // --------------------------------------------------------
+    _initTextFonts() {
+        this.textFonts = {};
+        for (const [plotType, elements] of Object.entries(this.textElements)) {
+            for (const el of elements) {
+                this.textFonts[`${plotType}_${el.key}`] = {
+                    family: el.defaultFamily || 'Open Sans',
+                    size: el.defaultSize || 12,
+                    bold: false,
+                    italic: false,
+                    visible: true,
+                    text: el.defaultText || ''
+                };
+            }
+        }
+    }
+
+    _getTextFont(plotType, key) {
+        const id = `${plotType}_${key}`;
+        const f = this.textFonts[id];
+        if (!f) return { family: this.settings.fontFamily + ', sans-serif', size: this.settings.fontSize, wrap: t => t, visible: true, text: '' };
+        return {
+            family: f.family + ', sans-serif',
+            size: f.size,
+            visible: f.visible,
+            text: f.text,
+            wrap: (t) => {
+                let r = t;
+                if (f.bold) r = `<b>${r}</b>`;
+                if (f.italic) r = `<i>${r}</i>`;
+                return r;
+            }
+        };
+    }
+
+    openTextSettings(plotType) {
+        const panel = document.getElementById('textSettingsPanel');
+        const body = document.getElementById('textSettingsPanelBody');
+        const elements = this.textElements[plotType];
+        if (!elements) return;
+
+        this._activeTextPlotType = plotType;
+        const plotLabels = { bubble: 'Overview Plot', ranked: 'Ranked Plot', es: 'Enrichment Plot', overlap: 'Overlap Heatmap' };
+
+        const fontOptions = ['Open Sans', 'Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Roboto Mono']
+            .map(f => `<option value="${f}">${f}</option>`).join('');
+
+        let html = `<div style="font-size: 11px; color: var(--gray-500); margin-bottom: 8px; font-weight: 600;">${plotLabels[plotType] || plotType}</div>`;
+
+        for (const el of elements) {
+            const id = `${plotType}_${el.key}`;
+            const f = this.textFonts[id];
+            if (!f) continue;
+
+            html += `<div class="ts-row" data-ts-id="${id}">`;
+            html += `<div class="ts-row-label">`;
+            html += `<span class="ts-vis ${f.visible ? '' : 'ts-vis-off'}" data-action="visibility" data-id="${id}" title="Show/Hide">&#128065;</span>`;
+            html += `<span class="ts-label">${el.label}</span>`;
+            html += `</div>`;
+
+            // Text input for editable elements
+            if (el.editable) {
+                html += `<input type="text" class="ts-text" data-action="text" data-id="${id}" value="${this._escapeAttr(f.text)}">`;
+            }
+
+            // Font controls row
+            html += `<div class="ts-controls">`;
+            html += `<select class="ts-font-select" data-action="family" data-id="${id}">${fontOptions.replace(`value="${f.family}"`, `value="${f.family}" selected`)}</select>`;
+            html += `<input type="number" class="ts-size" data-action="size" data-id="${id}" value="${f.size}" min="6" max="30">`;
+            html += `<button class="ts-btn ${f.bold ? 'ts-btn-active' : ''}" data-action="bold" data-id="${id}" style="font-weight:bold;">B</button>`;
+            html += `<button class="ts-btn ${f.italic ? 'ts-btn-active' : ''}" data-action="italic" data-id="${id}" style="font-style:italic;">I</button>`;
+            html += `</div></div>`;
+        }
+
+        body.innerHTML = html;
+        panel.style.display = 'block';
+
+        // Event delegation
+        if (!this._tsEventsBound) {
+            this._tsEventsBound = true;
+            body.addEventListener('input', (e) => this._handleTextSettingsInput(e));
+            body.addEventListener('change', (e) => this._handleTextSettingsInput(e));
+            body.addEventListener('click', (e) => this._handleTextSettingsClick(e));
+            // Drag
+            this._initPanelDrag('textSettingsPanel', 'textSettingsDragHandle');
+        }
+    }
+
+    _handleTextSettingsInput(e) {
+        const action = e.target.dataset.action;
+        const id = e.target.dataset.id;
+        if (!action || !id || !this.textFonts[id]) return;
+        if (action === 'text') this.textFonts[id].text = e.target.value;
+        else if (action === 'family') this.textFonts[id].family = e.target.value;
+        else if (action === 'size') this.textFonts[id].size = parseInt(e.target.value) || 12;
+        this.updateSettings();
+    }
+
+    _handleTextSettingsClick(e) {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        if (!id || !this.textFonts[id]) return;
+        if (action === 'bold') {
+            this.textFonts[id].bold = !this.textFonts[id].bold;
+            btn.classList.toggle('ts-btn-active');
+        } else if (action === 'italic') {
+            this.textFonts[id].italic = !this.textFonts[id].italic;
+            btn.classList.toggle('ts-btn-active');
+        } else if (action === 'visibility') {
+            this.textFonts[id].visible = !this.textFonts[id].visible;
+            btn.classList.toggle('ts-vis-off');
+        }
+        this.updateSettings();
+    }
+
+    closeTextSettings() {
+        document.getElementById('textSettingsPanel').style.display = 'none';
+    }
+
+    _initPanelDrag(panelId, handleId) {
+        const panel = document.getElementById(panelId);
+        const handle = document.getElementById(handleId);
+        if (!panel || !handle) return;
+        let isDragging = false, startX, startY, startLeft, startTop;
+        handle.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            isDragging = true;
+            const rect = panel.getBoundingClientRect();
+            startX = e.clientX; startY = e.clientY;
+            startLeft = rect.left; startTop = rect.top;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            panel.style.left = (startLeft + (e.clientX - startX)) + 'px';
+            panel.style.top = (startTop + (e.clientY - startY)) + 'px';
+            panel.style.right = 'auto';
+        });
+        document.addEventListener('mouseup', () => { isDragging = false; });
     }
 
     initSettingsDrag() {

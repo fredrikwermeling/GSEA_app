@@ -887,6 +887,116 @@
             background: rgba(255,255,255,0.35);
             border-color: white;
         }
+        /* Text Settings Floating Panel */
+        .text-settings-panel {
+            position: fixed;
+            top: 80px;
+            right: 30px;
+            width: 380px;
+            max-height: 80vh;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            z-index: 9000;
+            overflow: hidden;
+        }
+        .text-settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--green-600);
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: grab;
+        }
+        .ts-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+        }
+        .text-settings-body {
+            padding: 10px 12px;
+            overflow-y: auto;
+            max-height: calc(80vh - 40px);
+        }
+        .ts-row {
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .ts-row-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .ts-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--gray-600);
+        }
+        .ts-vis {
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        .ts-vis.ts-vis-off {
+            opacity: 0.2;
+        }
+        .ts-text {
+            width: 100%;
+            font-size: 11px;
+            padding: 3px 6px;
+            border: 1px solid var(--gray-200);
+            border-radius: 3px;
+            margin-bottom: 4px;
+            box-sizing: border-box;
+        }
+        .ts-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .ts-font-select {
+            width: 100px;
+            font-size: 10px;
+            padding: 2px 3px;
+            border: 1px solid var(--gray-200);
+            border-radius: 3px;
+        }
+        .ts-size {
+            width: 40px;
+            font-size: 10px;
+            padding: 2px 3px;
+            text-align: center;
+            border: 1px solid var(--gray-200);
+            border-radius: 3px;
+        }
+        .ts-btn {
+            padding: 2px 6px;
+            border: 1px solid var(--gray-200);
+            border-radius: 3px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1.2;
+            min-width: 24px;
+            text-align: center;
+        }
+        .ts-btn:hover {
+            background: var(--gray-50);
+        }
+        .ts-btn-active {
+            background: var(--green-100);
+            border-color: var(--green-500);
+            color: var(--green-700);
+        }
+
         /* Per-graph mini settings popup */
         .graph-settings-popup {
             display: none;
@@ -1128,6 +1238,28 @@
         }
 
         /* Gene match info banner */
+        .gsb-tier-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            margin-left: 6px;
+            color: white;
+        }
+        .gsb-tier-badge.tier-1 { background: #15803d; }
+        .gsb-tier-badge.tier-2 { background: #2563eb; }
+        .gsb-tier-badge.tier-3 { background: #9333ea; }
+        .gsb-tier-badge.tier-4 { background: #d97706; }
+        .gsb-warning-banner {
+            padding: 8px 14px;
+            background: #fef3cd;
+            border-bottom: 1px solid #ffc107;
+            color: #856404;
+            font-size: 12px;
+            line-height: 1.4;
+        }
         .gsb-info-banner {
             display: flex;
             align-items: center;
@@ -1302,6 +1434,15 @@
         <li><strong>FDR</strong> (False Discovery Rate) &mdash; &lt;0.25 is suggestive, &lt;0.05 is significant</li>
         <li><strong>Leading Edge</strong> &mdash; the subset of genes driving the enrichment signal</li>
     </ul>
+
+    <h4>Gene set collection strategy</h4>
+    <p>MSigDB contains over 33,000 gene sets across 7 collections. Running all at once is possible but takes several minutes and produces strict FDR corrections. A recommended approach:</p>
+    <ol>
+        <li><strong>Start with Hallmark</strong> (50 sets) &mdash; well-defined biological pathways, fast and highly interpretable</li>
+        <li><strong>Explore specific collections</strong> &mdash; if Hallmark shows inflammatory signals, try C7 (Immunologic); for metabolic hits, try C2 (Curated: KEGG/Reactome)</li>
+        <li><strong>Use the Gene Set Browser</strong> &mdash; search for specific pathways or genes of interest across all collections</li>
+        <li><strong>Use the Data Type selector</strong> &mdash; set to "CRISPR screen" or "Perturbation" if your data is not standard gene expression, for correct interpretation</li>
+    </ol>
 </div>
 
 <!-- Main Content -->
@@ -1338,6 +1479,23 @@
                     </select>
                     <div class="form-hint">Genes will be ranked in descending order by this value</div>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Data type
+                        <span class="info-icon">?
+                            <span class="info-tooltip">
+                                <strong>Data type</strong> controls how enrichment results are interpreted.<br><br>
+                                <b>Expression:</b> Gene expression (RNA-seq, microarray). Positive NES = upregulated pathway.<br>
+                                <b>CRISPR screen:</b> Genetic screen data. Positive NES = essential genes.<br>
+                                <b>Perturbation:</b> Generic perturbation. Neutral interpretation.
+                            </span>
+                        </span>
+                    </label>
+                    <select class="form-control" id="dataType">
+                        <option value="expression" selected>Expression data</option>
+                        <option value="crispr">CRISPR screen</option>
+                        <option value="perturbation">Perturbation (generic)</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -1349,42 +1507,49 @@
                     <label class="checkbox-label">
                         <input type="checkbox" id="checkHallmark" checked>
                         <strong>H: Hallmark</strong>
+                        <span class="gsb-tier-badge tier-1" style="vertical-align: middle;">Core</span>
                     </label>
                     <div class="checkbox-info">50 well-defined biological states and processes</div>
 
                     <label class="checkbox-label">
                         <input type="checkbox" id="checkC2">
                         <strong>C2: Curated</strong>
+                        <span class="gsb-tier-badge tier-2" style="vertical-align: middle;">Standard</span>
                     </label>
                     <div class="checkbox-info">KEGG, Reactome, WikiPathways and more (7,233 sets)</div>
 
                     <label class="checkbox-label">
                         <input type="checkbox" id="checkC5">
                         <strong>C5: GO</strong>
+                        <span class="gsb-tier-badge tier-2" style="vertical-align: middle;">Standard</span>
                     </label>
                     <div class="checkbox-info">Gene Ontology BP, MF, CC (16,008 sets)</div>
 
                     <label class="checkbox-label">
                         <input type="checkbox" id="checkC3">
                         <strong>C3: Regulatory</strong>
+                        <span class="gsb-tier-badge tier-3" style="vertical-align: middle;">Specialized</span>
                     </label>
                     <div class="checkbox-info">Transcription factor and miRNA targets (3,713 sets)</div>
 
                     <label class="checkbox-label">
                         <input type="checkbox" id="checkC6">
                         <strong>C6: Oncogenic</strong>
+                        <span class="gsb-tier-badge tier-3" style="vertical-align: middle;">Specialized</span>
                     </label>
                     <div class="checkbox-info">Oncogenic signature gene sets (189 sets)</div>
 
                     <label class="checkbox-label">
                         <input type="checkbox" id="checkC7">
                         <strong>C7: Immunologic</strong>
+                        <span class="gsb-tier-badge tier-4" style="vertical-align: middle;">Extended</span>
                     </label>
                     <div class="checkbox-info">Immunologic signature gene sets (5,219 sets)</div>
 
                     <label class="checkbox-label">
                         <input type="checkbox" id="checkC8">
                         <strong>C8: Cell Type</strong>
+                        <span class="gsb-tier-badge tier-4" style="vertical-align: middle;">Extended</span>
                     </label>
                     <div class="checkbox-info">Cell type signature gene sets (830 sets)</div>
                 </div>
@@ -1533,6 +1698,7 @@
                         Enrichment Overview
                         <span class="info-icon">i<span class="info-tooltip"><b>Enrichment Overview (Lollipop Plot)</b><br>Shows the top enriched gene sets ranked by Normalized Enrichment Score (NES).<br>• <b>X-axis:</b> NES — positive values (right) indicate upregulated pathways; negative (left) indicate downregulated.<br>• <b>Dot size:</b> Number of genes in the set.<br>• <b>Dot color:</b> FDR significance — darker/warmer colors = more significant.<br>• <b>Click</b> any dot or label to see its full enrichment plot.</span></span>
                         <div class="title-actions">
+                            <button class="card-settings-btn" onclick="app.openTextSettings('bubble')" title="Text settings">Aa</button>
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('bubbleSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','png')">PNG</button>
@@ -1585,6 +1751,7 @@
                         Ranked Gene List
                         <span class="info-icon">i<span class="info-tooltip"><b>Ranked Gene List</b><br>A waterfall plot of your entire dataset sorted by the ranking metric (e.g. log2FC).<br>• <b>X-axis:</b> Gene rank (1 = highest metric value).<br>• <b>Y-axis:</b> Ranking metric value from your data.<br>• <b>Red bars:</b> Positively correlated genes (metric &gt; 0).<br>• <b>Blue bars:</b> Negatively correlated genes (metric &lt; 0).<br>• The <b>zero cross</b> marks where genes transition from up- to down-regulated.<br>This is the ordered gene list that GSEA walks through to compute enrichment scores.</span></span>
                         <div class="title-actions">
+                            <button class="card-settings-btn" onclick="app.openTextSettings('ranked')" title="Text settings">Aa</button>
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('rankedSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">PNG</button>
@@ -1651,6 +1818,7 @@
                                 Enrichment Score Plot
                                 <span class="info-icon">i<span class="info-tooltip"><b>How to read this plot:</b><br><b>Top panel</b> — The green running enrichment score (ES) curve. A peak away from zero indicates enrichment. Peaks to the left = genes are upregulated; peaks to the right = downregulated.<br><b>Middle panel</b> — Black bars show where genes in this set appear in the ranked list.<br><b>Bottom panel</b> — The ranking metric for all genes (red = positive/upregulated, blue = negative/downregulated).<br><b>Leading edge</b> = genes before the ES peak that drive the signal.</span></span>
                                 <div class="title-actions">
+                                    <button class="card-settings-btn" onclick="app.openTextSettings('es')" title="Text settings">Aa</button>
                                     <button class="card-settings-btn" onclick="app.toggleGraphSettings('esSettings')">&#9881;</button>
                                     <button class="btn btn-sm" onclick="app.exportPlot('esPlot','svg')">SVG</button>
                                     <button class="btn btn-sm" onclick="app.exportPlot('esPlot','png')">PNG</button>
@@ -1686,6 +1854,24 @@
                                         </div>
                                     </div>
                                     <div class="form-hint">Set to 0 for auto-sizing</div>
+                                    <div style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px;">
+                                        <label class="form-label" style="font-size: 0.82em; margin-bottom: 4px;">Panel Proportions</label>
+                                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
+                                            <span style="font-size: 0.78em; width: 55px; color: var(--gray-500);">ES curve</span>
+                                            <input type="range" class="settings-live" id="esPanelES" min="30" max="80" value="55" style="flex: 1;">
+                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelESLabel">55%</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
+                                            <span style="font-size: 0.78em; width: 55px; color: var(--gray-500);">Hits</span>
+                                            <input type="range" class="settings-live" id="esPanelHits" min="3" max="20" value="8" style="flex: 1;">
+                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelHitsLabel">8%</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 0.78em; width: 55px; color: var(--gray-500);">Metric</span>
+                                            <input type="range" class="settings-live" id="esPanelMetric" min="10" max="50" value="28" style="flex: 1;">
+                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelMetricLabel">28%</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-content" style="padding: 8px;">
@@ -1705,6 +1891,14 @@
                                     <b>Leading Edge</b> — Genes before the ES peak that drive the enrichment signal.<br>
                                     <b>Direction</b> — Tells you HOW to interpret the result. "Upregulated" means the genes in this set tend to have high positive metric values (e.g. high log2FC), so this pathway is activated/increased. "Downregulated" means the genes tend to have negative metric values, so this pathway is suppressed/decreased in your condition vs control.
                                 </span></span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px 0; border-bottom: 1px solid #eee; margin: 0 10px;" id="dataTypeInlineRow">
+                                <label style="font-size: 0.78em; color: var(--gray-500); white-space: nowrap;">Interpret as:</label>
+                                <select class="form-control" id="dataTypeInline" style="font-size: 0.78em; padding: 2px 6px; flex: 1;">
+                                    <option value="expression">Expression</option>
+                                    <option value="crispr">CRISPR screen</option>
+                                    <option value="perturbation">Perturbation</option>
+                                </select>
                             </div>
                             <div class="card-content" style="padding: 8px 10px; font-size: 0.85em;" id="geneSetInfoContent">
                                 <p style="color: var(--gray-500);">Select a gene set to see details.</p>
@@ -1802,6 +1996,7 @@
                         Gene Set Overlap Heatmap
                         <span class="info-icon">i<span class="info-tooltip"><b>Gene Set Overlap</b><br>A heatmap showing how much gene sets share genes with each other (Jaccard similarity).<br>• <b>Darker green:</b> Higher overlap (more shared genes).<br>• <b>White:</b> No shared genes.<br>• Hover to see exact overlap counts and Jaccard index.<br>High overlap between sets may indicate redundant pathways. Use the "Condensed view" to collapse highly overlapping sets.</span></span>
                         <div class="title-actions">
+                            <button class="card-settings-btn" onclick="app.openTextSettings('overlap')" title="Text settings">Aa</button>
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('overlapSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','png')">PNG</button>
@@ -1963,6 +2158,13 @@
     </div>
     <div class="gsb-toolbar">
         <input type="text" class="gsb-search" id="gsbSearch" placeholder="Search by name or gene (e.g. IFNG, IL4)...">
+        <select class="gsb-collection-filter" id="gsbTierFilter">
+            <option value="all">All tiers</option>
+            <option value="1">Tier 1: Core</option>
+            <option value="2">Tier 2: Standard</option>
+            <option value="3">Tier 3: Specialized</option>
+            <option value="4">Tier 4: Extended</option>
+        </select>
         <select class="gsb-collection-filter" id="gsbCollectionFilter">
             <option value="all">All collections</option>
             <option value="hallmark">H: Hallmark</option>
@@ -1978,6 +2180,7 @@
         <button class="btn btn-secondary btn-sm" id="gsbDeselectAll">Deselect All</button>
         <span class="gsb-results-count" id="gsbResultsCount"></span>
     </div>
+    <div id="gsbWarningBanner" class="gsb-warning-banner" style="display: none;"></div>
     <div class="gsb-list-container" id="gsbListContainer">
         <div class="gsb-scroll-spacer" id="gsbScrollSpacer"></div>
         <div class="gsb-rows" id="gsbRows"></div>
@@ -1994,6 +2197,15 @@
     </div>
 </div>
 
-<script src="app.js?v=23"></script>
+<!-- Text Settings Panel -->
+<div class="text-settings-panel" id="textSettingsPanel" style="display: none;">
+    <div class="text-settings-header" id="textSettingsDragHandle">
+        <span>Aa Text Settings</span>
+        <button class="ts-close-btn" onclick="app.closeTextSettings()">&times;</button>
+    </div>
+    <div class="text-settings-body" id="textSettingsPanelBody"></div>
+</div>
+
+<script src="app.js?v=24"></script>
 </body>
 </html>
