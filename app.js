@@ -2542,6 +2542,16 @@ class GSEAApp {
             this._gsbItemMap.set(item.name, item);
         }
 
+        // Build gene → set names index for gene-based search
+        this._gsbGeneIndex = new Map();
+        for (const item of this._gsbAllItems) {
+            for (const gene of item.genes) {
+                const g = gene.toUpperCase();
+                if (!this._gsbGeneIndex.has(g)) this._gsbGeneIndex.set(g, []);
+                this._gsbGeneIndex.get(g).push(item.name);
+            }
+        }
+
         // If first time opening (no prior custom selection), start with nothing selected
         if (!this.useCustomSelection) {
             this.selectedGeneSets = new Set();
@@ -2576,11 +2586,43 @@ class GSEAApp {
             filtered = filtered.filter(item => item.collection === collFilter);
         }
         if (query) {
-            filtered = filtered.filter(item => item.searchText.includes(query));
+            // 1) Name search: match full query against cleaned gene set names
+            const nameMatchSet = new Set();
+            for (const item of filtered) {
+                if (item.searchText.includes(query)) nameMatchSet.add(item.name);
+            }
+
+            // 2) Gene search: split query by commas/spaces into tokens,
+            //    find all gene sets containing any of those genes
+            const geneMatchSet = new Set();
+            const tokens = query.split(/[\s,]+/).map(t => t.trim().toUpperCase()).filter(t => t.length >= 2);
+            for (const token of tokens) {
+                const sets = this._gsbGeneIndex.get(token);
+                if (sets) for (const name of sets) geneMatchSet.add(name);
+            }
+
+            // Union both result sets
+            filtered = filtered.filter(item =>
+                nameMatchSet.has(item.name) || geneMatchSet.has(item.name)
+            );
+
+            // Store for display hint
+            this._gsbLastGeneHits = geneMatchSet.size > 0 ? tokens.filter(t => this._gsbGeneIndex.has(t)) : [];
+        } else {
+            this._gsbLastGeneHits = [];
         }
 
         // Build flat list with section headers
         this._gsbFlatList = [];
+
+        // If gene matches found, show info banner
+        if (this._gsbLastGeneHits.length > 0) {
+            this._gsbFlatList.push({
+                type: 'info',
+                text: `Gene match: ${this._gsbLastGeneHits.join(', ')} found in ${filtered.length} gene sets`
+            });
+        }
+
         let lastCollection = null;
         const collectionCounts = {};
 
@@ -2617,7 +2659,7 @@ class GSEAApp {
         };
 
         for (const entry of this._gsbFlatList) {
-            if (entry.type === 'header') {
+            if (entry.type === 'header' || entry.type === 'info') {
                 flushItems();
                 this._gsbVisualRows.push(entry);
             } else {
@@ -2657,7 +2699,11 @@ class GSEAApp {
             const vrow = this._gsbVisualRows[i];
             const top = i * rowH;
 
-            if (vrow.type === 'header') {
+            if (vrow.type === 'info') {
+                html += `<div class="gsb-info-banner" style="position:absolute; top:${top}px; left:0; right:0; height:${rowH}px;">
+                    ${vrow.text}
+                </div>`;
+            } else if (vrow.type === 'header') {
                 html += `<div class="gsb-section-header" style="position:absolute; top:${top}px; left:0; right:0; height:${rowH}px;">
                     ${vrow.label} (${vrow.count.toLocaleString()} gene sets)
                 </div>`;

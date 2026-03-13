@@ -1121,6 +1121,20 @@
             box-sizing: border-box;
         }
 
+        /* Gene match info banner */
+        .gsb-info-banner {
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+            height: 32px;
+            background: #eef6ec;
+            border-bottom: 1px solid var(--green-200);
+            font-size: 12px;
+            color: var(--green-700);
+            font-weight: 500;
+            box-sizing: border-box;
+        }
+
         .gsb-row input[type="checkbox"] {
             accent-color: var(--green-600);
             width: 14px;
@@ -1920,7 +1934,7 @@
         </div>
     </div>
     <div class="gsb-toolbar">
-        <input type="text" class="gsb-search" id="gsbSearch" placeholder="Search gene sets by name...">
+        <input type="text" class="gsb-search" id="gsbSearch" placeholder="Search by name or gene (e.g. IFNG, IL4)...">
         <select class="gsb-collection-filter" id="gsbCollectionFilter">
             <option value="all">All collections</option>
             <option value="hallmark">H: Hallmark</option>
@@ -1947,6 +1961,6 @@
     </div>
 </div>
 
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>
