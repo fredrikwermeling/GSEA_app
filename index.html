@@ -262,7 +262,21 @@
         }
         .card-title .title-actions {
             display: flex;
-            gap: 6px;
+            gap: 5px;
+            align-items: center;
+        }
+        .title-actions .action-label {
+            font-size: 0.72em;
+            font-weight: 400;
+            opacity: 0.7;
+            margin-right: -2px;
+            letter-spacing: 0.02em;
+        }
+        .title-actions .action-sep {
+            width: 1px;
+            height: 16px;
+            background: rgba(255,255,255,0.3);
+            margin: 0 2px;
         }
         .card-content {
             padding: 12px 14px;
@@ -491,7 +505,7 @@
             display: flex;
             border-bottom: 2px solid var(--gray-200);
             gap: 2px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .tab-btn {
             padding: 7px 14px;
@@ -1884,11 +1898,15 @@
                         Enrichment Overview
                         <span class="info-icon">i<span class="info-tooltip"><b>Enrichment Overview (Lollipop Plot)</b><br>Shows the top enriched gene sets ranked by Normalized Enrichment Score (NES).<br>• <b>X-axis:</b> NES — positive values (right) indicate upregulated pathways; negative (left) indicate downregulated.<br>• <b>Dot size:</b> Number of genes in the set.<br>• <b>Dot color:</b> FDR significance — darker/warmer colors = more significant.<br>• <b>Click</b> any dot or label to see its full enrichment plot.</span></span>
                         <div class="title-actions">
+                            <span class="action-label">Settings</span>
                             <button class="card-settings-btn" onclick="app.openTextSettings('bubble')" title="Text settings">Aa</button>
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('bubbleSettings')">&#9881;</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','svg')">SVG</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','png')">PNG</button>
-                            <button class="btn btn-sm" onclick="app.exportRScript('bubble')" title="Download R script to reproduce this plot">R</button>
+                            <div class="action-sep"></div>
+                            <span class="action-label">Export</span>
+                            <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','svg')">.svg</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','png')">.png</button>
+                            <button class="btn btn-sm" onclick="app.exportPlotCSV('bubble')">.csv</button>
+                            <button class="btn btn-sm" onclick="app.exportRScript('bubble')" title="Download R script to reproduce this plot">.R</button>
                         </div>
                         <div class="graph-settings-popup" id="bubbleSettings">
                             <h4>Overview Plot Settings</h4>
@@ -1955,11 +1973,15 @@
                         Ranked Gene List
                         <span class="info-icon">i<span class="info-tooltip"><b>Ranked Gene List</b><br>A waterfall plot of your entire dataset sorted by the ranking metric (e.g. log2FC).<br>• <b>X-axis:</b> Gene rank (1 = highest metric value).<br>• <b>Y-axis:</b> Ranking metric value from your data.<br>• <b>Red bars:</b> Positively correlated genes (metric &gt; 0).<br>• <b>Blue bars:</b> Negatively correlated genes (metric &lt; 0).<br>• The <b>zero cross</b> marks where genes transition from up- to down-regulated.<br>This is the ordered gene list that GSEA walks through to compute enrichment scores.</span></span>
                         <div class="title-actions">
+                            <span class="action-label">Settings</span>
                             <button class="card-settings-btn" onclick="app.openTextSettings('ranked')" title="Text settings">Aa</button>
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('rankedSettings')">&#9881;</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">SVG</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">PNG</button>
-                            <button class="btn btn-sm" onclick="app.exportRScript('ranked')" title="Download R script to reproduce this plot">R</button>
+                            <div class="action-sep"></div>
+                            <span class="action-label">Export</span>
+                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">.svg</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">.png</button>
+                            <button class="btn btn-sm" onclick="app.exportPlotCSV('ranked')">.csv</button>
+                            <button class="btn btn-sm" onclick="app.exportRScript('ranked')" title="Download R script to reproduce this plot">.R</button>
                         </div>
                         <div class="graph-settings-popup" id="rankedSettings">
                             <h4>Ranked Plot Settings</h4>
@@ -2023,11 +2045,15 @@
                                 Enrichment Score Plot
                                 <span class="info-icon">i<span class="info-tooltip"><b>How to read this plot:</b><br><b>Top panel</b> — The green running enrichment score (ES) curve. A peak away from zero indicates enrichment. Peaks to the left = genes are upregulated; peaks to the right = downregulated.<br><b>Middle panel</b> — Black bars show where genes in this set appear in the ranked list.<br><b>Bottom panel</b> — The ranking metric for all genes (red = positive/upregulated, blue = negative/downregulated).<br><b>Leading edge</b> = genes before the ES peak that drive the signal.</span></span>
                                 <div class="title-actions">
+                                    <span class="action-label">Settings</span>
                                     <button class="card-settings-btn" onclick="app.openTextSettings('es')" title="Text settings">Aa</button>
                                     <button class="card-settings-btn" onclick="app.toggleGraphSettings('esSettings')">&#9881;</button>
-                                    <button class="btn btn-sm" onclick="app.exportPlot('esPlot','svg')">SVG</button>
-                                    <button class="btn btn-sm" onclick="app.exportPlot('esPlot','png')">PNG</button>
-                                    <button class="btn btn-sm" onclick="app.exportRScript('es')" title="Download R script to reproduce this plot">R</button>
+                                    <div class="action-sep"></div>
+                                    <span class="action-label">Export</span>
+                                    <button class="btn btn-sm" onclick="app.exportPlot('esPlot','svg')">.svg</button>
+                                    <button class="btn btn-sm" onclick="app.exportPlot('esPlot','png')">.png</button>
+                                    <button class="btn btn-sm" onclick="app.exportPlotCSV('es')">.csv</button>
+                                    <button class="btn btn-sm" onclick="app.exportRScript('es')" title="Download R script to reproduce this plot">.R</button>
                                 </div>
                                 <div class="graph-settings-popup" id="esSettings">
                                     <h4>Enrichment Plot Settings</h4>
@@ -2201,11 +2227,15 @@
                         Gene Set Overlap Heatmap
                         <span class="info-icon">i<span class="info-tooltip"><b>Gene Set Overlap</b><br>A heatmap showing how much gene sets share genes with each other (Jaccard similarity).<br>• <b>Darker green:</b> Higher overlap (more shared genes).<br>• <b>White:</b> No shared genes.<br>• Hover to see exact overlap counts and Jaccard index.<br>High overlap between sets may indicate redundant pathways. Use the "Condensed view" to collapse highly overlapping sets.</span></span>
                         <div class="title-actions">
+                            <span class="action-label">Settings</span>
                             <button class="card-settings-btn" onclick="app.openTextSettings('overlap')" title="Text settings">Aa</button>
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('overlapSettings')">&#9881;</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','svg')">SVG</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','png')">PNG</button>
-                            <button class="btn btn-sm" onclick="app.exportRScript('overlap')" title="Download R script to reproduce this plot">R</button>
+                            <div class="action-sep"></div>
+                            <span class="action-label">Export</span>
+                            <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','svg')">.svg</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','png')">.png</button>
+                            <button class="btn btn-sm" onclick="app.exportPlotCSV('overlap')">.csv</button>
+                            <button class="btn btn-sm" onclick="app.exportRScript('overlap')" title="Download R script to reproduce this plot">.R</button>
                         </div>
                         <div class="graph-settings-popup" id="overlapSettings">
                             <h4>Overlap Heatmap Settings</h4>
@@ -2311,12 +2341,22 @@
 <div class="site-footer">
     GSEA Web Tool &mdash; <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>, Karolinska Institutet
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
-    <span id="devVersionTag" style="display: inline-block; margin-left: 10px; padding: 1px 8px; background: #fef3cd; color: #856404; border-radius: 3px; font-size: 0.9em; cursor: help;" title="Click for changelog">dev v8</span>
+    <span id="devVersionTag" style="display: inline-block; margin-left: 10px; padding: 1px 8px; background: #fef3cd; color: #856404; border-radius: 3px; font-size: 0.9em; cursor: help;" title="Click for changelog">dev v9</span>
 </div>
 
 <!-- Dev version changelog (click version tag to toggle) -->
 <div id="devChangelog" style="display: none; max-width: 700px; margin: 0 auto 16px; padding: 14px 18px; background: #fffef5; border: 1px solid #ffc107; border-radius: 6px; font-size: 0.82em; color: #333; text-align: left;">
     <div style="font-weight: 700; margin-bottom: 6px; color: #856404;">Development Changelog</div>
+
+    <div style="margin-bottom: 8px;">
+        <strong>dev v9</strong> <span style="color: #888;">(2026-03-14)</span>
+        <ul style="margin: 4px 0 0 18px; padding: 0;">
+            <li>Fixed R script exports — removed unused dependencies (dplyr, tidyr), proper alpha() for fill, added print(), cleaner formatting</li>
+            <li>Graph headers reorganized: "Settings: Aa ⚙ | Export: .svg .png .csv .R" with separator and labels</li>
+            <li>CSV export for all plots — bubble (overview data), ES (full enrichment data with leading edge), ranked list, overlap matrix</li>
+            <li>Sidebar aligns with results panel — green header rows now at the same vertical position</li>
+        </ul>
+    </div>
 
     <div style="margin-bottom: 8px;">
         <strong>dev v8</strong> <span style="color: #888;">(2026-03-14)</span>
@@ -2495,6 +2535,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>

@@ -1080,6 +1080,9 @@ class GSEAApp {
         document.getElementById('methodsCard').style.display = '';
         this.updateSettingsTabVisibility();
 
+        // Align sidebar top with main panel (account for tab bar height)
+        this._syncSidebarOffset();
+
         // Populate gene set selector
         this.populateGeneSetSelector();
 
@@ -2877,6 +2880,96 @@ class GSEAApp {
     }
 
     // --------------------------------------------------------
+    // CSV Export (per-plot data)
+    // --------------------------------------------------------
+    exportPlotCSV(plotType) {
+        if (!this.results || !this.rankedList) return;
+        this.readSettings();
+        let csv = '', filename = '';
+
+        switch (plotType) {
+            case 'bubble': {
+                const fdrThresh = parseFloat(this.settings.fdrDisplayThreshold);
+                const topN = this.settings.topN;
+                let filtered = this.results.slice();
+                if (fdrThresh < 1) filtered = filtered.filter(r => r.fdr < fdrThresh);
+                const top = filtered.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes)).slice(0, topN);
+                csv = 'Gene Set,NES,ES,p-value,FDR,Size,Leading Edge\n';
+                csv += top.map(r => [
+                    `"${r.name}"`, r.nes.toFixed(4), r.es.toFixed(4),
+                    r.pvalue.toExponential(4), r.fdr.toExponential(4), r.size,
+                    `"${(r.leadingEdge || []).join(', ')}"`
+                ].join(',')).join('\n');
+                filename = 'gsea_overview.csv';
+                break;
+            }
+            case 'es': {
+                const sel = document.getElementById('geneSetSelector').value;
+                const result = this.results.find(r => r.name === sel);
+                if (!result) return;
+                csv = 'Rank,Gene,Metric,Running_ES,In_Set,Leading_Edge\n';
+                const genes = this.rankedList.genes;
+                const metrics = this.rankedList.metrics;
+                const hitSet = new Set(result.hits);
+                const peakIdx = result.runningES.indexOf(result.es);
+                for (let i = 0; i < genes.length; i++) {
+                    const inSet = hitSet.has(i);
+                    const isLE = inSet && (result.es >= 0 ? i <= peakIdx : i >= peakIdx);
+                    csv += [i + 1, genes[i], metrics[i].toFixed(6),
+                        result.runningES[i].toFixed(6), inSet ? 'Yes' : 'No',
+                        isLE ? 'Yes' : 'No'].join(',') + '\n';
+                }
+                filename = `gsea_es_${sel.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40)}.csv`;
+                break;
+            }
+            case 'ranked': {
+                csv = 'Rank,Gene,Metric\n';
+                const genes = this.rankedList.genes;
+                const metrics = this.rankedList.metrics;
+                for (let i = 0; i < genes.length; i++) {
+                    csv += [i + 1, genes[i], metrics[i].toFixed(6)].join(',') + '\n';
+                }
+                filename = 'gsea_ranked_list.csv';
+                break;
+            }
+            case 'overlap': {
+                const maxSets = parseInt(document.getElementById('overlapMaxSets').value) || 20;
+                let sigSets = this.results.filter(r => r.fdr < 0.25)
+                    .sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes)).slice(0, maxSets);
+                const activeGeneSets = this.getActiveGeneSets();
+                const setGenes = {};
+                const rankedGenesUpper = new Set(this.rankedList.genes.map(g => g.toUpperCase()));
+                for (const r of sigSets) {
+                    if (activeGeneSets[r.name]) {
+                        setGenes[r.name] = activeGeneSets[r.name].map(g => g.toUpperCase()).filter(g => rankedGenesUpper.has(g));
+                    }
+                }
+                sigSets = sigSets.filter(r => setGenes[r.name] && setGenes[r.name].length > 0);
+                const names = sigSets.map(r => this.cleanName(r.name));
+                csv = ',' + names.join(',') + '\n';
+                for (let i = 0; i < sigSets.length; i++) {
+                    const row = [names[i]];
+                    for (let j = 0; j < sigSets.length; j++) {
+                        if (i === j) { row.push('1.0000'); continue; }
+                        const setA = new Set(setGenes[sigSets[i].name]);
+                        const setB = new Set(setGenes[sigSets[j].name]);
+                        let inter = 0;
+                        for (const g of setA) if (setB.has(g)) inter++;
+                        const union = setA.size + setB.size - inter;
+                        row.push(union > 0 ? (inter / union).toFixed(4) : '0.0000');
+                    }
+                    csv += row.join(',') + '\n';
+                }
+                filename = 'gsea_overlap_matrix.csv';
+                break;
+            }
+            default: return;
+        }
+
+        this.downloadBlob(new Blob([csv], { type: 'text/csv' }), filename);
+    }
+
+    // --------------------------------------------------------
     // R Script Export
     // --------------------------------------------------------
     exportRScript(plotType) {
@@ -2901,45 +2994,73 @@ class GSEAApp {
 
     _rEscape(s) { return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 
+    /** Wrap a long R vector into ~80-char lines for readability */
+    _rWrapVec(items, indent = '        ') {
+        let lines = [], line = '';
+        for (const item of items) {
+            if (line && (line + ', ' + item).length > 80) {
+                lines.push(line);
+                line = item;
+            } else {
+                line = line ? line + ', ' + item : item;
+            }
+        }
+        if (line) lines.push(line);
+        return lines.join(',\n' + indent);
+    }
+
     _rScriptBubble() {
         const fdrThresh = parseFloat(this.settings.fdrDisplayThreshold);
         const topN = this.settings.topN;
-        let filtered = this.results;
+        let filtered = this.results.slice();
         if (fdrThresh < 1) filtered = filtered.filter(r => r.fdr < fdrThresh);
         const top = filtered.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes)).slice(0, topN);
         top.sort((a, b) => a.nes - b.nes);
 
         if (top.length === 0) return '# No gene sets pass the current FDR threshold\n';
 
-        let s = `# Enrichment Overview (Lollipop/Bubble Plot)\n`;
-        s += `# Install: install.packages(c("ggplot2", "dplyr"))\n\n`;
-        s += `library(ggplot2)\nlibrary(dplyr)\n\n`;
+        const h = Math.max(4, top.length * 0.35 + 1.5).toFixed(1);
 
-        // Embed data
+        let s = `# Enrichment Overview (Lollipop/Bubble Plot)\n`;
+        s += `# Install if needed: install.packages("ggplot2")\n\n`;
+        s += `library(ggplot2)\n\n`;
+
+        // Embed data — wrap long vectors for readability
+        const nameVec = top.map(r => `"${this._rEscape(this.cleanName(r.name))}"`).join(',\n    ');
+        const nesVec  = top.map(r => r.nes.toFixed(4)).join(', ');
+        const fdrVec  = top.map(r => r.fdr < 0.001 ? r.fdr.toExponential(4) : r.fdr.toFixed(6)).join(', ');
+        const sizeVec = top.map(r => r.size).join(', ');
+
         s += `df <- data.frame(\n`;
-        s += `  name = c(${top.map(r => `"${this._rEscape(this.cleanName(r.name))}"`).join(', ')}),\n`;
-        s += `  nes  = c(${top.map(r => r.nes.toFixed(4)).join(', ')}),\n`;
-        s += `  fdr  = c(${top.map(r => r.fdr.toExponential(4)).join(', ')}),\n`;
-        s += `  size = c(${top.map(r => r.size).join(', ')}),\n`;
-        s += `  stringsAsFactors = FALSE\n)\n\n`;
+        s += `    name = c(\n    ${nameVec}\n    ),\n`;
+        s += `    nes  = c(${nesVec}),\n`;
+        s += `    fdr  = c(${fdrVec}),\n`;
+        s += `    size = c(${sizeVec}),\n`;
+        s += `    stringsAsFactors = FALSE\n)\n\n`;
+        s += `# Preserve order from enrichment analysis\n`;
         s += `df$name <- factor(df$name, levels = df$name)\n`;
         s += `df$log_fdr <- -log10(pmax(df$fdr, 1e-10))\n\n`;
 
-        s += `ggplot(df, aes(x = nes, y = name)) +\n`;
-        s += `  geom_segment(aes(x = 0, xend = nes, y = name, yend = name), color = "#d1d5db", linewidth = 0.6) +\n`;
-        s += `  geom_point(aes(size = size, color = log_fdr)) +\n`;
-        s += `  scale_color_gradientn(\n`;
-        s += `    colors = c("#ffffb2", "#fd8d3c", "#e31a1c", "#800026"),\n`;
-        s += `    name = "FDR\\n(-log10)"\n  ) +\n`;
-        s += `  scale_size_continuous(range = c(3, 10), name = "Gene set\\nsize") +\n`;
-        s += `  geom_vline(xintercept = 0, color = "#9ca3af", linewidth = 0.5) +\n`;
-        s += `  labs(x = "Normalized Enrichment Score (NES)", y = NULL) +\n`;
-        s += `  theme_minimal(base_family = "sans") +\n`;
-        s += `  theme(\n`;
-        s += `    panel.grid.major.y = element_blank(),\n`;
-        s += `    panel.grid.minor = element_blank(),\n`;
-        s += `    axis.text.y = element_text(size = 9)\n  )\n\n`;
-        s += `ggsave("gsea_overview.pdf", width = 8, height = ${Math.max(4, top.length * 0.35 + 1.5).toFixed(1)})\n`;
+        s += `# Plot\n`;
+        s += `p <- ggplot(df, aes(x = nes, y = name)) +\n`;
+        s += `    geom_segment(aes(x = 0, xend = nes, y = name, yend = name),\n`;
+        s += `                 color = "#d1d5db", linewidth = 0.6) +\n`;
+        s += `    geom_point(aes(size = size, color = log_fdr)) +\n`;
+        s += `    scale_color_gradientn(\n`;
+        s += `        colors = c("#ffffb2", "#fd8d3c", "#e31a1c", "#800026"),\n`;
+        s += `        name = "FDR\\n(-log10)"\n`;
+        s += `    ) +\n`;
+        s += `    scale_size_continuous(range = c(3, 10), name = "Gene set\\nsize") +\n`;
+        s += `    geom_vline(xintercept = 0, color = "#9ca3af", linewidth = 0.5) +\n`;
+        s += `    labs(x = "Normalized Enrichment Score (NES)", y = NULL) +\n`;
+        s += `    theme_minimal(base_family = "sans") +\n`;
+        s += `    theme(\n`;
+        s += `        panel.grid.major.y = element_blank(),\n`;
+        s += `        panel.grid.minor   = element_blank(),\n`;
+        s += `        axis.text.y        = element_text(size = 9)\n`;
+        s += `    )\n\n`;
+        s += `print(p)\n`;
+        s += `ggsave("gsea_overview.pdf", plot = p, width = 8, height = ${h})\n`;
 
         return s;
     }
@@ -2969,69 +3090,80 @@ class GSEAApp {
         }
 
         let s = `# Enrichment Score Plot: ${cleanName}\n`;
-        s += `# Install: install.packages(c("ggplot2", "patchwork"))\n\n`;
+        s += `# Install if needed: install.packages(c("ggplot2", "patchwork"))\n\n`;
         s += `library(ggplot2)\nlibrary(patchwork)\n\n`;
 
-        // Embed data
+        // Stats
+        s += `# --- Gene set statistics ---\n`;
         s += `gene_set_name <- "${this._rEscape(cleanName)}"\n`;
-        s += `nes  <- ${result.nes.toFixed(4)}\n`;
-        s += `fdr  <- ${result.fdr.toExponential(4)}\n`;
-        s += `pval <- ${result.pvalue.toExponential(4)}\n`;
+        s += `nes      <- ${result.nes.toFixed(4)}\n`;
+        s += `fdr      <- ${result.fdr < 0.001 ? result.fdr.toExponential(4) : result.fdr.toFixed(6)}\n`;
+        s += `pval     <- ${result.pvalue < 0.001 ? result.pvalue.toExponential(4) : result.pvalue.toFixed(6)}\n`;
         s += `set_size <- ${result.size}\n\n`;
 
+        // ES data — wrap long vectors
         s += `# Running enrichment score (subsampled to ${ranks.length} points)\n`;
         s += `es_df <- data.frame(\n`;
-        s += `  rank = c(${ranks.join(', ')}),\n`;
-        s += `  es   = c(${esVals.map(v => v.toFixed(6)).join(', ')})\n)\n\n`;
+        s += `    rank = c(${this._rWrapVec(ranks.map(String))}),\n`;
+        s += `    es   = c(${this._rWrapVec(esVals.map(v => v.toFixed(6)))})\n)\n\n`;
 
         s += `# Hit positions (genes in set)\n`;
-        s += `hits <- c(${Array.from(result.hits).join(', ')})\n\n`;
+        s += `hits <- c(${this._rWrapVec(Array.from(result.hits).map(String))})\n\n`;
 
         s += `# Ranked list metric (subsampled)\n`;
         s += `met_df <- data.frame(\n`;
-        s += `  rank   = c(${ranks.join(', ')}),\n`;
-        s += `  metric = c(${metVals.map(v => v.toFixed(6)).join(', ')})\n)\n\n`;
+        s += `    rank   = c(${this._rWrapVec(ranks.map(String))}),\n`;
+        s += `    metric = c(${this._rWrapVec(metVals.map(v => v.toFixed(6)))})\n)\n\n`;
+
+        // ES line color with alpha for fill
+        const esCol = this.settings.esLineColor;
 
         // ES panel
-        s += `# Panel 1: Enrichment Score curve\n`;
+        s += `# --- Panel 1: Enrichment Score curve ---\n`;
         s += `p1 <- ggplot(es_df, aes(x = rank, y = es)) +\n`;
-        s += `  geom_area(fill = "${this.settings.esLineColor}20", color = NA) +\n`;
-        s += `  geom_line(color = "${this.settings.esLineColor}", linewidth = 0.8) +\n`;
-        s += `  geom_hline(yintercept = 0, linetype = "dotted", color = "#aaa") +\n`;
-        s += `  annotate("label", x = 0, y = Inf, vjust = 1.2, hjust = -0.05,\n`;
-        s += `           label = paste0("NES = ", round(nes, 2), "\\nFDR = ", formatC(fdr, format = "e", digits = 2),\n`;
-        s += `                          "\\np = ", formatC(pval, format = "e", digits = 2), "\\nSize = ", set_size),\n`;
-        s += `           size = 3, family = "mono", fill = "white", label.size = 0.3) +\n`;
-        s += `  labs(y = "Enrichment score (ES)", title = gene_set_name) +\n`;
-        s += `  theme_minimal(base_family = "sans") +\n`;
-        s += `  theme(axis.title.x = element_blank(), axis.text.x = element_blank(),\n`;
-        s += `        plot.title = element_text(size = 11, face = "bold"),\n`;
-        s += `        panel.grid.minor = element_blank())\n\n`;
+        s += `    geom_area(fill = alpha("${esCol}", 0.12), color = NA) +\n`;
+        s += `    geom_line(color = "${esCol}", linewidth = 0.8) +\n`;
+        s += `    geom_hline(yintercept = 0, linetype = "dotted", color = "#aaa") +\n`;
+        s += `    annotate("label", x = 0, y = Inf, vjust = 1.2, hjust = -0.05,\n`;
+        s += `             label = paste0("NES = ", round(nes, 2),\n`;
+        s += `                            "\\nFDR = ", formatC(fdr, format = "e", digits = 2),\n`;
+        s += `                            "\\np = ", formatC(pval, format = "e", digits = 2),\n`;
+        s += `                            "\\nSize = ", set_size),\n`;
+        s += `             size = 3, family = "mono", fill = "white", label.size = 0.3) +\n`;
+        s += `    labs(y = "Enrichment Score (ES)", title = gene_set_name) +\n`;
+        s += `    theme_minimal(base_family = "sans") +\n`;
+        s += `    theme(axis.title.x = element_blank(), axis.text.x = element_blank(),\n`;
+        s += `          plot.title = element_text(size = 11, face = "bold"),\n`;
+        s += `          panel.grid.minor = element_blank())\n\n`;
 
         // Hit markers panel
-        s += `# Panel 2: Hit markers\n`;
+        s += `# --- Panel 2: Hit markers ---\n`;
         s += `hit_df <- data.frame(pos = hits)\n`;
         s += `p2 <- ggplot(hit_df, aes(x = pos)) +\n`;
-        s += `  geom_segment(aes(x = pos, xend = pos, y = 0, yend = 1), linewidth = 0.3) +\n`;
-        s += `  scale_y_continuous(expand = c(0, 0)) +\n`;
-        s += `  scale_x_continuous(limits = range(es_df$rank)) +\n`;
-        s += `  theme_void() +\n`;
-        s += `  theme(plot.margin = margin(0, 5.5, 0, 5.5))\n\n`;
+        s += `    geom_segment(aes(x = pos, xend = pos, y = 0, yend = 1), linewidth = 0.3) +\n`;
+        s += `    scale_y_continuous(expand = c(0, 0)) +\n`;
+        s += `    scale_x_continuous(limits = range(es_df$rank)) +\n`;
+        s += `    theme_void() +\n`;
+        s += `    theme(plot.margin = margin(0, 5.5, 0, 5.5))\n\n`;
 
         // Metric panel
-        s += `# Panel 3: Ranked list metric\n`;
+        s += `# --- Panel 3: Ranked list metric ---\n`;
         s += `p3 <- ggplot(met_df, aes(x = rank, y = metric, fill = metric > 0)) +\n`;
-        s += `  geom_col(width = ${step > 1 ? step * 1.05 : 1}) +\n`;
-        s += `  scale_fill_manual(values = c("TRUE" = "${this.settings.positiveColor}", "FALSE" = "${this.settings.negativeColor}"), guide = "none") +\n`;
-        s += `  geom_hline(yintercept = 0, linewidth = 0.4) +\n`;
-        s += `  labs(x = "Rank in Ordered Dataset", y = "Metric") +\n`;
-        s += `  theme_minimal(base_family = "sans") +\n`;
-        s += `  theme(panel.grid.minor = element_blank())\n\n`;
+        s += `    geom_col(width = ${step > 1 ? step * 1.05 : 1}) +\n`;
+        s += `    scale_fill_manual(values = c("TRUE" = "${this.settings.positiveColor}",\n`;
+        s += `                                  "FALSE" = "${this.settings.negativeColor}"),\n`;
+        s += `                      guide = "none") +\n`;
+        s += `    geom_hline(yintercept = 0, linewidth = 0.4) +\n`;
+        s += `    labs(x = "Rank in Ordered Dataset", y = "Metric") +\n`;
+        s += `    theme_minimal(base_family = "sans") +\n`;
+        s += `    theme(panel.grid.minor = element_blank())\n\n`;
 
         // Combine
-        s += `# Combine panels\n`;
-        s += `p1 / p2 / p3 + plot_layout(heights = c(5, 0.8, 2.5))\n\n`;
-        s += `ggsave("gsea_es_${sel.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40)}.pdf", width = 7, height = 6)\n`;
+        const fname = sel.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
+        s += `# --- Combine panels ---\n`;
+        s += `combined <- p1 / p2 / p3 + plot_layout(heights = c(5, 0.8, 2.5))\n`;
+        s += `print(combined)\n`;
+        s += `ggsave("gsea_es_${fname}.pdf", plot = combined, width = 7, height = 6)\n`;
 
         return s;
     }
@@ -3051,25 +3183,28 @@ class GSEAApp {
         }
 
         let s = `# Ranked List Metric Plot\n`;
-        s += `# Install: install.packages("ggplot2")\n\n`;
+        s += `# Install if needed: install.packages("ggplot2")\n\n`;
         s += `library(ggplot2)\n\n`;
 
         s += `df <- data.frame(\n`;
-        s += `  rank   = c(${ranks.join(', ')}),\n`;
-        s += `  metric = c(${vals.map(v => v.toFixed(6)).join(', ')})\n)\n\n`;
+        s += `    rank   = c(${this._rWrapVec(ranks.map(String))}),\n`;
+        s += `    metric = c(${this._rWrapVec(vals.map(v => v.toFixed(6)))})\n)\n\n`;
 
-        s += `ggplot(df, aes(x = rank, y = metric, fill = metric > 0)) +\n`;
-        s += `  geom_col(width = ${step * 1.05}) +\n`;
-        s += `  scale_fill_manual(values = c("TRUE" = "${this.settings.positiveColor}", "FALSE" = "${this.settings.negativeColor}"), guide = "none") +\n`;
-        s += `  geom_hline(yintercept = 0, linewidth = 0.5, color = "#333") +\n`;
-        s += `  labs(\n`;
-        s += `    x = "Rank in Ordered Dataset",\n`;
-        s += `    y = "Ranked list metric (${this._rEscape(metricLabel)})"\n  ) +\n`;
-        s += `  theme_minimal(base_family = "sans") +\n`;
-        s += `  theme(\n`;
-        s += `    panel.grid.minor = element_blank(),\n`;
-        s += `    panel.border = element_rect(color = "#333", fill = NA, linewidth = 0.5)\n  )\n\n`;
-        s += `ggsave("gsea_ranked_list.pdf", width = 8, height = 3.5)\n`;
+        s += `p <- ggplot(df, aes(x = rank, y = metric, fill = metric > 0)) +\n`;
+        s += `    geom_col(width = ${step * 1.05}) +\n`;
+        s += `    scale_fill_manual(values = c("TRUE" = "${this.settings.positiveColor}",\n`;
+        s += `                                  "FALSE" = "${this.settings.negativeColor}"),\n`;
+        s += `                      guide = "none") +\n`;
+        s += `    geom_hline(yintercept = 0, linewidth = 0.5, color = "#333") +\n`;
+        s += `    labs(x = "Rank in Ordered Dataset",\n`;
+        s += `         y = "Ranked list metric (${this._rEscape(metricLabel)})") +\n`;
+        s += `    theme_minimal(base_family = "sans") +\n`;
+        s += `    theme(\n`;
+        s += `        panel.grid.minor = element_blank(),\n`;
+        s += `        panel.border = element_rect(color = "#333", fill = NA, linewidth = 0.5)\n`;
+        s += `    )\n\n`;
+        s += `print(p)\n`;
+        s += `ggsave("gsea_ranked_list.pdf", plot = p, width = 8, height = 3.5)\n`;
 
         return s;
     }
@@ -3115,40 +3250,50 @@ class GSEAApp {
             matrix.push(row);
         }
 
-        let s = `# Gene Set Overlap Heatmap (Jaccard Similarity)\n`;
-        s += `# Install: install.packages(c("ggplot2", "tidyr"))\n\n`;
-        s += `library(ggplot2)\nlibrary(tidyr)\n\n`;
+        const nameVec = names.map(nm => `"${this._rEscape(nm)}"`).join(',\n    ');
 
-        s += `set_names <- c(${names.map(n => `"${this._rEscape(n)}"`).join(', ')})\n\n`;
+        let s = `# Gene Set Overlap Heatmap (Jaccard Similarity)\n`;
+        s += `# Install if needed: install.packages("ggplot2")\n\n`;
+        s += `library(ggplot2)\n\n`;
+
+        s += `set_names <- c(\n    ${nameVec}\n)\n\n`;
 
         s += `# Jaccard similarity matrix\n`;
         s += `jaccard <- matrix(c(\n`;
         for (let i = 0; i < n; i++) {
-            s += `  ${matrix[i].join(', ')}${i < n - 1 ? ',' : ''}\n`;
+            s += `    ${matrix[i].join(', ')}${i < n - 1 ? ',' : ''}\n`;
         }
         s += `), nrow = ${n}, byrow = TRUE)\n`;
-        s += `rownames(jaccard) <- set_names\ncolnames(jaccard) <- set_names\n\n`;
+        s += `rownames(jaccard) <- set_names\n`;
+        s += `colnames(jaccard) <- set_names\n\n`;
 
-        s += `# Convert to long format\n`;
-        s += `df <- as.data.frame(jaccard)\ndf$row <- set_names\n`;
-        s += `df_long <- pivot_longer(df, cols = -row, names_to = "col", values_to = "jaccard")\n`;
+        s += `# Convert to long format (base R — no extra packages needed)\n`;
+        s += `df_long <- expand.grid(row = set_names, col = set_names,\n`;
+        s += `                       stringsAsFactors = FALSE)\n`;
+        s += `df_long$jaccard <- as.vector(t(jaccard))\n`;
         s += `df_long$row <- factor(df_long$row, levels = rev(set_names))\n`;
         s += `df_long$col <- factor(df_long$col, levels = set_names)\n\n`;
 
-        s += `ggplot(df_long, aes(x = col, y = row, fill = jaccard)) +\n`;
-        s += `  geom_tile(color = "white", linewidth = 0.3) +\n`;
-        s += `  scale_fill_gradientn(\n`;
-        s += `    colors = c("#ffffff", "#c5e8bc", "#5a9f4a", "#2d5a27"),\n`;
-        s += `    name = "Jaccard\\nIndex",\n`;
-        s += `    limits = c(0, 1)\n  ) +\n`;
-        s += `  labs(x = NULL, y = NULL) +\n`;
-        s += `  theme_minimal(base_family = "sans") +\n`;
-        s += `  theme(\n`;
-        s += `    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),\n`;
-        s += `    axis.text.y = element_text(size = 8),\n`;
-        s += `    panel.grid = element_blank()\n  ) +\n`;
-        s += `  coord_fixed()\n\n`;
-        s += `ggsave("gsea_overlap.pdf", width = ${Math.max(6, n * 0.5 + 2).toFixed(1)}, height = ${Math.max(5, n * 0.5 + 1.5).toFixed(1)})\n`;
+        const w = Math.max(6, n * 0.5 + 2).toFixed(1);
+        const h = Math.max(5, n * 0.5 + 1.5).toFixed(1);
+
+        s += `p <- ggplot(df_long, aes(x = col, y = row, fill = jaccard)) +\n`;
+        s += `    geom_tile(color = "white", linewidth = 0.3) +\n`;
+        s += `    scale_fill_gradientn(\n`;
+        s += `        colors = c("#ffffff", "#c5e8bc", "#5a9f4a", "#2d5a27"),\n`;
+        s += `        name   = "Jaccard\\nIndex",\n`;
+        s += `        limits = c(0, 1)\n`;
+        s += `    ) +\n`;
+        s += `    labs(x = NULL, y = NULL) +\n`;
+        s += `    theme_minimal(base_family = "sans") +\n`;
+        s += `    theme(\n`;
+        s += `        axis.text.x = element_text(angle = 45, hjust = 1, size = 8),\n`;
+        s += `        axis.text.y = element_text(size = 8),\n`;
+        s += `        panel.grid  = element_blank()\n`;
+        s += `    ) +\n`;
+        s += `    coord_fixed()\n\n`;
+        s += `print(p)\n`;
+        s += `ggsave("gsea_overlap.pdf", plot = p, width = ${w}, height = ${h})\n`;
 
         return s;
     }
@@ -3293,6 +3438,8 @@ class GSEAApp {
         this._overlapFilterThreshold = 0;
 
         // Reset UI
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) sidebar.style.paddingTop = '';
         document.getElementById('fileInput').value = '';
         const geneCol = document.getElementById('geneColumn');
         geneCol.innerHTML = '<option value="">Upload a file first...</option>';
@@ -4182,6 +4329,18 @@ class GSEAApp {
             width: w > 0 ? w : undefined,
             height: h > 0 ? h : defaultH
         };
+    }
+
+    /** Sync sidebar top padding to align with main panel card headers (below tab bar) */
+    _syncSidebarOffset() {
+        requestAnimationFrame(() => {
+            const tabBar = document.getElementById('tabBar');
+            const sidebar = document.querySelector('.sidebar');
+            if (tabBar && sidebar) {
+                const h = tabBar.offsetHeight + 8; // 8 = tab-bar margin-bottom
+                sidebar.style.paddingTop = h + 'px';
+            }
+        });
     }
 
     // --------------------------------------------------------
