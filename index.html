@@ -394,6 +394,22 @@
             color: var(--gray-500);
             margin-left: 24px;
         }
+        .collection-item {
+            display: flex;
+            align-items: center;
+        }
+        .collection-label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .collection-count {
+            font-size: 0.78em;
+            color: var(--gray-500);
+            font-weight: 400;
+            white-space: nowrap;
+        }
 
         /* ============================================
            Inline Form Row
@@ -712,16 +728,20 @@
            ============================================ */
         .empty-state {
             text-align: center;
-            padding: 40px 20px;
+            padding: 60px 30px;
             color: var(--gray-500);
         }
         .empty-state .empty-icon {
-            font-size: 40px;
-            margin-bottom: 8px;
-            opacity: 0.4;
+            font-size: 52px;
+            margin-bottom: 14px;
+            opacity: 0.3;
         }
         .empty-state p {
-            font-size: 0.95em;
+            font-size: 1.15em;
+            font-weight: 400;
+            max-width: 360px;
+            margin: 0 auto;
+            line-height: 1.6;
         }
 
         /* ============================================
@@ -1390,6 +1410,7 @@
     <a href="https://fredrikwermeling.github.io/Visualize/" target="_blank">Visualize</a>
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
+    <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1444,6 +1465,118 @@
         <li><strong>Iterative permutation strategy</strong> &mdash; for large analyses, you can run with lower permutations (e.g. 200) for faster screening, then filter the results table and use &ldquo;Re-run filtered&rdquo; with &ge;1000 permutations. Note: low permutations give coarser p-values, so borderline hits (FDR ~0.2&ndash;0.3) may be missed in the initial screen</li>
         <li><strong>Use the Data Type selector</strong> &mdash; set to "CRISPR / Perturbation" if your data is from a genetic screen or perturbation experiment, for correct interpretation</li>
     </ol>
+</div>
+
+<!-- How to Interpret Guide -->
+<div class="how-to-use-backdrop" id="interpretGuideBackdrop"></div>
+<div class="how-to-use-popup" id="interpretGuidePopup" style="max-width: 780px;">
+    <button class="close-btn" id="interpretGuideClose">&times;</button>
+    <h3>How to Interpret Enrichment Data</h3>
+
+    <h4>What is GSEA?</h4>
+    <p>Gene Set Enrichment Analysis (GSEA) tests whether a predefined set of genes shows statistically significant, concordant differences between two biological states. Rather than looking at individual genes, GSEA asks: <em>are the genes in this pathway collectively shifted toward one end of my ranked list?</em></p>
+
+    <h4>The Enrichment Score (ES) Curve</h4>
+    <p>The algorithm walks down your ranked gene list from top to bottom. At each position:</p>
+    <ul>
+        <li>If the gene is <strong>in the gene set</strong> &rarr; the running score steps <strong>up</strong> (proportional to the gene's ranking metric)</li>
+        <li>If the gene is <strong>not in the gene set</strong> &rarr; the running score steps <strong>down</strong> (by a small constant)</li>
+    </ul>
+    <p>The <strong>Enrichment Score (ES)</strong> is the maximum deviation from zero. The genes before this peak are the <strong>leading edge</strong> &mdash; the core genes driving the enrichment signal.</p>
+
+    <div style="background: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 12px 0; font-family: 'Roboto Mono', monospace; font-size: 11px; line-height: 1.4;">
+        <div style="color: var(--gray-600); font-family: 'Open Sans', sans-serif; font-size: 12px; font-weight: 600; margin-bottom: 8px;">Enrichment Score curve &mdash; schematic</div>
+        <pre style="margin: 0; white-space: pre; overflow-x: auto;">
+  ES
+   ^
+   |        .---.
+   |       /     \        &larr; Peak = ES (enrichment score)
+   |      /       \
+   |     /   Leading
+   |    /    edge
+   |   /           \
+   +--/-------------\---------&gt; Rank
+   |                 \       /
+   |                  \.___./
+   |
+   |  ||||  | || |           |    &larr; Hit markers (genes in set)
+   +----------------------------------&gt;
+   |  High metric          Low metric
+        </pre>
+    </div>
+
+    <p><strong>If genes are perfectly evenly spread</strong> across the ranked list (no enrichment), the ES curve stays near zero &mdash; a flat line. The more the gene set clusters at one end, the larger the peak.</p>
+
+    <h4>Understanding the Statistics</h4>
+    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.9em;">
+        <tr style="border-bottom: 2px solid #e5e7eb;">
+            <th style="text-align: left; padding: 6px 8px; color: var(--green-700);">Statistic</th>
+            <th style="text-align: left; padding: 6px 8px; color: var(--green-700);">What it means</th>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+            <td style="padding: 6px 8px;"><strong>ES</strong></td>
+            <td style="padding: 6px 8px;">Raw enrichment score &mdash; the maximum deviation from zero. Positive = enriched at the top of the list; negative = enriched at the bottom.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+            <td style="padding: 6px 8px;"><strong>NES</strong></td>
+            <td style="padding: 6px 8px;">Normalized Enrichment Score &mdash; ES normalized for gene set size, allowing comparison across different gene sets.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+            <td style="padding: 6px 8px;"><strong>p-value</strong></td>
+            <td style="padding: 6px 8px;">Empirical p-value from permutation testing. How often a random gene set of the same size achieves an ES this extreme.</td>
+        </tr>
+        <tr>
+            <td style="padding: 6px 8px;"><strong>FDR</strong></td>
+            <td style="padding: 6px 8px;">False Discovery Rate (Benjamini-Hochberg). The estimated proportion of false positives among all gene sets with this FDR or better. <strong>FDR &lt; 0.25</strong> is the standard threshold; <strong>FDR &lt; 0.05</strong> indicates strong evidence.</td>
+        </tr>
+    </table>
+
+    <h4>Example 1: Expression Data</h4>
+    <div style="background: #fef7f0; border-left: 3px solid #dc2626; padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 8px 0;">
+        <p style="margin: 0 0 6px 0;"><strong>Scenario:</strong> Proteins are quantified after stimulating cells with a ligand. Genes/proteins are ranked from <span style="color: #dc2626; font-weight: 600;">high (most upregulated, stim vs ctrl)</span> to <span style="color: #2563eb; font-weight: 600;">low (most downregulated)</span>.</p>
+        <ul style="margin: 6px 0;">
+            <li><strong>Positive NES</strong> (peak on the left) &rarr; This pathway is <strong>upregulated</strong> by the stimulation. The leading edge genes are the most upregulated members of the pathway.</li>
+            <li><strong>Negative NES</strong> (peak on the right) &rarr; This pathway is <strong>downregulated</strong> by the stimulation.</li>
+        </ul>
+    </div>
+
+    <h4>Example 2: CRISPR / Perturbation Screen</h4>
+    <div style="background: #f0f7fe; border-left: 3px solid #2563eb; padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 8px 0;">
+        <p style="margin: 0 0 6px 0;"><strong>Scenario:</strong> A CRISPR screen tests how gene knockouts affect cell survival under drug treatment. Genes are ranked from <span style="color: #dc2626; font-weight: 600;">high (sgRNA/KO enriched in +drug vs ctrl &mdash; KO makes cells more resistant)</span> to <span style="color: #2563eb; font-weight: 600;">low (sgRNA/KO depleted &mdash; KO makes cells more sensitive)</span>.</p>
+        <ul style="margin: 6px 0;">
+            <li><strong>Positive NES</strong> &rarr; Knocking out genes in this pathway makes cells <strong>more resistant</strong> to the drug (enriched/positively selected).</li>
+            <li><strong>Negative NES</strong> &rarr; Knocking out genes in this pathway makes cells <strong>more sensitive</strong> to the drug (depleted/negatively selected).</li>
+        </ul>
+        <p style="margin: 6px 0 0 0; font-size: 0.9em; color: #555;"><em>CRISPR screens can also test other phenotypes (e.g., sorting cells by a surface marker, growth vs. no growth). The interpretation depends on how your ranking metric is defined.</em></p>
+    </div>
+
+    <h4>Reading the Enrichment Plot</h4>
+    <p>The enrichment plot has three panels:</p>
+    <ol>
+        <li><strong>Top panel (ES curve):</strong> The green line shows the running enrichment score. A clear peak away from zero = strong enrichment. The stats box shows NES, FDR, p-value, and gene set size.</li>
+        <li><strong>Middle panel (hit markers):</strong> Black vertical bars mark where each gene in the gene set falls in the ranked list. Clustering of bars on one side = enrichment.</li>
+        <li><strong>Bottom panel (ranking metric):</strong> The waterfall plot showing each gene's ranking value. Red = positive (upregulated/enriched), blue = negative (downregulated/depleted).</li>
+    </ol>
+
+    <h4>Quick Decision Guide</h4>
+    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.9em;">
+        <tr style="border-bottom: 2px solid #e5e7eb;">
+            <th style="text-align: left; padding: 6px 8px; color: var(--green-700);">FDR</th>
+            <th style="text-align: left; padding: 6px 8px; color: var(--green-700);">Interpretation</th>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+            <td style="padding: 6px 8px;"><strong>&lt; 0.05</strong></td>
+            <td style="padding: 6px 8px;">Strong evidence of enrichment. High confidence.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+            <td style="padding: 6px 8px;"><strong>0.05 &ndash; 0.25</strong></td>
+            <td style="padding: 6px 8px;">Suggestive. Worth investigating further, especially if biologically plausible.</td>
+        </tr>
+        <tr>
+            <td style="padding: 6px 8px;"><strong>&gt; 0.25</strong></td>
+            <td style="padding: 6px 8px;">Not significant. The gene set is not enriched beyond what's expected by chance.</td>
+        </tr>
+    </table>
 </div>
 
 <!-- Main Content -->
@@ -1503,54 +1636,68 @@
             <div class="card-title">2. Gene Set Collections</div>
             <div class="card-content">
                 <div class="checkbox-group">
-                    <label class="checkbox-label">
+                    <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkHallmark" checked>
-                        <strong>H: Hallmark</strong>
-                        <span class="gsb-tier-badge tier-1" style="vertical-align: middle;">Core</span>
+                        <span class="collection-label">
+                            <strong>H: Hallmark</strong>
+                            <span class="collection-count">50 sets</span>
+                        </span>
                     </label>
-                    <div class="checkbox-info">50 well-defined biological states and processes</div>
+                    <div class="checkbox-info">Well-defined biological states and processes</div>
 
-                    <label class="checkbox-label">
+                    <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC2">
-                        <strong>C2: Curated</strong>
-                        <span class="gsb-tier-badge tier-2" style="vertical-align: middle;">Standard</span>
+                        <span class="collection-label">
+                            <strong>C2: Curated</strong>
+                            <span class="collection-count">7,233 sets</span>
+                        </span>
                     </label>
-                    <div class="checkbox-info">KEGG, Reactome, WikiPathways and more (7,233 sets)</div>
+                    <div class="checkbox-info">KEGG, Reactome, WikiPathways and more</div>
 
-                    <label class="checkbox-label">
+                    <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC5">
-                        <strong>C5: GO</strong>
-                        <span class="gsb-tier-badge tier-2" style="vertical-align: middle;">Standard</span>
+                        <span class="collection-label">
+                            <strong>C5: GO</strong>
+                            <span class="collection-count">16,008 sets</span>
+                        </span>
                     </label>
-                    <div class="checkbox-info">Gene Ontology BP, MF, CC (16,008 sets)</div>
+                    <div class="checkbox-info">Gene Ontology: Biological Process, Molecular Function, Cellular Component</div>
 
-                    <label class="checkbox-label">
+                    <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC3">
-                        <strong>C3: Regulatory</strong>
-                        <span class="gsb-tier-badge tier-3" style="vertical-align: middle;">Specialized</span>
+                        <span class="collection-label">
+                            <strong>C3: Regulatory</strong>
+                            <span class="collection-count">3,713 sets</span>
+                        </span>
                     </label>
-                    <div class="checkbox-info">Transcription factor and miRNA targets (3,713 sets)</div>
+                    <div class="checkbox-info">Transcription factor and miRNA targets</div>
 
-                    <label class="checkbox-label">
+                    <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC6">
-                        <strong>C6: Oncogenic</strong>
-                        <span class="gsb-tier-badge tier-3" style="vertical-align: middle;">Specialized</span>
+                        <span class="collection-label">
+                            <strong>C6: Oncogenic</strong>
+                            <span class="collection-count">189 sets</span>
+                        </span>
                     </label>
-                    <div class="checkbox-info">Oncogenic signature gene sets (189 sets)</div>
+                    <div class="checkbox-info">Oncogenic signature gene sets</div>
 
-                    <label class="checkbox-label">
+                    <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC7">
-                        <strong>C7: Immunologic</strong>
-                        <span class="gsb-tier-badge tier-4" style="vertical-align: middle;">Extended</span>
+                        <span class="collection-label">
+                            <strong>C7: Immunologic</strong>
+                            <span class="collection-count">5,219 sets</span>
+                        </span>
                     </label>
-                    <div class="checkbox-info">Immunologic signature gene sets (5,219 sets)</div>
+                    <div class="checkbox-info">Immunologic signature gene sets</div>
 
-                    <label class="checkbox-label">
+                    <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC8">
-                        <strong>C8: Cell Type</strong>
-                        <span class="gsb-tier-badge tier-4" style="vertical-align: middle;">Extended</span>
+                        <span class="collection-label">
+                            <strong>C8: Cell Type</strong>
+                            <span class="collection-count">830 sets</span>
+                        </span>
                     </label>
-                    <div class="checkbox-info">Cell type signature gene sets (830 sets)</div>
+                    <div class="checkbox-info">Cell type signature gene sets</div>
                 </div>
 
                 <button class="btn btn-secondary btn-sm" id="openGeneSetBrowser" style="margin-top: 10px; width: 100%;">Browse &amp; Select Individual Gene Sets</button>
@@ -1714,7 +1861,7 @@
         <div class="tab-panel active" id="tab-overview">
             <div id="overviewEmpty" class="empty-state">
                 <div class="empty-icon">&#x1F4CA;</div>
-                <p>Upload data and run GSEA to see results here.</p>
+                <p>Upload your data and run GSEA to see enrichment results here</p>
             </div>
             <div id="overviewResults" style="display: none;">
                 <div class="card">
@@ -1726,6 +1873,7 @@
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('bubbleSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','png')">PNG</button>
+                            <button class="btn btn-sm" onclick="app.exportRScript('bubble')" title="Download R script to reproduce this plot">R</button>
                         </div>
                         <div class="graph-settings-popup" id="bubbleSettings">
                             <h4>Overview Plot Settings</h4>
@@ -1779,6 +1927,7 @@
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('rankedSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">PNG</button>
+                            <button class="btn btn-sm" onclick="app.exportRScript('ranked')" title="Download R script to reproduce this plot">R</button>
                         </div>
                         <div class="graph-settings-popup" id="rankedSettings">
                             <h4>Ranked Plot Settings</h4>
@@ -1817,7 +1966,7 @@
         <div class="tab-panel" id="tab-enrichment">
             <div id="enrichmentEmpty" class="empty-state">
                 <div class="empty-icon">&#x1F4C8;</div>
-                <p>Run GSEA and select a gene set to view its enrichment score plot.</p>
+                <p>Select a gene set after running GSEA to explore its enrichment profile</p>
             </div>
             <div id="enrichmentResults" style="display: none;">
                 <!-- Gene set selector row -->
@@ -1846,6 +1995,7 @@
                                     <button class="card-settings-btn" onclick="app.toggleGraphSettings('esSettings')">&#9881;</button>
                                     <button class="btn btn-sm" onclick="app.exportPlot('esPlot','svg')">SVG</button>
                                     <button class="btn btn-sm" onclick="app.exportPlot('esPlot','png')">PNG</button>
+                                    <button class="btn btn-sm" onclick="app.exportRScript('es')" title="Download R script to reproduce this plot">R</button>
                                 </div>
                                 <div class="graph-settings-popup" id="esSettings">
                                     <h4>Enrichment Plot Settings</h4>
@@ -1996,7 +2146,7 @@
         <div class="tab-panel" id="tab-overlap">
             <div id="overlapEmpty" class="empty-state">
                 <div class="empty-icon">&#x1F9EC;</div>
-                <p>Run GSEA to see gene set overlap analysis.</p>
+                <p>Run GSEA to discover shared genes between enriched pathways</p>
             </div>
             <div id="overlapResults" style="display: none;">
                 <div class="card" style="margin-bottom: 8px;">
@@ -2023,6 +2173,7 @@
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('overlapSettings')">&#9881;</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','svg')">SVG</button>
                             <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','png')">PNG</button>
+                            <button class="btn btn-sm" onclick="app.exportRScript('overlap')" title="Download R script to reproduce this plot">R</button>
                         </div>
                         <div class="graph-settings-popup" id="overlapSettings">
                             <h4>Overlap Heatmap Settings</h4>
@@ -2065,7 +2216,7 @@
         <div class="tab-panel" id="tab-table">
             <div id="tableEmpty" class="empty-state">
                 <div class="empty-icon">&#x1F4CB;</div>
-                <p>Run GSEA to see results in this table.</p>
+                <p>Run GSEA to view the full results table</p>
             </div>
             <div id="tableResults" style="display: none;">
                 <div class="card">
@@ -2230,6 +2381,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=24"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>

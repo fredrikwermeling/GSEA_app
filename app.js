@@ -94,6 +94,10 @@ class GSEAApp {
         this.textFonts = {};
         this._initTextFonts();
 
+        // Stats box corner cache (preserves position across re-renders)
+        this._statsBoxCornerCache = {};
+        this._textScaleOffset = { bubble: 0, ranked: 0, es: 0, overlap: 0 };
+
         // Table sort state
         this.sortCol = 'nes';
         this.sortAsc = false;
@@ -320,6 +324,22 @@ class GSEAApp {
         };
         howToUseClose.addEventListener('click', closeHowToUse);
         howToUseBackdrop.addEventListener('click', closeHowToUse);
+
+        // Interpret Guide modal
+        const interpretLink = document.getElementById('interpretGuideLink');
+        const interpretPopup = document.getElementById('interpretGuidePopup');
+        const interpretBackdrop = document.getElementById('interpretGuideBackdrop');
+        const interpretClose = document.getElementById('interpretGuideClose');
+        interpretLink.addEventListener('click', () => {
+            interpretPopup.classList.add('open');
+            interpretBackdrop.classList.add('open');
+        });
+        const closeInterpret = () => {
+            interpretPopup.classList.remove('open');
+            interpretBackdrop.classList.remove('open');
+        };
+        interpretClose.addEventListener('click', closeInterpret);
+        interpretBackdrop.addEventListener('click', closeInterpret);
 
         // Info tooltips — position with JS (fixed) to avoid clipping
         // Use event delegation so dynamically added info-icons also work
@@ -1649,44 +1669,55 @@ class GSEAApp {
         ];
 
         // Stats annotation — position in corner with least overlap with ES curve fill
+        // Uses cache to prevent repositioning when settings change
         if (s.showStatsBox) {
-            const esValues = result.runningES;
-            const esRange = Math.max(
-                Math.abs(Math.max(...esValues)),
-                Math.abs(Math.min(...esValues)),
-                0.1
-            );
+            let bestCorner = this._statsBoxCornerCache[geneSetName];
 
-            const corners = [
-                { x: 0.03, y: esTop - (esTop - esBot) * 0.04, xa: 'left', ya: 'top' },
-                { x: 0.97, y: esTop - (esTop - esBot) * 0.04, xa: 'right', ya: 'top' },
-                { x: 0.03, y: esBot + (esTop - esBot) * 0.04, xa: 'left', ya: 'bottom' },
-                { x: 0.97, y: esBot + (esTop - esBot) * 0.04, xa: 'right', ya: 'bottom' }
-            ];
+            if (!bestCorner) {
+                // First render for this gene set — compute optimal corner
+                const esValues = result.runningES;
+                const esRange = Math.max(
+                    Math.abs(Math.max(...esValues)),
+                    Math.abs(Math.min(...esValues)),
+                    0.1
+                );
 
-            // Data-driven scoring: sample actual ES curve in each corner's quadrant
-            // Score = mean overlap with fill area. Lower is better.
-            let bestCorner = corners[0];
-            let bestScore = Infinity;
-            const boxFraction = 0.28; // stats box covers ~28% of x-range
+                const corners = [
+                    { x: 0.03, y: esTop - (esTop - esBot) * 0.04, xa: 'left', ya: 'top' },
+                    { x: 0.97, y: esTop - (esTop - esBot) * 0.04, xa: 'right', ya: 'top' },
+                    { x: 0.03, y: esBot + (esTop - esBot) * 0.04, xa: 'left', ya: 'bottom' },
+                    { x: 0.97, y: esBot + (esTop - esBot) * 0.04, xa: 'right', ya: 'bottom' }
+                ];
 
-            for (const corner of corners) {
-                const isTop = corner.ya === 'top';
-                const xStart = corner.xa === 'left' ? 0 : Math.floor(N * (1 - boxFraction));
-                const xEnd = corner.xa === 'left' ? Math.floor(N * boxFraction) : N - 1;
-                const sampleStep = Math.max(1, Math.floor((xEnd - xStart) / 50));
+                bestCorner = corners[0];
+                let bestScore = Infinity;
+                const boxFraction = 0.28;
 
-                let overlapSum = 0;
-                let count = 0;
-                for (let i = xStart; i <= xEnd; i += sampleStep) {
-                    const v = esValues[i] || 0;
-                    // Fill goes from 0 to ES value. Top corners overlap positive fill, bottom overlap negative.
-                    if (isTop && v > 0) overlapSum += v / esRange;
-                    else if (!isTop && v < 0) overlapSum += Math.abs(v) / esRange;
-                    count++;
+                for (const corner of corners) {
+                    const isTop = corner.ya === 'top';
+                    const xStart = corner.xa === 'left' ? 0 : Math.floor(N * (1 - boxFraction));
+                    const xEnd = corner.xa === 'left' ? Math.floor(N * boxFraction) : N - 1;
+                    const sampleStep = Math.max(1, Math.floor((xEnd - xStart) / 50));
+
+                    let overlapSum = 0;
+                    let count = 0;
+                    for (let i = xStart; i <= xEnd; i += sampleStep) {
+                        const v = esValues[i] || 0;
+                        if (isTop && v > 0) overlapSum += v / esRange;
+                        else if (!isTop && v < 0) overlapSum += Math.abs(v) / esRange;
+                        count++;
+                    }
+                    const score = count > 0 ? overlapSum / count : 0;
+                    if (score < bestScore) { bestScore = score; bestCorner = corner; }
                 }
-                const score = count > 0 ? overlapSum / count : 0;
-                if (score < bestScore) { bestScore = score; bestCorner = corner; }
+
+                this._statsBoxCornerCache[geneSetName] = bestCorner;
+            } else {
+                // Cached — update y coordinates for current panel proportions
+                bestCorner = { ...bestCorner };
+                bestCorner.y = bestCorner.ya === 'top'
+                    ? esTop - (esTop - esBot) * 0.04
+                    : esBot + (esTop - esBot) * 0.04;
             }
 
             const esStatsFont = this._getTextFont('es', 'statsBox');
@@ -2573,6 +2604,283 @@ class GSEAApp {
             });
     }
 
+    // --------------------------------------------------------
+    // R Script Export
+    // --------------------------------------------------------
+    exportRScript(plotType) {
+        if (!this.results || !this.rankedList) return;
+        this.readSettings();
+
+        let script = '';
+        const date = new Date().toISOString().split('T')[0];
+        const header = `# ============================================================\n# Generated by Enrich — GSEA Web Tool\n# ${date}\n# https://fredrikwermeling.github.io/enrich/\n# ============================================================\n\n`;
+
+        switch (plotType) {
+            case 'bubble': script = header + this._rScriptBubble(); break;
+            case 'es':     script = header + this._rScriptES(); break;
+            case 'ranked': script = header + this._rScriptRanked(); break;
+            case 'overlap': script = header + this._rScriptOverlap(); break;
+            default: return;
+        }
+
+        const blob = new Blob([script], { type: 'text/plain' });
+        this.downloadBlob(blob, `gsea_${plotType}_plot.R`);
+    }
+
+    _rEscape(s) { return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+
+    _rScriptBubble() {
+        const fdrThresh = parseFloat(this.settings.fdrDisplayThreshold);
+        const topN = this.settings.topN;
+        let filtered = this.results;
+        if (fdrThresh < 1) filtered = filtered.filter(r => r.fdr < fdrThresh);
+        const top = filtered.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes)).slice(0, topN);
+        top.sort((a, b) => a.nes - b.nes);
+
+        if (top.length === 0) return '# No gene sets pass the current FDR threshold\n';
+
+        let s = `# Enrichment Overview (Lollipop/Bubble Plot)\n`;
+        s += `# Install: install.packages(c("ggplot2", "dplyr"))\n\n`;
+        s += `library(ggplot2)\nlibrary(dplyr)\n\n`;
+
+        // Embed data
+        s += `df <- data.frame(\n`;
+        s += `  name = c(${top.map(r => `"${this._rEscape(this.cleanName(r.name))}"`).join(', ')}),\n`;
+        s += `  nes  = c(${top.map(r => r.nes.toFixed(4)).join(', ')}),\n`;
+        s += `  fdr  = c(${top.map(r => r.fdr.toExponential(4)).join(', ')}),\n`;
+        s += `  size = c(${top.map(r => r.size).join(', ')}),\n`;
+        s += `  stringsAsFactors = FALSE\n)\n\n`;
+        s += `df$name <- factor(df$name, levels = df$name)\n`;
+        s += `df$log_fdr <- -log10(pmax(df$fdr, 1e-10))\n\n`;
+
+        s += `ggplot(df, aes(x = nes, y = name)) +\n`;
+        s += `  geom_segment(aes(x = 0, xend = nes, y = name, yend = name), color = "#d1d5db", linewidth = 0.6) +\n`;
+        s += `  geom_point(aes(size = size, color = log_fdr)) +\n`;
+        s += `  scale_color_gradientn(\n`;
+        s += `    colors = c("#ffffb2", "#fd8d3c", "#e31a1c", "#800026"),\n`;
+        s += `    name = "FDR\\n(-log10)"\n  ) +\n`;
+        s += `  scale_size_continuous(range = c(3, 10), name = "Gene set\\nsize") +\n`;
+        s += `  geom_vline(xintercept = 0, color = "#9ca3af", linewidth = 0.5) +\n`;
+        s += `  labs(x = "Normalized Enrichment Score (NES)", y = NULL) +\n`;
+        s += `  theme_minimal(base_family = "sans") +\n`;
+        s += `  theme(\n`;
+        s += `    panel.grid.major.y = element_blank(),\n`;
+        s += `    panel.grid.minor = element_blank(),\n`;
+        s += `    axis.text.y = element_text(size = 9)\n  )\n\n`;
+        s += `ggsave("gsea_overview.pdf", width = 8, height = ${Math.max(4, top.length * 0.35 + 1.5).toFixed(1)})\n`;
+
+        return s;
+    }
+
+    _rScriptES() {
+        const sel = document.getElementById('geneSetSelector').value;
+        const result = this.results.find(r => r.name === sel);
+        if (!result) return '# No gene set selected\n';
+
+        const N = this.rankedList.genes.length;
+        const metrics = this.rankedList.metrics;
+        const cleanName = this.cleanName(result.name);
+
+        // Subsample for R script to avoid huge inline data
+        const maxPts = 2000;
+        const step = N > maxPts ? Math.ceil(N / maxPts) : 1;
+        const ranks = [], esVals = [], metVals = [];
+        for (let i = 0; i < N; i += step) {
+            ranks.push(i);
+            esVals.push(result.runningES[i]);
+            metVals.push(metrics[i]);
+        }
+        if (ranks[ranks.length - 1] !== N - 1) {
+            ranks.push(N - 1);
+            esVals.push(result.runningES[N - 1]);
+            metVals.push(metrics[N - 1]);
+        }
+
+        let s = `# Enrichment Score Plot: ${cleanName}\n`;
+        s += `# Install: install.packages(c("ggplot2", "patchwork"))\n\n`;
+        s += `library(ggplot2)\nlibrary(patchwork)\n\n`;
+
+        // Embed data
+        s += `gene_set_name <- "${this._rEscape(cleanName)}"\n`;
+        s += `nes  <- ${result.nes.toFixed(4)}\n`;
+        s += `fdr  <- ${result.fdr.toExponential(4)}\n`;
+        s += `pval <- ${result.pvalue.toExponential(4)}\n`;
+        s += `set_size <- ${result.size}\n\n`;
+
+        s += `# Running enrichment score (subsampled to ${ranks.length} points)\n`;
+        s += `es_df <- data.frame(\n`;
+        s += `  rank = c(${ranks.join(', ')}),\n`;
+        s += `  es   = c(${esVals.map(v => v.toFixed(6)).join(', ')})\n)\n\n`;
+
+        s += `# Hit positions (genes in set)\n`;
+        s += `hits <- c(${Array.from(result.hits).join(', ')})\n\n`;
+
+        s += `# Ranked list metric (subsampled)\n`;
+        s += `met_df <- data.frame(\n`;
+        s += `  rank   = c(${ranks.join(', ')}),\n`;
+        s += `  metric = c(${metVals.map(v => v.toFixed(6)).join(', ')})\n)\n\n`;
+
+        // ES panel
+        s += `# Panel 1: Enrichment Score curve\n`;
+        s += `p1 <- ggplot(es_df, aes(x = rank, y = es)) +\n`;
+        s += `  geom_area(fill = "${this.settings.esLineColor}20", color = NA) +\n`;
+        s += `  geom_line(color = "${this.settings.esLineColor}", linewidth = 0.8) +\n`;
+        s += `  geom_hline(yintercept = 0, linetype = "dotted", color = "#aaa") +\n`;
+        s += `  annotate("label", x = 0, y = Inf, vjust = 1.2, hjust = -0.05,\n`;
+        s += `           label = paste0("NES = ", round(nes, 2), "\\nFDR = ", formatC(fdr, format = "e", digits = 2),\n`;
+        s += `                          "\\np = ", formatC(pval, format = "e", digits = 2), "\\nSize = ", set_size),\n`;
+        s += `           size = 3, family = "mono", fill = "white", label.size = 0.3) +\n`;
+        s += `  labs(y = "Enrichment score (ES)", title = gene_set_name) +\n`;
+        s += `  theme_minimal(base_family = "sans") +\n`;
+        s += `  theme(axis.title.x = element_blank(), axis.text.x = element_blank(),\n`;
+        s += `        plot.title = element_text(size = 11, face = "bold"),\n`;
+        s += `        panel.grid.minor = element_blank())\n\n`;
+
+        // Hit markers panel
+        s += `# Panel 2: Hit markers\n`;
+        s += `hit_df <- data.frame(pos = hits)\n`;
+        s += `p2 <- ggplot(hit_df, aes(x = pos)) +\n`;
+        s += `  geom_segment(aes(x = pos, xend = pos, y = 0, yend = 1), linewidth = 0.3) +\n`;
+        s += `  scale_y_continuous(expand = c(0, 0)) +\n`;
+        s += `  scale_x_continuous(limits = range(es_df$rank)) +\n`;
+        s += `  theme_void() +\n`;
+        s += `  theme(plot.margin = margin(0, 5.5, 0, 5.5))\n\n`;
+
+        // Metric panel
+        s += `# Panel 3: Ranked list metric\n`;
+        s += `p3 <- ggplot(met_df, aes(x = rank, y = metric, fill = metric > 0)) +\n`;
+        s += `  geom_col(width = ${step > 1 ? step * 1.05 : 1}) +\n`;
+        s += `  scale_fill_manual(values = c("TRUE" = "${this.settings.positiveColor}", "FALSE" = "${this.settings.negativeColor}"), guide = "none") +\n`;
+        s += `  geom_hline(yintercept = 0, linewidth = 0.4) +\n`;
+        s += `  labs(x = "Rank in Ordered Dataset", y = "Metric") +\n`;
+        s += `  theme_minimal(base_family = "sans") +\n`;
+        s += `  theme(panel.grid.minor = element_blank())\n\n`;
+
+        // Combine
+        s += `# Combine panels\n`;
+        s += `p1 / p2 / p3 + plot_layout(heights = c(5, 0.8, 2.5))\n\n`;
+        s += `ggsave("gsea_es_${sel.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40)}.pdf", width = 7, height = 6)\n`;
+
+        return s;
+    }
+
+    _rScriptRanked() {
+        const N = this.rankedList.genes.length;
+        const metrics = this.rankedList.metrics;
+        const metricLabel = document.getElementById('metricColumn').value || 'Ranking Metric';
+
+        // Subsample
+        const maxBars = 600;
+        const step = Math.max(1, Math.ceil(N / maxBars));
+        const ranks = [], vals = [];
+        for (let i = 0; i < N; i += step) {
+            ranks.push(i);
+            vals.push(metrics[i]);
+        }
+
+        let s = `# Ranked List Metric Plot\n`;
+        s += `# Install: install.packages("ggplot2")\n\n`;
+        s += `library(ggplot2)\n\n`;
+
+        s += `df <- data.frame(\n`;
+        s += `  rank   = c(${ranks.join(', ')}),\n`;
+        s += `  metric = c(${vals.map(v => v.toFixed(6)).join(', ')})\n)\n\n`;
+
+        s += `ggplot(df, aes(x = rank, y = metric, fill = metric > 0)) +\n`;
+        s += `  geom_col(width = ${step * 1.05}) +\n`;
+        s += `  scale_fill_manual(values = c("TRUE" = "${this.settings.positiveColor}", "FALSE" = "${this.settings.negativeColor}"), guide = "none") +\n`;
+        s += `  geom_hline(yintercept = 0, linewidth = 0.5, color = "#333") +\n`;
+        s += `  labs(\n`;
+        s += `    x = "Rank in Ordered Dataset",\n`;
+        s += `    y = "Ranked list metric (${this._rEscape(metricLabel)})"\n  ) +\n`;
+        s += `  theme_minimal(base_family = "sans") +\n`;
+        s += `  theme(\n`;
+        s += `    panel.grid.minor = element_blank(),\n`;
+        s += `    panel.border = element_rect(color = "#333", fill = NA, linewidth = 0.5)\n  )\n\n`;
+        s += `ggsave("gsea_ranked_list.pdf", width = 8, height = 3.5)\n`;
+
+        return s;
+    }
+
+    _rScriptOverlap() {
+        // Need to compute the overlap matrix (same as renderOverlapHeatmap)
+        const maxSets = parseInt(document.getElementById('overlapMaxSets').value) || 20;
+        let sigSets = this.results
+            .filter(r => r.fdr < 0.25)
+            .sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes))
+            .slice(0, maxSets);
+
+        if (sigSets.length < 2) return '# Need at least 2 significant gene sets for overlap\n';
+
+        const activeGeneSets = this.getActiveGeneSets();
+        const setGenes = {};
+        for (const r of sigSets) {
+            if (activeGeneSets[r.name]) {
+                const rankedGenesUpper = new Set(this.rankedList.genes.map(g => g.toUpperCase()));
+                setGenes[r.name] = activeGeneSets[r.name].map(g => g.toUpperCase()).filter(g => rankedGenesUpper.has(g));
+            }
+        }
+        // Filter to sets we have genes for
+        sigSets = sigSets.filter(r => setGenes[r.name] && setGenes[r.name].length > 0);
+        if (sigSets.length < 2) return '# Not enough gene sets with gene data for overlap\n';
+
+        const names = sigSets.map(r => this.cleanName(r.name));
+        const n = sigSets.length;
+
+        // Compute Jaccard matrix
+        const matrix = [];
+        for (let i = 0; i < n; i++) {
+            const row = [];
+            for (let j = 0; j < n; j++) {
+                if (i === j) { row.push(1); continue; }
+                const setA = new Set(setGenes[sigSets[i].name]);
+                const setB = new Set(setGenes[sigSets[j].name]);
+                let inter = 0;
+                for (const g of setA) if (setB.has(g)) inter++;
+                const union = setA.size + setB.size - inter;
+                row.push(union > 0 ? +(inter / union).toFixed(4) : 0);
+            }
+            matrix.push(row);
+        }
+
+        let s = `# Gene Set Overlap Heatmap (Jaccard Similarity)\n`;
+        s += `# Install: install.packages(c("ggplot2", "tidyr"))\n\n`;
+        s += `library(ggplot2)\nlibrary(tidyr)\n\n`;
+
+        s += `set_names <- c(${names.map(n => `"${this._rEscape(n)}"`).join(', ')})\n\n`;
+
+        s += `# Jaccard similarity matrix\n`;
+        s += `jaccard <- matrix(c(\n`;
+        for (let i = 0; i < n; i++) {
+            s += `  ${matrix[i].join(', ')}${i < n - 1 ? ',' : ''}\n`;
+        }
+        s += `), nrow = ${n}, byrow = TRUE)\n`;
+        s += `rownames(jaccard) <- set_names\ncolnames(jaccard) <- set_names\n\n`;
+
+        s += `# Convert to long format\n`;
+        s += `df <- as.data.frame(jaccard)\ndf$row <- set_names\n`;
+        s += `df_long <- pivot_longer(df, cols = -row, names_to = "col", values_to = "jaccard")\n`;
+        s += `df_long$row <- factor(df_long$row, levels = rev(set_names))\n`;
+        s += `df_long$col <- factor(df_long$col, levels = set_names)\n\n`;
+
+        s += `ggplot(df_long, aes(x = col, y = row, fill = jaccard)) +\n`;
+        s += `  geom_tile(color = "white", linewidth = 0.3) +\n`;
+        s += `  scale_fill_gradientn(\n`;
+        s += `    colors = c("#ffffff", "#c5e8bc", "#5a9f4a", "#2d5a27"),\n`;
+        s += `    name = "Jaccard\\nIndex",\n`;
+        s += `    limits = c(0, 1)\n  ) +\n`;
+        s += `  labs(x = NULL, y = NULL) +\n`;
+        s += `  theme_minimal(base_family = "sans") +\n`;
+        s += `  theme(\n`;
+        s += `    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),\n`;
+        s += `    axis.text.y = element_text(size = 8),\n`;
+        s += `    panel.grid = element_blank()\n  ) +\n`;
+        s += `  coord_fixed()\n\n`;
+        s += `ggsave("gsea_overlap.pdf", width = ${Math.max(6, n * 0.5 + 2).toFixed(1)}, height = ${Math.max(5, n * 0.5 + 1.5).toFixed(1)})\n`;
+
+        return s;
+    }
+
     dataURLtoBlob(dataUrl) {
         const parts = dataUrl.split(';base64,');
         const contentType = parts[0].split(':')[1];
@@ -2699,6 +3007,7 @@ class GSEAApp {
         this.analysisDate = null;
         this._currentGeneDetailRows = null;
         this.geneInfoCache = {};
+        this._statsBoxCornerCache = {};
         this.selectedGeneSets = new Set();
         this.useCustomSelection = false;
         this._gsbAllItems = [];
@@ -3392,7 +3701,25 @@ class GSEAApp {
         const fontOptions = ['Open Sans', 'Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Roboto Mono']
             .map(f => `<option value="${f}">${f}</option>`).join('');
 
+        // Check if all elements are bold for the toggle state
+        const allBold = elements.every(el => {
+            const f = this.textFonts[`${plotType}_${el.key}`];
+            return f && f.bold;
+        });
+        const scaleOffset = this._textScaleOffset[plotType] || 0;
+        const scaleDisplay = scaleOffset > 0 ? `+${scaleOffset}` : scaleOffset === 0 ? '0' : `${scaleOffset}`;
+
         let html = `<div style="font-size: 11px; color: var(--gray-500); margin-bottom: 8px; font-weight: 600;">${plotLabels[plotType] || plotType}</div>`;
+
+        // Scale all controls
+        html += `<div class="ts-row" style="background: var(--green-50); border-radius: 4px; padding: 4px 6px; margin-bottom: 8px; border: 1px solid var(--green-200);">`;
+        html += `<div class="ts-row-label"><span class="ts-label" style="font-weight: 600;">Scale all</span></div>`;
+        html += `<div class="ts-controls">`;
+        html += `<button class="ts-btn" data-action="scale-down" data-id="_all" title="Decrease all sizes">&minus;</button>`;
+        html += `<span style="display: inline-block; width: 28px; text-align: center; font-size: 11px; font-family: Roboto Mono, monospace;" id="tsScaleValue">${scaleDisplay}</span>`;
+        html += `<button class="ts-btn" data-action="scale-up" data-id="_all" title="Increase all sizes">+</button>`;
+        html += `<button class="ts-btn ${allBold ? 'ts-btn-active' : ''}" data-action="bold-all" data-id="_all" style="font-weight:bold;" title="Toggle bold on all elements">B</button>`;
+        html += `</div></div>`;
 
         for (const el of elements) {
             const id = `${plotType}_${el.key}`;
@@ -3448,6 +3775,39 @@ class GSEAApp {
         if (!btn) return;
         const action = btn.dataset.action;
         const id = btn.dataset.id;
+
+        // Scale all / bold all actions
+        if (action === 'scale-up' || action === 'scale-down' || action === 'bold-all') {
+            const pt = this._activeTextPlotType;
+            if (!pt || !this.textElements[pt]) return;
+
+            if (action === 'scale-up' || action === 'scale-down') {
+                const delta = action === 'scale-up' ? 1 : -1;
+                this._textScaleOffset[pt] = (this._textScaleOffset[pt] || 0) + delta;
+                for (const el of this.textElements[pt]) {
+                    const fid = `${pt}_${el.key}`;
+                    if (this.textFonts[fid]) {
+                        this.textFonts[fid].size = Math.max(6, Math.min(30, this.textFonts[fid].size + delta));
+                    }
+                }
+            } else if (action === 'bold-all') {
+                const allBold = this.textElements[pt].every(el => {
+                    const f = this.textFonts[`${pt}_${el.key}`];
+                    return f && f.bold;
+                });
+                const newBold = !allBold;
+                for (const el of this.textElements[pt]) {
+                    const fid = `${pt}_${el.key}`;
+                    if (this.textFonts[fid]) this.textFonts[fid].bold = newBold;
+                }
+            }
+
+            // Refresh the panel to reflect changes
+            this.openTextSettings(pt);
+            this.updateSettings();
+            return;
+        }
+
         if (!id || !this.textFonts[id]) return;
         if (action === 'bold') {
             this.textFonts[id].bold = !this.textFonts[id].bold;
