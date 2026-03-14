@@ -119,6 +119,7 @@
             padding: 0 20px 4px 20px;
             background: white;
             margin-bottom: 2px;
+            position: relative;
         }
         .nav-bar a {
             color: #0055bb;
@@ -261,12 +262,13 @@
             border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 6px;
         }
         .card-title .title-actions {
             display: flex;
             gap: 5px;
             align-items: center;
+            margin-left: auto;
         }
         .title-actions .action-label {
             font-size: 0.72em;
@@ -1498,7 +1500,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="margin-left:auto; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.10</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.11</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2001,6 +2003,15 @@
                                 </select>
                             </div>
                             <div class="form-group">
+                                <label class="form-label">p-value threshold</label>
+                                <select class="form-control settings-live" id="pvalDisplayThreshold">
+                                    <option value="1" selected>Show all</option>
+                                    <option value="0.05">p &lt; 0.05</option>
+                                    <option value="0.01">p &lt; 0.01</option>
+                                    <option value="0.001">p &lt; 0.001</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
                                 <label class="form-label">FDR Color scale</label>
                                 <select class="form-control settings-live" id="colorScale">
                                     <option value="YlOrRd" selected>Yellow-Orange-Red (standard)</option>
@@ -2291,17 +2302,14 @@
                             <label class="form-label" style="margin: 0; white-space: nowrap;">Min overlap for collapse:</label>
                             <input type="number" class="form-control" id="overlapCollapseThresh" value="50" min="10" max="100" style="max-width: 70px;">
                             <span style="font-size: 0.82em; color: var(--gray-500);">%</span>
-                            <label class="checkbox-label" style="font-size: 0.85em;">
-                                <input type="checkbox" id="overlapCondensed"> Condensed view
-                            </label>
-                            <button class="btn btn-outline btn-sm" id="updateOverlapBtn">Update</button>
+                            <button class="btn btn-outline btn-sm" id="overlapToTableBtn" title="Show only these gene sets in the Results Table">Send to Results Table</button>
                         </div>
                     </div>
                 </div>
                 <div class="card">
                     <div class="card-title" style="position: relative;">
                         Gene Set Overlap Heatmap
-                        <span class="info-icon">i<span class="info-tooltip"><b>Gene Set Overlap</b><br>A heatmap showing how much gene sets share genes with each other (Jaccard similarity).<br>• <b>Darker green:</b> Higher overlap (more shared genes).<br>• <b>White:</b> No shared genes.<br>• Hover to see exact overlap counts and Jaccard index.<br>High overlap between sets may indicate redundant pathways. Use the "Condensed view" to collapse highly overlapping sets.</span></span>
+                        <span class="info-icon">i<span class="info-tooltip"><b>Gene Set Overlap</b><br>A heatmap showing how much gene sets share genes with each other (Jaccard similarity).<br>• <b>Darker green:</b> Higher overlap (more shared genes).<br>• <b>White:</b> No shared genes.<br>• Hover to see exact overlap counts and Jaccard index.<br>Use "Send to Results Table" to filter the results table to only these gene sets.</span></span>
                         <div class="title-actions">
                             <span class="action-label">Settings</span>
                             <button class="card-settings-btn" onclick="app.openTextSettings('overlap')" title="Text settings">Aa</button>
@@ -2372,6 +2380,12 @@
                                 <option value="0.05">FDR &lt; 0.05</option>
                                 <option value="0.01">FDR &lt; 0.01</option>
                             </select>
+                            <select class="form-control" id="pvalueFilter" style="width: auto;">
+                                <option value="all">All p-values</option>
+                                <option value="0.05">p &lt; 0.05</option>
+                                <option value="0.01">p &lt; 0.01</option>
+                                <option value="0.001">p &lt; 0.001</option>
+                            </select>
                             <select class="form-control" id="directionFilter" style="width: auto;">
                                 <option value="all">All directions</option>
                                 <option value="up">Upregulated (NES &gt; 0)</option>
@@ -2413,6 +2427,24 @@
     </div>
 </div>
 
+<!-- Re-run Permutation Dialog -->
+<div id="rerunDialogBackdrop" class="how-to-use-backdrop" style="display: none;"></div>
+<div id="rerunDialog" class="how-to-use-popup" style="display: none; max-width: 420px;">
+    <button class="close-btn" onclick="document.getElementById('rerunDialog').style.display='none';document.getElementById('rerunDialogBackdrop').style.display='none';">&times;</button>
+    <h3 style="margin-top: 0;">Re-run Filtered Gene Sets</h3>
+    <div id="rerunDialogInfo" style="font-size: 0.9em; color: var(--gray-600); margin-bottom: 12px;"></div>
+    <div class="form-group">
+        <label class="form-label">Permutations</label>
+        <input type="number" class="form-control" id="rerunPermInput" value="1000" min="100" max="10000" step="100">
+        <div class="form-hint" id="rerunPermHint"></div>
+    </div>
+    <div id="rerunEstimate" style="font-size: 0.85em; color: var(--gray-500); margin-bottom: 12px;"></div>
+    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('rerunDialog').style.display='none';document.getElementById('rerunDialogBackdrop').style.display='none';">Cancel</button>
+        <button class="btn btn-sm" id="rerunDialogRunBtn" style="background: var(--green-600); color: white;">Run</button>
+    </div>
+</div>
+
 <!-- Footer -->
 <div class="site-footer">
     GSEA Web Tool &mdash; <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>, Karolinska Institutet
@@ -2427,6 +2459,18 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>dev-11</strong> <span style="color:#888;">(2026-03-14)</span></p>
+            <ul>
+                <li>Fixed nav bar centering — version badge no longer offsets navigation links</li>
+                <li>Added p-value filter to results table and enrichment overview</li>
+                <li>Re-run dialog now asks for permutation count with smart suggestions</li>
+                <li>Select Sets popup: overlap clusters with colored badges, Size column, FDR filter, sortable columns, auto-select best per cluster</li>
+                <li>Overlap tab: removed Update button — changes are now live; added "Send to Results Table" button</li>
+                <li>Processing state: shows "Rendering results..." instead of premature "Done!"</li>
+                <li>Info icons now sit next to card titles consistently</li>
+                <li>R scripts print save location after ggsave()</li>
+                <li>Tip text in large-job dialog split into two clear bullet points</li>
+            </ul>
             <p><strong>dev-10</strong> <span style="color:#888;">(2026-03-14)</span></p>
             <ul>
                 <li>Gene Set Browser is now a "Custom selection" entry in the collection list with browse link</li>
