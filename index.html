@@ -427,6 +427,76 @@
             font-weight: 400;
             white-space: nowrap;
         }
+        .collection-tier-separator {
+            border-top: 1px solid var(--gray-200);
+            margin: 4px 0 4px 24px;
+        }
+        .browse-link {
+            color: var(--green-600);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.85em;
+        }
+        .browse-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Interpret guide visuals */
+        .interpret-example {
+            background: var(--gray-50);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+        .interpret-curve {
+            height: 60px;
+            position: relative;
+            margin-bottom: 4px;
+        }
+        .interpret-hits {
+            display: flex;
+            align-items: center;
+            height: 14px;
+            margin-bottom: 10px;
+            padding: 0 2px;
+        }
+        .interpret-hits span {
+            width: 1.5px;
+            height: 10px;
+            background: var(--text-primary);
+            opacity: 0.6;
+            flex-shrink: 0;
+        }
+        .interpret-hits-left {
+            justify-content: flex-start;
+            gap: 2px;
+        }
+        .interpret-hits-right {
+            justify-content: flex-end;
+            gap: 2px;
+        }
+        .interpret-hits-even {
+            justify-content: space-evenly;
+        }
+        .interpret-badges {
+            display: flex;
+            gap: 10px;
+        }
+        .interpret-badge {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.82em;
+            line-height: 1.45;
+        }
+        .interpret-badge.expression {
+            background: #fef3c7;
+            border-left: 3px solid #f59e0b;
+        }
+        .interpret-badge.crispr {
+            background: #dbeafe;
+            border-left: 3px solid #3b82f6;
+        }
 
         /* ============================================
            Inline Form Row
@@ -745,7 +815,7 @@
            ============================================ */
         .empty-state {
             text-align: center;
-            padding: 60px 30px;
+            padding: 30px 30px 60px;
             color: var(--gray-500);
         }
         .empty-state .empty-icon {
@@ -1428,7 +1498,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="margin-left:auto; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.9</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="margin-left:auto; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.10</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1487,114 +1557,110 @@
 
 <!-- How to Interpret Guide -->
 <div class="how-to-use-backdrop" id="interpretGuideBackdrop"></div>
-<div class="how-to-use-popup" id="interpretGuidePopup" style="max-width: 780px;">
+<div class="how-to-use-popup" id="interpretGuidePopup" style="max-width: 680px;">
     <button class="close-btn" id="interpretGuideClose">&times;</button>
     <h3>How to Interpret Enrichment Data</h3>
 
-    <h4>What is GSEA?</h4>
-    <p>Gene Set Enrichment Analysis (GSEA) tests whether a predefined set of genes shows statistically significant, concordant differences between two biological states. Rather than looking at individual genes, GSEA asks: <em>are the genes in this pathway collectively shifted toward one end of my ranked list?</em></p>
+    <p>GSEA walks down your ranked gene list. When pathway genes cluster at the top or bottom, the enrichment score (ES) rises or falls. Below are three example outcomes.</p>
 
-    <h4>The Enrichment Score (ES) Curve</h4>
-    <p>The algorithm walks down your ranked gene list from top to bottom. At each position:</p>
+    <!-- Example 1: Positive enrichment -->
+    <div class="interpret-example">
+        <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; color: var(--text-primary);">Positive enrichment <span style="color: var(--gray-500); font-weight: 400;">(NES &gt; 0)</span></div>
+        <div class="interpret-curve">
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+                <path d="M0,58 Q30,58 60,50 Q90,30 110,8 Q130,2 150,12 Q180,30 220,48 Q260,56 300,58" fill="none" stroke="var(--green-600)" stroke-width="2"/>
+                <path d="M0,58 Q30,58 60,50 Q90,30 110,8 Q130,2 150,12 Q180,30 220,48 Q260,56 300,58 L300,60 L0,60 Z" fill="var(--green-100)" opacity="0.6"/>
+                <line x1="0" y1="58" x2="300" y2="58" stroke="var(--gray-200)" stroke-width="1"/>
+            </svg>
+            <div style="position: absolute; top: 2px; left: 100px; font-size: 10px; color: var(--green-700); font-weight: 600;">&#8592; Peak</div>
+        </div>
+        <div class="interpret-hits interpret-hits-left">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            <span style="margin-left: 8px;"></span><span style="margin-left: 4px;"></span><span style="margin-left: 12px;"></span>
+            <span style="margin-left: 20px;"></span><span style="margin-left: 30px;"></span>
+        </div>
+        <div class="interpret-badges">
+            <div class="interpret-badge expression">
+                <strong>Expression:</strong> Pathway is <strong>upregulated</strong> &mdash; genes are enriched among those with high fold change
+            </div>
+            <div class="interpret-badge crispr">
+                <strong>CRISPR:</strong> Pathway genes confer <strong>resistance</strong> &mdash; knockouts are enriched among positively selected hits
+            </div>
+        </div>
+    </div>
+
+    <!-- Example 2: Negative enrichment -->
+    <div class="interpret-example">
+        <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; color: var(--text-primary);">Negative enrichment <span style="color: var(--gray-500); font-weight: 400;">(NES &lt; 0)</span></div>
+        <div class="interpret-curve">
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+                <path d="M0,2 Q40,4 80,10 Q120,25 160,40 Q190,50 210,55 Q230,58 250,50 Q270,30 285,10 Q295,2 300,2" fill="none" stroke="#3b82f6" stroke-width="2"/>
+                <path d="M0,2 Q40,4 80,10 Q120,25 160,40 Q190,50 210,55 Q230,58 250,50 Q270,30 285,10 Q295,2 300,2 L300,0 L0,0 Z" fill="#dbeafe" opacity="0.6"/>
+                <line x1="0" y1="2" x2="300" y2="2" stroke="var(--gray-200)" stroke-width="1"/>
+            </svg>
+            <div style="position: absolute; bottom: 2px; right: 60px; font-size: 10px; color: #3b82f6; font-weight: 600;">Trough &#8594;</div>
+        </div>
+        <div class="interpret-hits interpret-hits-right">
+            <span style="margin-right: 30px;"></span><span style="margin-right: 20px;"></span>
+            <span style="margin-right: 12px;"></span><span style="margin-right: 4px;"></span><span style="margin-right: 8px;"></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="interpret-badges">
+            <div class="interpret-badge expression">
+                <strong>Expression:</strong> Pathway is <strong>downregulated</strong> &mdash; genes are enriched among those with low fold change
+            </div>
+            <div class="interpret-badge crispr">
+                <strong>CRISPR:</strong> Pathway genes confer <strong>sensitivity</strong> &mdash; knockouts are enriched among depleted hits
+            </div>
+        </div>
+    </div>
+
+    <!-- Example 3: No enrichment -->
+    <div class="interpret-example">
+        <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; color: var(--text-primary);">No enrichment <span style="color: var(--gray-500); font-weight: 400;">(NES &asymp; 0)</span></div>
+        <div class="interpret-curve">
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+                <path d="M0,30 Q50,26 100,32 Q150,28 200,31 Q250,27 300,30" fill="none" stroke="var(--gray-400)" stroke-width="2"/>
+                <line x1="0" y1="30" x2="300" y2="30" stroke="var(--gray-200)" stroke-width="1" stroke-dasharray="4"/>
+            </svg>
+        </div>
+        <div class="interpret-hits interpret-hits-even">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="interpret-badges">
+            <div class="interpret-badge" style="background: var(--gray-100); border-left: 3px solid var(--gray-400);">
+                <strong>Expression:</strong> No directional change &mdash; pathway genes are randomly distributed
+            </div>
+            <div class="interpret-badge" style="background: var(--gray-100); border-left: 3px solid var(--gray-400);">
+                <strong>CRISPR:</strong> No selective effect &mdash; pathway knockouts show no consistent phenotype
+            </div>
+        </div>
+    </div>
+
+    <!-- Dual peak explanation -->
+    <h4>What about curves with both a positive and negative peak?</h4>
+    <div class="interpret-example" style="margin-bottom: 14px;">
+        <div class="interpret-curve">
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+                <path d="M0,30 Q20,30 40,22 Q60,10 80,6 Q100,10 120,22 Q150,30 170,35 Q200,46 230,52 Q255,55 270,46 Q285,30 300,30" fill="none" stroke="var(--gray-500)" stroke-width="2"/>
+                <path d="M0,30 Q20,30 40,22 Q60,10 80,6 Q100,10 120,22 Q150,30 170,35 Q200,46 230,52 Q255,55 270,46 Q285,30 300,30 L300,30 L0,30 Z" fill="var(--gray-200)" opacity="0.4"/>
+                <line x1="0" y1="30" x2="300" y2="30" stroke="var(--gray-300)" stroke-width="1" stroke-dasharray="4"/>
+            </svg>
+            <div style="position: absolute; top: 0px; left: 65px; font-size: 9px; color: var(--green-700);">+ peak</div>
+            <div style="position: absolute; bottom: 0px; right: 60px; font-size: 9px; color: #3b82f6;">&minus; peak</div>
+        </div>
+        <p style="font-size: 0.82em; line-height: 1.5; color: var(--text-secondary); margin: 8px 0 0 0;">
+            Some curves show <strong>both a positive and negative deflection</strong>. This means the pathway has genes on both ends of the ranked list &mdash; some are upregulated/enriched and others are downregulated/depleted. The <strong>reported ES</strong> is the peak with the larger absolute value. While the pathway is still significantly enriched in one direction, the dual-peak pattern suggests the pathway contains functionally diverse genes with opposing responses to the condition.
+        </p>
+    </div>
+
+    <!-- Key Statistics -->
+    <h4>Key Statistics</h4>
     <ul>
-        <li>If the gene is <strong>in the gene set</strong> &rarr; the running score steps <strong>up</strong> (proportional to the gene's ranking metric)</li>
-        <li>If the gene is <strong>not in the gene set</strong> &rarr; the running score steps <strong>down</strong> (by a small constant)</li>
+        <li><strong>NES</strong> &mdash; Normalized score, comparable across gene sets of different sizes</li>
+        <li><strong>FDR</strong> &mdash; False discovery rate. Values &lt; 0.25 are commonly considered significant; &lt; 0.05 indicates strong evidence</li>
+        <li><strong>Leading edge</strong> &mdash; The subset of genes driving the enrichment signal (genes before the ES peak)</li>
     </ul>
-    <p>The <strong>Enrichment Score (ES)</strong> is the maximum deviation from zero. The genes before this peak are the <strong>leading edge</strong> &mdash; the core genes driving the enrichment signal.</p>
-
-    <div style="background: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 12px 0; font-family: 'Roboto Mono', monospace; font-size: 11px; line-height: 1.4;">
-        <div style="color: var(--gray-600); font-family: 'Open Sans', sans-serif; font-size: 12px; font-weight: 600; margin-bottom: 8px;">Enrichment Score curve &mdash; schematic</div>
-        <pre style="margin: 0; white-space: pre; overflow-x: auto;">
-  ES
-   ^
-   |        .---.
-   |       /     \        &larr; Peak = ES (enrichment score)
-   |      /       \
-   |     /   Leading
-   |    /    edge
-   |   /           \
-   +--/-------------\---------&gt; Rank
-   |                 \       /
-   |                  \.___./
-   |
-   |  ||||  | || |           |    &larr; Hit markers (genes in set)
-   +----------------------------------&gt;
-   |  High metric          Low metric
-        </pre>
-    </div>
-
-    <p><strong>If genes are perfectly evenly spread</strong> across the ranked list (no enrichment), the ES curve stays near zero &mdash; a flat line. The more the gene set clusters at one end, the larger the peak.</p>
-
-    <h4>Understanding the Statistics</h4>
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.9em;">
-        <tr style="border-bottom: 2px solid #e5e7eb;">
-            <th style="text-align: left; padding: 6px 8px; color: var(--green-700);">Statistic</th>
-            <th style="text-align: left; padding: 6px 8px; color: var(--green-700);">What it means</th>
-        </tr>
-        <tr style="border-bottom: 1px solid #f0f0f0;">
-            <td style="padding: 6px 8px;"><strong>ES</strong></td>
-            <td style="padding: 6px 8px;">Raw enrichment score &mdash; the maximum deviation from zero. Positive = enriched at the top of the list; negative = enriched at the bottom.</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f0f0f0;">
-            <td style="padding: 6px 8px;"><strong>NES</strong></td>
-            <td style="padding: 6px 8px;">Normalized Enrichment Score &mdash; ES normalized for gene set size, allowing comparison across different gene sets.</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f0f0f0;">
-            <td style="padding: 6px 8px;"><strong>p-value</strong></td>
-            <td style="padding: 6px 8px;">Empirical p-value from permutation testing. How often a random gene set of the same size achieves an ES this extreme.</td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 8px;"><strong>FDR</strong></td>
-            <td style="padding: 6px 8px;">False Discovery Rate (Benjamini-Hochberg). The estimated proportion of false positives among all gene sets with this FDR or better. <strong>FDR &lt; 0.25</strong> is the standard threshold; <strong>FDR &lt; 0.05</strong> indicates strong evidence.</td>
-        </tr>
-    </table>
-
-    <h4>Example 1: Expression Data</h4>
-    <div style="background: #fef7f0; border-left: 3px solid #dc2626; padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 8px 0;">
-        <p style="margin: 0 0 6px 0;"><strong>Scenario:</strong> Proteins are quantified after stimulating cells with a ligand. Genes/proteins are ranked from <span style="color: #dc2626; font-weight: 600;">high (most upregulated, stim vs ctrl)</span> to <span style="color: #2563eb; font-weight: 600;">low (most downregulated)</span>.</p>
-        <ul style="margin: 6px 0;">
-            <li><strong>Positive NES</strong> (peak on the left) &rarr; This pathway is <strong>upregulated</strong> by the stimulation. The leading edge genes are the most upregulated members of the pathway.</li>
-            <li><strong>Negative NES</strong> (peak on the right) &rarr; This pathway is <strong>downregulated</strong> by the stimulation.</li>
-        </ul>
-    </div>
-
-    <h4>Example 2: CRISPR / Perturbation Screen</h4>
-    <div style="background: #f0f7fe; border-left: 3px solid #2563eb; padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 8px 0;">
-        <p style="margin: 0 0 6px 0;"><strong>Scenario:</strong> A CRISPR screen tests how gene knockouts affect cell survival under drug treatment. Genes are ranked from <span style="color: #dc2626; font-weight: 600;">high (sgRNA/KO enriched in +drug vs ctrl &mdash; KO makes cells more resistant)</span> to <span style="color: #2563eb; font-weight: 600;">low (sgRNA/KO depleted &mdash; KO makes cells more sensitive)</span>.</p>
-        <ul style="margin: 6px 0;">
-            <li><strong>Positive NES</strong> &rarr; Knocking out genes in this pathway makes cells <strong>more resistant</strong> to the drug (enriched/positively selected).</li>
-            <li><strong>Negative NES</strong> &rarr; Knocking out genes in this pathway makes cells <strong>more sensitive</strong> to the drug (depleted/negatively selected).</li>
-        </ul>
-        <p style="margin: 6px 0 0 0; font-size: 0.9em; color: #555;"><em>CRISPR screens can also test other phenotypes (e.g., sorting cells by a surface marker, growth vs. no growth). The interpretation depends on how your ranking metric is defined.</em></p>
-    </div>
-
-    <h4>Reading the Enrichment Plot</h4>
-    <p>The enrichment plot has three panels:</p>
-    <ol>
-        <li><strong>Top panel (ES curve):</strong> The green line shows the running enrichment score. A clear peak away from zero = strong enrichment. The stats box shows NES, FDR, p-value, and gene set size.</li>
-        <li><strong>Middle panel (hit markers):</strong> Black vertical bars mark where each gene in the gene set falls in the ranked list. Clustering of bars on one side = enrichment.</li>
-        <li><strong>Bottom panel (ranking metric):</strong> The waterfall plot showing each gene's ranking value. Red = positive (upregulated/enriched), blue = negative (downregulated/depleted).</li>
-    </ol>
-
-    <h4>Quick Decision Guide</h4>
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.9em;">
-        <tr style="border-bottom: 2px solid #e5e7eb;">
-            <th style="text-align: left; padding: 6px 8px; color: var(--green-700);">FDR</th>
-            <th style="text-align: left; padding: 6px 8px; color: var(--green-700);">Interpretation</th>
-        </tr>
-        <tr style="border-bottom: 1px solid #f0f0f0;">
-            <td style="padding: 6px 8px;"><strong>&lt; 0.05</strong></td>
-            <td style="padding: 6px 8px;">Strong evidence of enrichment. High confidence.</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f0f0f0;">
-            <td style="padding: 6px 8px;"><strong>0.05 &ndash; 0.25</strong></td>
-            <td style="padding: 6px 8px;">Suggestive. Worth investigating further, especially if biologically plausible.</td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 8px;"><strong>&gt; 0.25</strong></td>
-            <td style="padding: 6px 8px;">Not significant. The gene set is not enriched beyond what's expected by chance.</td>
-        </tr>
-    </table>
 </div>
 
 <!-- Main Content -->
@@ -1632,17 +1698,15 @@
                     <div class="form-hint">Genes will be ranked in descending order by this value</div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Data type
+                    <label class="form-label">Data type <span style="color: var(--gray-400); font-weight: 400; font-size: 0.85em;">(optional)</span>
                         <span class="info-icon">?
                             <span class="info-tooltip">
-                                <strong>Data type</strong> controls how enrichment results are interpreted.<br><br>
-                                <b>Expression:</b> Gene expression (RNA-seq, microarray). Positive NES = upregulated pathway.<br>
-                                <b>CRISPR / Perturbation:</b> Screen or perturbation data. Positive NES = enriched/positively selected. Negative NES = depleted/negatively selected.
+                                Affects interpretation labels only. Does not change the analysis.
                             </span>
                         </span>
                     </label>
                     <select class="form-control" id="dataType">
-                        <option value="expression" selected>Expression data</option>
+                        <option value="expression" selected>Expression</option>
                         <option value="crispr">CRISPR / Perturbation</option>
                     </select>
                 </div>
@@ -1663,6 +1727,8 @@
                     </label>
                     <div class="checkbox-info">Well-defined biological states and processes</div>
 
+                    <div class="collection-tier-separator"></div>
+
                     <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC2">
                         <span class="collection-label">
@@ -1680,6 +1746,8 @@
                         </span>
                     </label>
                     <div class="checkbox-info">Gene Ontology: Biological Process, Molecular Function, Cellular Component</div>
+
+                    <div class="collection-tier-separator"></div>
 
                     <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC3">
@@ -1699,6 +1767,8 @@
                     </label>
                     <div class="checkbox-info">Oncogenic signature gene sets</div>
 
+                    <div class="collection-tier-separator"></div>
+
                     <label class="checkbox-label collection-item">
                         <input type="checkbox" id="checkC7">
                         <span class="collection-label">
@@ -1716,18 +1786,20 @@
                         </span>
                     </label>
                     <div class="checkbox-info">Cell type signature gene sets</div>
-                </div>
 
-                <div style="margin-top: 8px; padding: 6px 10px; background: var(--gray-100); border-radius: 4px; font-size: 0.76em; color: var(--gray-500); line-height: 1.5;">
-                    <strong style="color: var(--gray-600);">Collection tiers:</strong>
-                    <strong>H</strong> (core, curated summary sets) &rarr;
-                    <strong>C2, C5</strong> (standard pathway &amp; ontology databases) &rarr;
-                    <strong>C3, C6</strong> (specialized regulatory &amp; oncogenic) &rarr;
-                    <strong>C7, C8</strong> (extended immunologic &amp; cell type).
-                    Start with H; add others as needed.
-                </div>
+                    <div class="collection-tier-separator"></div>
 
-                <button class="btn btn-secondary btn-sm" id="openGeneSetBrowser" style="margin-top: 10px; width: 100%;">Browse &amp; Select Individual Gene Sets</button>
+                    <label class="checkbox-label collection-item" style="margin-top: 2px;">
+                        <input type="checkbox" id="checkCustomSelection" disabled>
+                        <span class="collection-label">
+                            <strong>Custom selection</strong>
+                            <span class="collection-count" id="customSelectionCount"></span>
+                        </span>
+                    </label>
+                    <div class="checkbox-info">
+                        <a href="#" id="openGeneSetBrowser" class="browse-link">Browse &amp; select individual gene sets &rarr;</a>
+                    </div>
+                </div>
 
                 <div id="geneSetStatus" class="status-box status-info" style="margin-top: 8px;">
                     Hallmark: 50 gene sets loaded
@@ -2082,11 +2154,11 @@
                                     <div class="form-row" style="margin-top: 6px;">
                                         <div class="form-group">
                                             <label class="form-label">Width (px)</label>
-                                            <input type="number" class="form-control settings-live" id="esPlotWidth" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                            <input type="number" class="form-control settings-live" id="esPlotWidth" value="500" min="0" max="2000" step="50" placeholder="Auto">
                                         </div>
                                         <div class="form-group">
                                             <label class="form-label">Height (px)</label>
-                                            <input type="number" class="form-control settings-live" id="esPlotHeight" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                            <input type="number" class="form-control settings-live" id="esPlotHeight" value="500" min="0" max="2000" step="50" placeholder="Auto">
                                         </div>
                                     </div>
                                     <div class="form-hint">Set to 0 for auto-sizing</div>
@@ -2094,18 +2166,18 @@
                                         <label class="form-label" style="font-size: 0.82em; margin-bottom: 4px;">Panel Proportions</label>
                                         <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
                                             <span style="font-size: 0.78em; width: 55px; color: var(--gray-500);">ES curve</span>
-                                            <input type="range" class="settings-live" id="esPanelES" min="30" max="80" value="55" style="flex: 1;">
-                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelESLabel">55%</span>
+                                            <input type="range" class="settings-live" id="esPanelES" min="30" max="80" value="68" style="flex: 1;">
+                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelESLabel">68%</span>
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
                                             <span style="font-size: 0.78em; width: 55px; color: var(--gray-500);">Hits</span>
-                                            <input type="range" class="settings-live" id="esPanelHits" min="3" max="20" value="8" style="flex: 1;">
-                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelHitsLabel">8%</span>
+                                            <input type="range" class="settings-live" id="esPanelHits" min="3" max="20" value="10" style="flex: 1;">
+                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelHitsLabel">10%</span>
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 6px;">
                                             <span style="font-size: 0.78em; width: 55px; color: var(--gray-500);">Metric</span>
-                                            <input type="range" class="settings-live" id="esPanelMetric" min="10" max="50" value="28" style="flex: 1;">
-                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelMetricLabel">28%</span>
+                                            <input type="range" class="settings-live" id="esPanelMetric" min="10" max="50" value="20" style="flex: 1;">
+                                            <span style="font-size: 0.78em; width: 28px;" id="esPanelMetricLabel">20%</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2355,6 +2427,13 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>dev-10</strong> <span style="color:#888;">(2026-03-14)</span></p>
+            <ul>
+                <li>Gene Set Browser is now a "Custom selection" entry in the collection list with browse link</li>
+                <li>Replaced tier notes box with subtle separator lines between collection tiers</li>
+                <li>Rewrote "How to interpret" guide with visual ES curve examples for Expression and CRISPR</li>
+                <li>Data type selector marked as "(optional)" with simplified tooltip</li>
+            </ul>
             <p><strong>dev-9</strong> <span style="color:#888;">(2026-03-14)</span></p>
             <ul>
                 <li>Fixed R script exports — removed unused dependencies, proper alpha() for fill, added print()</li>
@@ -2519,6 +2598,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=30"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>

@@ -50,14 +50,15 @@ class GSEAApp {
             overlapColorScheme: 'green',
             dataType: 'expression',      // 'expression' | 'crispr'
             // Height controls
-            esPlotHeight: 580,
+            esPlotWidth: 500,
+            esPlotHeight: 500,
             bubblePlotHeight: 0,         // 0 = auto
             rankedPlotHeight: 250,
             overlapPlotHeight: 0,        // 0 = auto
             // ES panel proportions (%)
-            esPanelES: 55,
-            esPanelHits: 8,
-            esPanelMetric: 28
+            esPanelES: 68,
+            esPanelHits: 10,
+            esPanelMetric: 20
         };
 
         // Per-text-element font settings
@@ -77,14 +78,14 @@ class GSEAApp {
                 { key: 'negLabel', label: 'Negative label', editable: true, defaultText: 'Negatively correlated', defaultSize: 9 }
             ],
             es: [
-                { key: 'title', label: 'Title', editable: false, defaultSize: 13 },
-                { key: 'esYLabel', label: 'ES Y-axis label', editable: true, defaultText: 'Enrichment score (ES)', defaultSize: 11 },
-                { key: 'metricYLabel', label: 'Metric Y-axis label', editable: false, defaultSize: 10 },
-                { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Rank in Ordered Dataset', defaultSize: 11 },
-                { key: 'statsBox', label: 'Stats box', editable: false, defaultSize: 10, defaultFamily: 'Roboto Mono' },
-                { key: 'posLabel', label: 'Positive label', editable: true, defaultText: 'Positively correlated', defaultSize: 9 },
-                { key: 'negLabel', label: 'Negative label', editable: true, defaultText: 'Negatively correlated', defaultSize: 9 },
-                { key: 'tickFont', label: 'Axis ticks', editable: false, defaultSize: 9 }
+                { key: 'title', label: 'Title', editable: false, defaultSize: 16 },
+                { key: 'esYLabel', label: 'ES Y-axis label', editable: true, defaultText: 'Enrichment score (ES)', defaultSize: 14 },
+                { key: 'metricYLabel', label: 'Metric Y-axis label', editable: false, defaultSize: 13 },
+                { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Rank in Ordered Dataset', defaultSize: 14 },
+                { key: 'statsBox', label: 'Stats box', editable: false, defaultSize: 13, defaultFamily: 'Roboto Mono' },
+                { key: 'posLabel', label: 'Positive label', editable: true, defaultText: 'Positively correlated', defaultSize: 12 },
+                { key: 'negLabel', label: 'Negative label', editable: true, defaultText: 'Negatively correlated', defaultSize: 12 },
+                { key: 'tickFont', label: 'Axis ticks', editable: false, defaultSize: 12 }
             ],
             overlap: [
                 { key: 'colorbarTitle', label: 'Colorbar title', editable: true, defaultText: 'Jaccard Index', defaultSize: 11 },
@@ -186,7 +187,10 @@ class GSEAApp {
         });
 
         // Gene Set Browser
-        document.getElementById('openGeneSetBrowser').addEventListener('click', () => this.openGeneSetBrowser());
+        document.getElementById('openGeneSetBrowser').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.openGeneSetBrowser();
+        });
         document.getElementById('gsbClose').addEventListener('click', () => this.closeGeneSetBrowser());
         document.getElementById('gsbBackdrop').addEventListener('click', () => this.closeGeneSetBrowser());
         document.getElementById('gsbCancelBtn').addEventListener('click', () => this.closeGeneSetBrowser());
@@ -480,6 +484,8 @@ class GSEAApp {
         // Reset custom selection when user toggles collection checkboxes
         this.useCustomSelection = false;
         this.selectedGeneSets.clear();
+        document.getElementById('checkCustomSelection').checked = false;
+        document.getElementById('customSelectionCount').textContent = '';
 
         const collections = {
             checkHallmark: { id: 'hallmark', file: 'h.all.v2023.2.Hs.json' },
@@ -1709,23 +1715,24 @@ class GSEAApp {
 
             if (!bestCorner) {
                 // First render for this gene set — compute optimal corner
+                // Score each corner by how much the ES curve occupies that region
                 const esValues = result.runningES;
-                const esRange = Math.max(
-                    Math.abs(Math.max(...esValues)),
-                    Math.abs(Math.min(...esValues)),
-                    0.1
-                );
+                const esMax = Math.max(...esValues);
+                const esMin = Math.min(...esValues);
+                const esRange = Math.max(esMax - esMin, 0.1);
 
                 const corners = [
-                    { x: 0.03, y: esTop - (esTop - esBot) * 0.04, xa: 'left', ya: 'top' },
-                    { x: 0.97, y: esTop - (esTop - esBot) * 0.04, xa: 'right', ya: 'top' },
-                    { x: 0.03, y: esBot + (esTop - esBot) * 0.04, xa: 'left', ya: 'bottom' },
-                    { x: 0.97, y: esBot + (esTop - esBot) * 0.04, xa: 'right', ya: 'bottom' }
+                    { x: 0.03, y: esTop - (esTop - esBot) * 0.06, xa: 'left', ya: 'top' },
+                    { x: 0.97, y: esTop - (esTop - esBot) * 0.06, xa: 'right', ya: 'top' },
+                    { x: 0.03, y: esBot + (esTop - esBot) * 0.06, xa: 'left', ya: 'bottom' },
+                    { x: 0.97, y: esBot + (esTop - esBot) * 0.06, xa: 'right', ya: 'bottom' }
                 ];
 
                 bestCorner = corners[0];
                 let bestScore = Infinity;
-                const boxFraction = 0.28;
+                const boxFraction = 0.35;
+                // The box occupies roughly the top or bottom 30% of the y-range
+                const boxYFraction = 0.30;
 
                 for (const corner of corners) {
                     const isTop = corner.ya === 'top';
@@ -1737,8 +1744,15 @@ class GSEAApp {
                     let count = 0;
                     for (let i = xStart; i <= xEnd; i += sampleStep) {
                         const v = esValues[i] || 0;
-                        if (isTop && v > 0) overlapSum += v / esRange;
-                        else if (!isTop && v < 0) overlapSum += Math.abs(v) / esRange;
+                        // Normalize v to 0..1 where 1 = esMax, 0 = esMin
+                        const norm = (v - esMin) / esRange;
+                        // Top box occupies norm > (1 - boxYFraction), bottom occupies norm < boxYFraction
+                        // Score = how much the curve is inside the box area
+                        if (isTop && norm > (1 - boxYFraction)) {
+                            overlapSum += (norm - (1 - boxYFraction)) / boxYFraction;
+                        } else if (!isTop && norm < boxYFraction) {
+                            overlapSum += (boxYFraction - norm) / boxYFraction;
+                        }
                         count++;
                     }
                     const score = count > 0 ? overlapSum / count : 0;
@@ -1750,8 +1764,8 @@ class GSEAApp {
                 // Cached — update y coordinates for current panel proportions
                 bestCorner = { ...bestCorner };
                 bestCorner.y = bestCorner.ya === 'top'
-                    ? esTop - (esTop - esBot) * 0.04
-                    : esBot + (esTop - esBot) * 0.04;
+                    ? esTop - (esTop - esBot) * 0.06
+                    : esBot + (esTop - esBot) * 0.06;
             }
 
             const esStatsFont = this._getTextFont('es', 'statsBox');
@@ -2367,11 +2381,14 @@ class GSEAApp {
         };
 
         const overlapTickFont = this._getTextFont('overlap', 'tickFont');
-        const overlapHeight = this.settings.overlapPlotHeight > 0 ? this.settings.overlapPlotHeight : Math.max(450, n * 28 + 150);
-        const size = this.settings.overlapPlotHeight > 0 ? this.settings.overlapPlotHeight : Math.max(450, n * 28 + 150);
+        const autoSize = Math.max(450, n * 28 + 150);
+        const overlapW = parseInt(document.getElementById('overlapPlotWidth')?.value) || 0;
+        const overlapH = parseInt(document.getElementById('overlapPlotHeight')?.value) || 0;
+        const overlapHeight = overlapH > 0 ? overlapH : autoSize;
+        const overlapWidth = overlapW > 0 ? overlapW : autoSize + 50;
         const layout = {
             height: overlapHeight,
-            width: size + 50,
+            width: overlapWidth,
             margin: { l: 10, r: 50, t: 20, b: 10 },
             xaxis: { tickfont: { size: overlapTickFont.size, family: overlapTickFont.family }, tickangle: -45, automargin: true, showgrid: false, fixedrange: true },
             yaxis: { tickfont: { size: overlapTickFont.size, family: overlapTickFont.family }, automargin: true, showgrid: false, autorange: 'reversed', fixedrange: true },
@@ -3477,6 +3494,8 @@ class GSEAApp {
         document.getElementById('checkHallmark').checked = true;
         document.getElementById('checkC2').checked = false;
         document.getElementById('checkC5').checked = false;
+        document.getElementById('checkCustomSelection').checked = false;
+        document.getElementById('customSelectionCount').textContent = '';
 
         // Clear plots
         ['bubblePlot', 'rankedPlot', 'esPlot', 'overlapHeatmap'].forEach(id => {
@@ -3884,6 +3903,10 @@ class GSEAApp {
             document.getElementById(id).checked = false;
         });
 
+        // Check the Custom selection row and show count
+        document.getElementById('checkCustomSelection').checked = true;
+        document.getElementById('customSelectionCount').textContent = this.selectedGeneSets.size.toLocaleString() + ' sets';
+
         this.closeGeneSetBrowser();
         this.updateGeneSetStatus();
         this.checkReady();
@@ -4204,6 +4227,11 @@ class GSEAApp {
         if (!btn) return;
         const action = btn.dataset.action;
         const id = btn.dataset.id;
+
+        // Prevent document click handler from closing the panel
+        // (openTextSettings rebuilds innerHTML, detaching e.target from DOM,
+        //  so .closest('.text-settings-panel') returns null on the bubble phase)
+        e.stopPropagation();
 
         // Scale all / bold all actions
         if (action === 'scale-up' || action === 'scale-down' || action === 'bold-all') {
