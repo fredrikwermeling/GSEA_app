@@ -1700,6 +1700,15 @@
                     <div class="checkbox-info">Cell type signature gene sets</div>
                 </div>
 
+                <div style="margin-top: 8px; padding: 6px 10px; background: var(--gray-100); border-radius: 4px; font-size: 0.76em; color: var(--gray-500); line-height: 1.5;">
+                    <strong style="color: var(--gray-600);">Collection tiers:</strong>
+                    <strong>H</strong> (core, curated summary sets) &rarr;
+                    <strong>C2, C5</strong> (standard pathway &amp; ontology databases) &rarr;
+                    <strong>C3, C6</strong> (specialized regulatory &amp; oncogenic) &rarr;
+                    <strong>C7, C8</strong> (extended immunologic &amp; cell type).
+                    Start with H; add others as needed.
+                </div>
+
                 <button class="btn btn-secondary btn-sm" id="openGeneSetBrowser" style="margin-top: 10px; width: 100%;">Browse &amp; Select Individual Gene Sets</button>
 
                 <div id="geneSetStatus" class="status-box status-info" style="margin-top: 8px;">
@@ -1860,8 +1869,14 @@
         <!-- Tab: Overview -->
         <div class="tab-panel active" id="tab-overview">
             <div id="overviewEmpty" class="empty-state">
-                <div class="empty-icon">&#x1F4CA;</div>
-                <p>Upload your data and run GSEA to see enrichment results here</p>
+                <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
+                <div style="margin-bottom: 6px;">
+                    Click <span style="color: var(--green-600); font-weight: 600;">Load Example Data</span> and then <span style="color: var(--green-600); font-weight: 600;">Run GSEA</span>
+                </div>
+                <div style="font-size: 0.88em; color: var(--gray-500);">(both in the sidebar on the left)</div>
+                <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.6; max-width: 420px; color: var(--gray-500);">
+                    Then explore the enrichment overview, click gene sets for detailed enrichment plots, and check the overlap heatmap to find redundant pathways. Use the <span style="color: var(--green-600); font-weight: 500;">Aa</span> and <span style="color: var(--green-600); font-weight: 500;">&#9881;</span> buttons to customize each plot for publication.
+                </div>
             </div>
             <div id="overviewResults" style="display: none;">
                 <div class="card">
@@ -1912,6 +1927,23 @@
                                 </div>
                             </div>
                             <div class="form-hint">Set to 0 for auto-sizing</div>
+                            <div style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px;">
+                                <div class="form-group">
+                                    <label class="form-label">Overlap redundancy filter
+                                        <span class="info-icon" style="font-size: 9px;">?
+                                            <span class="info-tooltip" style="width: 260px;">Hide gene sets that overlap (Jaccard similarity) with a higher-priority set above this threshold. Hallmark &gt; C2/C5 &gt; C3/C6 &gt; C7/C8. Same tier: higher |NES| wins.</span>
+                                        </span>
+                                    </label>
+                                    <select class="form-control" id="bubbleOverlapFilter" onchange="app._overlapFilterThreshold = parseInt(this.value); app.renderBubblePlot();">
+                                        <option value="0" selected>Off</option>
+                                        <option value="50">Jaccard &gt; 50%</option>
+                                        <option value="30">Jaccard &gt; 30%</option>
+                                        <option value="20">Jaccard &gt; 20%</option>
+                                        <option value="10">Jaccard &gt; 10%</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-outline btn-sm" onclick="app.openGeneSetFilter('bubble')" style="width: 100%; margin-top: 4px;">Select gene sets to show…</button>
+                            </div>
                         </div>
                     </div>
                     <div class="card-content">
@@ -1966,7 +1998,7 @@
         <div class="tab-panel" id="tab-enrichment">
             <div id="enrichmentEmpty" class="empty-state">
                 <div class="empty-icon">&#x1F4C8;</div>
-                <p>Select a gene set after running GSEA to explore its enrichment profile</p>
+                <p>Run GSEA, then click a gene set in the overview plot or results table to see its enrichment profile here</p>
             </div>
             <div id="enrichmentResults" style="display: none;">
                 <!-- Gene set selector row -->
@@ -2239,6 +2271,14 @@
                                 <option value="up">Upregulated (NES &gt; 0)</option>
                                 <option value="down">Downregulated (NES &lt; 0)</option>
                             </select>
+                            <select class="form-control" id="tableOverlapFilter" style="width: auto;" title="Filter redundant gene sets by overlap">
+                                <option value="0">No overlap filter</option>
+                                <option value="50">Overlap &gt; 50%</option>
+                                <option value="30">Overlap &gt; 30%</option>
+                                <option value="20">Overlap &gt; 20%</option>
+                                <option value="10">Overlap &gt; 10%</option>
+                            </select>
+                            <button class="btn btn-outline btn-sm" onclick="app.openGeneSetFilter('table')" title="Select which gene sets to show">&#9998; Select sets</button>
                             <button class="btn btn-outline btn-sm" id="downloadCSVBtn">Download CSV</button>
                             <button class="btn btn-outline btn-sm" id="rerunFilteredBtn" style="background: var(--green-50); border-color: var(--green-600); color: var(--green-700);" title="Re-run GSEA on only the currently visible (filtered) gene sets, e.g. with higher permutations for accurate p-values">🔄 Re-run filtered</button>
                             <span class="result-count" id="resultCount"></span>
@@ -2271,12 +2311,22 @@
 <div class="site-footer">
     GSEA Web Tool &mdash; <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>, Karolinska Institutet
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
-    <span id="devVersionTag" style="display: inline-block; margin-left: 10px; padding: 1px 8px; background: #fef3cd; color: #856404; border-radius: 3px; font-size: 0.9em; cursor: help;" title="Click for changelog">dev v7</span>
+    <span id="devVersionTag" style="display: inline-block; margin-left: 10px; padding: 1px 8px; background: #fef3cd; color: #856404; border-radius: 3px; font-size: 0.9em; cursor: help;" title="Click for changelog">dev v8</span>
 </div>
 
 <!-- Dev version changelog (click version tag to toggle) -->
 <div id="devChangelog" style="display: none; max-width: 700px; margin: 0 auto 16px; padding: 14px 18px; background: #fffef5; border: 1px solid #ffc107; border-radius: 6px; font-size: 0.82em; color: #333; text-align: left;">
     <div style="font-weight: 700; margin-bottom: 6px; color: #856404;">Development Changelog</div>
+
+    <div style="margin-bottom: 8px;">
+        <strong>dev v8</strong> <span style="color: #888;">(2026-03-14)</span>
+        <ul style="margin: 4px 0 0 18px; padding: 0;">
+            <li>Overlap-based redundancy filtering — filter bubble plot and results table by Jaccard similarity threshold</li>
+            <li>Gene set selector popup — manually show/hide individual gene sets in bubble plot and table, with overlap info</li>
+            <li>Subtle tier notes below collection checkboxes explaining H → C2/C5 → C3/C6 → C7/C8 hierarchy</li>
+            <li>Redesigned empty state — "New to Enrich?" welcome with green action labels and progressive instructions</li>
+        </ul>
+    </div>
 
     <div style="margin-bottom: 8px;">
         <strong>dev v7</strong> <span style="color: #888;">(2026-03-14)</span>
@@ -2427,6 +2477,16 @@
 </div>
 
 <!-- Text Settings Panel -->
+<!-- Gene Set Filter Popup -->
+<div id="geneSetFilterPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 620px; max-width: 92vw; max-height: 85vh; background: white; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 2000; padding: 16px; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h4 style="margin: 0; font-size: 0.95em; color: var(--green-800);">Select Gene Sets to Display</h4>
+        <button style="background: none; border: none; font-size: 18px; cursor: pointer; color: #888;" onclick="document.getElementById('geneSetFilterPopup').style.display='none'; document.getElementById('geneSetFilterBackdrop').style.display='none';">&times;</button>
+    </div>
+    <div id="geneSetFilterBody"></div>
+</div>
+<div id="geneSetFilterBackdrop" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 1999;"></div>
+
 <div class="text-settings-panel" id="textSettingsPanel" style="display: none;">
     <div class="text-settings-header" id="textSettingsDragHandle">
         <span>Aa Text Settings</span>
@@ -2435,6 +2495,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=26"></script>
+<script src="app.js?v=28"></script>
 </body>
 </html>

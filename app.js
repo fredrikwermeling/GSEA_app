@@ -98,6 +98,11 @@ class GSEAApp {
         this._statsBoxCornerCache = {};
         this._textScaleOffset = { bubble: 0, ranked: 0, es: 0, overlap: 0 };
 
+        // Overlap-based redundancy filtering
+        this._overlapCache = null;       // { pairwise: Map, setGenes: {} }
+        this._hiddenSets = new Set();    // gene set names hidden by user or overlap filter
+        this._overlapFilterThreshold = 0; // 0 = off, 50/70/80 = % Jaccard overlap
+
         // Table sort state
         this.sortCol = 'nes';
         this.sortAsc = false;
@@ -289,6 +294,13 @@ class GSEAApp {
         document.getElementById('tableFilter').addEventListener('input', () => this.filterAndRenderTable());
         document.getElementById('fdrFilter').addEventListener('change', () => this.filterAndRenderTable());
         document.getElementById('directionFilter').addEventListener('change', () => this.filterAndRenderTable());
+        document.getElementById('tableOverlapFilter').addEventListener('change', () => this.filterAndRenderTable());
+
+        // Gene set filter popup backdrop
+        document.getElementById('geneSetFilterBackdrop').addEventListener('click', () => {
+            document.getElementById('geneSetFilterPopup').style.display = 'none';
+            document.getElementById('geneSetFilterBackdrop').style.display = 'none';
+        });
 
         // Table column sort
         document.querySelectorAll('#resultsTable thead th').forEach(th => {
@@ -1030,6 +1042,9 @@ class GSEAApp {
             document.getElementById('rerunSection').style.display = '';
             this.updateRerunHitCount();
 
+            // Build overlap cache for redundancy filtering
+            this._buildOverlapCache();
+
             this.displayResults();
         }
 
@@ -1134,8 +1149,16 @@ class GSEAApp {
         const baseFontSize = this.settings.fontSize;
 
         let filtered = this.results;
+        // Apply hidden sets filter
+        if (this._hiddenSets.size > 0) {
+            filtered = filtered.filter(r => !this._hiddenSets.has(r.name));
+        }
         if (fdrThresh < 1) {
             filtered = filtered.filter(r => r.fdr < fdrThresh);
+        }
+        // Apply overlap redundancy filter
+        if (this._overlapFilterThreshold > 0) {
+            filtered = this._applyOverlapFilter(filtered, this._overlapFilterThreshold);
         }
         // Sort by |NES| and take top N
         const top = filtered
@@ -2396,6 +2419,236 @@ class GSEAApp {
     }
 
     // --------------------------------------------------------
+    // Overlap-based redundancy filtering
+    // --------------------------------------------------------
+
+    /** Get the tier (priority) of a gene set: 1=Hallmark, 2=C2/C5, 3=C3/C6, 4=C7/C8, 5=custom */
+    _getSetTier(name) {
+        if (this.geneSets['hallmark'] && this.geneSets['hallmark'][name]) return 1;
+        if (this.geneSets['c2'] && this.geneSets['c2'][name]) return 2;
+        if (this.geneSets['c5'] && this.geneSets['c5'][name]) return 2;
+        if (this.geneSets['c3'] && this.geneSets['c3'][name]) return 3;
+        if (this.geneSets['c6'] && this.geneSets['c6'][name]) return 3;
+        if (this.geneSets['c7'] && this.geneSets['c7'][name]) return 4;
+        if (this.geneSets['c8'] && this.geneSets['c8'][name]) return 4;
+        return 5;
+    }
+
+    _getSetCollection(name) {
+        const colls = [
+            ['hallmark', 'H'], ['c2', 'C2'], ['c5', 'C5'],
+            ['c3', 'C3'], ['c6', 'C6'], ['c7', 'C7'], ['c8', 'C8']
+        ];
+        for (const [id, label] of colls) {
+            if (this.geneSets[id] && this.geneSets[id][name]) return label;
+        }
+        return 'Custom';
+    }
+
+    /** Build pairwise overlap cache for all results. Called after GSEA completes. */
+    _buildOverlapCache() {
+        if (!this.results || !this.rankedList) return;
+        const activeGeneSets = this.getActiveGeneSets();
+        if (!activeGeneSets) return;
+
+        const rankedGenesUpper = new Set(this.rankedList.genes.map(g => g.toUpperCase()));
+        const setGenes = {};
+        for (const r of this.results) {
+            if (activeGeneSets[r.name]) {
+                setGenes[r.name] = activeGeneSets[r.name]
+                    .map(g => g.toUpperCase())
+                    .filter(g => rankedGenesUpper.has(g));
+            }
+        }
+
+        // Build pairwise Jaccard map: key = "nameA|||nameB" (sorted), value = jaccard
+        const pairwise = new Map();
+        const names = this.results.map(r => r.name).filter(n => setGenes[n]);
+        for (let i = 0; i < names.length; i++) {
+            for (let j = i + 1; j < names.length; j++) {
+                const a = names[i], b = names[j];
+                const genesA = setGenes[a], genesB = setGenes[b];
+                if (!genesA || !genesB) continue;
+                const inter = this._computeOverlap(genesA, genesB);
+                const union = new Set([...genesA, ...genesB]).size;
+                const jaccard = union > 0 ? inter / union : 0;
+                if (jaccard > 0.05) { // only store non-trivial overlaps
+                    const key = a < b ? `${a}|||${b}` : `${b}|||${a}`;
+                    pairwise.set(key, jaccard);
+                }
+            }
+        }
+
+        this._overlapCache = { pairwise, setGenes };
+    }
+
+    /** Get Jaccard overlap between two gene sets from cache */
+    _getCachedJaccard(nameA, nameB) {
+        if (!this._overlapCache) return 0;
+        const key = nameA < nameB ? `${nameA}|||${nameB}` : `${nameB}|||${nameA}`;
+        return this._overlapCache.pairwise.get(key) || 0;
+    }
+
+    /**
+     * Apply overlap filter: given a list of results, remove redundant sets.
+     * For each pair with Jaccard > threshold, keep the one with higher tier (or higher |NES| if same tier).
+     * Returns filtered array.
+     */
+    _applyOverlapFilter(results, thresholdPct) {
+        if (!thresholdPct || thresholdPct <= 0 || !this._overlapCache) return results;
+        const threshold = thresholdPct / 100;
+
+        // Sort by tier (ascending = better first), then |NES| descending
+        const sorted = results.slice().sort((a, b) => {
+            const tA = this._getSetTier(a.name), tB = this._getSetTier(b.name);
+            if (tA !== tB) return tA - tB;
+            return Math.abs(b.nes) - Math.abs(a.nes);
+        });
+
+        const kept = [];
+        const removed = new Set();
+
+        for (const r of sorted) {
+            if (removed.has(r.name)) continue;
+            if (this._hiddenSets.has(r.name)) continue;
+            kept.push(r);
+            // Mark all lower-priority sets overlapping with this one
+            for (const other of sorted) {
+                if (other.name === r.name || removed.has(other.name)) continue;
+                if (kept.some(k => k.name === other.name)) continue;
+                const jaccard = this._getCachedJaccard(r.name, other.name);
+                if (jaccard >= threshold) {
+                    removed.add(other.name);
+                }
+            }
+        }
+
+        return kept;
+    }
+
+    /** Open the gene set selector popup for choosing which sets to show/hide */
+    openGeneSetFilter(context) {
+        // context: 'bubble' or 'table'
+        if (!this.results) return;
+        this._gsfContext = context;
+
+        const popup = document.getElementById('geneSetFilterPopup');
+        const body = document.getElementById('geneSetFilterBody');
+        const threshold = this._overlapFilterThreshold / 100;
+
+        // Sort results by |NES| descending
+        const sorted = this.results.slice().sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
+
+        let html = `<div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">`;
+        html += `<input type="text" id="gsfSearch" class="form-control" placeholder="Filter..." style="flex: 1; max-width: 200px; font-size: 0.85em;">`;
+        html += `<button class="btn btn-outline btn-sm" id="gsfShowAll">Show all</button>`;
+        html += `<button class="btn btn-outline btn-sm" id="gsfHideAll">Hide all</button>`;
+        html += `</div>`;
+
+        html += `<div style="max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;">`;
+        html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.82em;">`;
+        html += `<thead><tr style="background: #f9fafb; position: sticky; top: 0;">`;
+        html += `<th style="padding: 4px 6px; text-align: left; width: 30px;"></th>`;
+        html += `<th style="padding: 4px 6px; text-align: left;">Gene Set</th>`;
+        html += `<th style="padding: 4px 6px; text-align: right; width: 50px;">NES</th>`;
+        html += `<th style="padding: 4px 6px; text-align: right; width: 55px;">FDR</th>`;
+        html += `<th style="padding: 4px 6px; text-align: center; width: 35px;">Coll.</th>`;
+        if (threshold > 0) html += `<th style="padding: 4px 6px; text-align: left; width: 120px;">Overlaps with</th>`;
+        html += `</tr></thead><tbody>`;
+
+        for (const r of sorted) {
+            const hidden = this._hiddenSets.has(r.name);
+            const coll = this._getSetCollection(r.name);
+            const nesColor = r.nes > 0 ? '#dc2626' : '#2563eb';
+            const fdrStr = r.fdr < 0.001 ? r.fdr.toExponential(1) : r.fdr.toFixed(3);
+
+            // Find top overlap partner
+            let overlapInfo = '';
+            if (threshold > 0 && this._overlapCache) {
+                let maxJ = 0, maxPartner = '';
+                for (const other of sorted) {
+                    if (other.name === r.name) continue;
+                    const j = this._getCachedJaccard(r.name, other.name);
+                    if (j > maxJ) { maxJ = j; maxPartner = other.name; }
+                }
+                if (maxJ >= threshold) {
+                    overlapInfo = `<span style="color: #d97706; font-size: 0.9em;" title="${this.cleanName(maxPartner)}">${(maxJ * 100).toFixed(0)}% ${this.cleanName(maxPartner).substring(0, 15)}…</span>`;
+                }
+            }
+
+            html += `<tr class="gsf-row" data-name="${this._escapeAttr(r.name)}" style="border-bottom: 1px solid #f5f5f5; ${hidden ? 'opacity: 0.45;' : ''}">`;
+            html += `<td style="padding: 3px 6px;"><input type="checkbox" class="gsf-check" data-name="${this._escapeAttr(r.name)}" ${hidden ? '' : 'checked'}></td>`;
+            html += `<td style="padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="${this._escapeAttr(r.name)}">${this.cleanName(r.name)}</td>`;
+            html += `<td style="padding: 3px 6px; text-align: right; color: ${nesColor}; font-family: Roboto Mono, monospace;">${r.nes.toFixed(2)}</td>`;
+            html += `<td style="padding: 3px 6px; text-align: right; font-family: Roboto Mono, monospace;">${fdrStr}</td>`;
+            html += `<td style="padding: 3px 6px; text-align: center; font-size: 0.85em; color: var(--gray-500);">${coll}</td>`;
+            if (threshold > 0) html += `<td style="padding: 3px 6px;">${overlapInfo}</td>`;
+            html += `</tr>`;
+        }
+
+        html += `</tbody></table></div>`;
+        html += `<div style="margin-top: 8px; display: flex; gap: 6px; justify-content: flex-end;">`;
+        html += `<span style="flex: 1; font-size: 0.82em; color: var(--gray-500); align-self: center;" id="gsfCount">${sorted.length - this._hiddenSets.size} of ${sorted.length} visible</span>`;
+        html += `<button class="btn btn-outline btn-sm" id="gsfCancel">Cancel</button>`;
+        html += `<button class="btn btn-sm" id="gsfApply" style="background: var(--green-600); color: white;">Apply</button>`;
+        html += `</div>`;
+
+        body.innerHTML = html;
+        popup.style.display = 'block';
+        document.getElementById('geneSetFilterBackdrop').style.display = 'block';
+
+        // Wire up events
+        if (!this._gsfEventsBound) {
+            this._gsfEventsBound = true;
+            body.addEventListener('change', (e) => {
+                if (e.target.classList.contains('gsf-check')) {
+                    const name = e.target.dataset.name;
+                    const row = e.target.closest('.gsf-row');
+                    if (e.target.checked) {
+                        this._hiddenSets.delete(name);
+                        if (row) row.style.opacity = '1';
+                    } else {
+                        this._hiddenSets.add(name);
+                        if (row) row.style.opacity = '0.45';
+                    }
+                    const total = this.results.length;
+                    document.getElementById('gsfCount').textContent = `${total - this._hiddenSets.size} of ${total} visible`;
+                }
+            });
+            body.addEventListener('click', (e) => {
+                if (e.target.id === 'gsfApply') {
+                    popup.style.display = 'none';
+                    document.getElementById('geneSetFilterBackdrop').style.display = 'none';
+                    this.renderBubblePlot();
+                    this.filterAndRenderTable();
+                } else if (e.target.id === 'gsfCancel') {
+                    popup.style.display = 'none';
+                    document.getElementById('geneSetFilterBackdrop').style.display = 'none';
+                } else if (e.target.id === 'gsfShowAll') {
+                    this._hiddenSets.clear();
+                    body.querySelectorAll('.gsf-check').forEach(c => { c.checked = true; });
+                    body.querySelectorAll('.gsf-row').forEach(r => { r.style.opacity = '1'; });
+                    document.getElementById('gsfCount').textContent = `${this.results.length} of ${this.results.length} visible`;
+                } else if (e.target.id === 'gsfHideAll') {
+                    this.results.forEach(r => this._hiddenSets.add(r.name));
+                    body.querySelectorAll('.gsf-check').forEach(c => { c.checked = false; });
+                    body.querySelectorAll('.gsf-row').forEach(r => { r.style.opacity = '0.45'; });
+                    document.getElementById('gsfCount').textContent = `0 of ${this.results.length} visible`;
+                }
+            });
+            body.addEventListener('input', (e) => {
+                if (e.target.id === 'gsfSearch') {
+                    const q = e.target.value.toLowerCase();
+                    body.querySelectorAll('.gsf-row').forEach(row => {
+                        const name = row.dataset.name.toLowerCase();
+                        row.style.display = name.includes(q) ? '' : 'none';
+                    });
+                }
+            });
+        }
+    }
+
+    // --------------------------------------------------------
     // Results Table
     // --------------------------------------------------------
     filterAndRenderTable() {
@@ -2406,6 +2659,16 @@ class GSEAApp {
         const dirVal = document.getElementById('directionFilter').value;
 
         let filtered = this.results.slice();
+
+        // Apply hidden sets filter
+        if (this._hiddenSets.size > 0) {
+            filtered = filtered.filter(r => !this._hiddenSets.has(r.name));
+        }
+        // Apply overlap redundancy filter
+        const overlapVal = document.getElementById('tableOverlapFilter') ? document.getElementById('tableOverlapFilter').value : '0';
+        if (overlapVal !== '0') {
+            filtered = this._applyOverlapFilter(filtered, parseInt(overlapVal));
+        }
 
         if (query) {
             filtered = filtered.filter(r => r.name.toLowerCase().includes(query));
@@ -3024,6 +3287,11 @@ class GSEAApp {
         this._gsbVisualRows = [];
         this._gsbItemMap = null;
 
+        // Reset overlap filter state
+        this._overlapCache = null;
+        this._hiddenSets = new Set();
+        this._overlapFilterThreshold = 0;
+
         // Reset UI
         document.getElementById('fileInput').value = '';
         const geneCol = document.getElementById('geneColumn');
@@ -3052,6 +3320,12 @@ class GSEAApp {
         document.getElementById('openSettingsBtn').style.display = 'none';
         document.getElementById('settingsPanel').classList.remove('open');
         document.getElementById('methodsCard').style.display = 'none';
+
+        // Reset overlap filter dropdowns
+        const bubbleOF = document.getElementById('bubbleOverlapFilter');
+        if (bubbleOF) bubbleOF.value = '0';
+        const tableOF = document.getElementById('tableOverlapFilter');
+        if (tableOF) tableOF.value = '0';
 
         // Reset checkboxes
         document.getElementById('checkHallmark').checked = true;
