@@ -2688,6 +2688,7 @@ class GSEAApp {
         const popup = document.getElementById('geneSetFilterPopup');
         const body = document.getElementById('geneSetFilterBody');
         const gsfFdrVal = this._gsfFdrFilter || 'all';
+        const gsfPvalVal = this._gsfPvalFilter || 'all';
         const gsfClusterThresh = this._gsfClusterThreshold || 0.3;
 
         // Compute clusters
@@ -2703,6 +2704,7 @@ class GSEAApp {
             else if (sortCol === 'size') { vA = a.size; vB = b.size; }
             else if (sortCol === 'nes') { vA = Math.abs(a.nes); vB = Math.abs(b.nes); }
             else if (sortCol === 'fdr') { vA = a.fdr; vB = b.fdr; }
+            else if (sortCol === 'pval') { vA = a.pvalue; vB = b.pvalue; }
             else if (sortCol === 'cluster') { vA = clusters[a.name] || 999; vB = clusters[b.name] || 999; }
             else { vA = a[sortCol]; vB = b[sortCol]; }
             if (vA < vB) return sortAsc ? -1 : 1;
@@ -2714,6 +2716,11 @@ class GSEAApp {
         if (gsfFdrVal !== 'all') {
             const thresh = parseFloat(gsfFdrVal);
             sorted = sorted.filter(r => r.fdr < thresh);
+        }
+        // Filter by p-value
+        if (gsfPvalVal !== 'all') {
+            const thresh = parseFloat(gsfPvalVal);
+            sorted = sorted.filter(r => r.pvalue < thresh);
         }
 
         const clusterColors = ['#d97706', '#7c3aed', '#059669', '#dc2626', '#2563eb', '#db2777', '#ca8a04', '#0891b2'];
@@ -2730,6 +2737,12 @@ class GSEAApp {
         html += `<option value="all"${gsfFdrVal === 'all' ? ' selected' : ''}>All FDR</option>`;
         html += `<option value="0.25"${gsfFdrVal === '0.25' ? ' selected' : ''}>FDR < 0.25</option>`;
         html += `<option value="0.05"${gsfFdrVal === '0.05' ? ' selected' : ''}>FDR < 0.05</option>`;
+        html += `</select>`;
+        html += `<select class="form-control" id="gsfPvalFilter" style="width: auto; font-size: 0.85em;">`;
+        html += `<option value="all"${gsfPvalVal === 'all' ? ' selected' : ''}>All p-val</option>`;
+        html += `<option value="0.05"${gsfPvalVal === '0.05' ? ' selected' : ''}>p < 0.05</option>`;
+        html += `<option value="0.01"${gsfPvalVal === '0.01' ? ' selected' : ''}>p < 0.01</option>`;
+        html += `<option value="0.001"${gsfPvalVal === '0.001' ? ' selected' : ''}>p < 0.001</option>`;
         html += `</select>`;
         html += `<select class="form-control" id="gsfClusterThresh" style="width: auto; font-size: 0.85em;" title="Jaccard threshold for overlap clusters">`;
         for (const v of [0, 0.1, 0.2, 0.3, 0.5]) {
@@ -2749,6 +2762,7 @@ class GSEAApp {
         html += `<th class="gsf-sort" data-gsf-col="size" style="${thStyle} text-align: right; width: 45px;">Size${sortArrow('size')}</th>`;
         html += `<th class="gsf-sort" data-gsf-col="nes" style="${thStyle} text-align: right; width: 50px;">NES${sortArrow('nes')}</th>`;
         html += `<th class="gsf-sort" data-gsf-col="fdr" style="${thStyle} text-align: right; width: 55px;">FDR${sortArrow('fdr')}</th>`;
+        html += `<th class="gsf-sort" data-gsf-col="pval" style="${thStyle} text-align: right; width: 55px;">p-val${sortArrow('pval')}</th>`;
         html += `<th style="padding: 4px 6px; text-align: center; width: 35px;">Coll.</th>`;
         if (gsfClusterThresh > 0) html += `<th class="gsf-sort" data-gsf-col="cluster" style="${thStyle} text-align: center; width: 55px;">Cluster${sortArrow('cluster')}</th>`;
         html += `</tr></thead><tbody>`;
@@ -2771,6 +2785,8 @@ class GSEAApp {
             html += `<td style="padding: 3px 6px; text-align: right; font-family: Roboto Mono, monospace; color: var(--gray-500);">${r.size}</td>`;
             html += `<td style="padding: 3px 6px; text-align: right; color: ${nesColor}; font-family: Roboto Mono, monospace;">${r.nes.toFixed(2)}</td>`;
             html += `<td style="padding: 3px 6px; text-align: right; font-family: Roboto Mono, monospace;">${fdrStr}</td>`;
+            const pvalStr = r.pvalue < 0.001 ? r.pvalue.toExponential(1) : r.pvalue.toFixed(3);
+            html += `<td style="padding: 3px 6px; text-align: right; font-family: Roboto Mono, monospace;">${pvalStr}</td>`;
             html += `<td style="padding: 3px 6px; text-align: center; font-size: 0.85em; color: var(--gray-500);">${coll}</td>`;
             if (gsfClusterThresh > 0) html += `<td style="padding: 3px 6px; text-align: center;">${clusterBadge}</td>`;
             html += `</tr>`;
@@ -2809,6 +2825,10 @@ class GSEAApp {
                 self._gsfFdrFilter = e.target.value;
                 self._renderGeneSetFilter();
             }
+            if (e.target.id === 'gsfPvalFilter') {
+                self._gsfPvalFilter = e.target.value;
+                self._renderGeneSetFilter();
+            }
             if (e.target.id === 'gsfClusterThresh') {
                 self._gsfClusterThreshold = parseFloat(e.target.value);
                 self._renderGeneSetFilter();
@@ -2822,7 +2842,7 @@ class GSEAApp {
                     self._gsfSortAsc = !self._gsfSortAsc;
                 } else {
                     self._gsfSortCol = col;
-                    self._gsfSortAsc = col === 'name' || col === 'fdr';
+                    self._gsfSortAsc = col === 'name' || col === 'fdr' || col === 'pval';
                 }
                 self._renderGeneSetFilter();
                 return;
