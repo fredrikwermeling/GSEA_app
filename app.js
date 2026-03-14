@@ -341,6 +341,15 @@ class GSEAApp {
         interpretClose.addEventListener('click', closeInterpret);
         interpretBackdrop.addEventListener('click', closeInterpret);
 
+        // Dev version changelog toggle
+        const devTag = document.getElementById('devVersionTag');
+        if (devTag) {
+            devTag.addEventListener('click', () => {
+                const cl = document.getElementById('devChangelog');
+                cl.style.display = cl.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+
         // Info tooltips — position with JS (fixed) to avoid clipping
         // Use event delegation so dynamically added info-icons also work
         document.addEventListener('mouseenter', (e) => {
