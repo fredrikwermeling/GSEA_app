@@ -2735,11 +2735,13 @@ class GSEAApp {
         html += `<input type="text" id="gsfSearch" class="form-control" placeholder="Filter..." style="flex: 1; max-width: 180px; font-size: 0.85em;" value="${this._gsfSearchVal || ''}">`;
         html += `<select class="form-control" id="gsfFdrFilter" style="width: auto; font-size: 0.85em;">`;
         html += `<option value="all"${gsfFdrVal === 'all' ? ' selected' : ''}>All FDR</option>`;
+        html += `<option value="0.5"${gsfFdrVal === '0.5' ? ' selected' : ''}>FDR < 0.5</option>`;
         html += `<option value="0.25"${gsfFdrVal === '0.25' ? ' selected' : ''}>FDR < 0.25</option>`;
         html += `<option value="0.05"${gsfFdrVal === '0.05' ? ' selected' : ''}>FDR < 0.05</option>`;
         html += `</select>`;
         html += `<select class="form-control" id="gsfPvalFilter" style="width: auto; font-size: 0.85em;">`;
         html += `<option value="all"${gsfPvalVal === 'all' ? ' selected' : ''}>All p-val</option>`;
+        html += `<option value="0.1"${gsfPvalVal === '0.1' ? ' selected' : ''}>p < 0.1</option>`;
         html += `<option value="0.05"${gsfPvalVal === '0.05' ? ' selected' : ''}>p < 0.05</option>`;
         html += `<option value="0.01"${gsfPvalVal === '0.01' ? ' selected' : ''}>p < 0.01</option>`;
         html += `<option value="0.001"${gsfPvalVal === '0.001' ? ' selected' : ''}>p < 0.001</option>`;
