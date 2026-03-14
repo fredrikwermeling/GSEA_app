@@ -112,7 +112,10 @@
             margin-top: -30px;
         }
         .nav-bar {
-            text-align: center;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
             padding: 0 20px 4px 20px;
             background: white;
             margin-bottom: 2px;
@@ -1425,6 +1428,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="margin-left:auto; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.9</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1882,13 +1886,13 @@
 
         <!-- Tab: Overview -->
         <div class="tab-panel active" id="tab-overview">
-            <div id="overviewEmpty" class="empty-state">
+            <div id="overviewEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center;">
                 <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
                 <div style="margin-bottom: 6px;">
                     Click <span style="color: var(--green-600); font-weight: 600;">Load Example Data</span> and then <span style="color: var(--green-600); font-weight: 600;">Run GSEA</span>
                 </div>
                 <div style="font-size: 0.88em; color: var(--gray-500);">(both in the sidebar on the left)</div>
-                <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.6; max-width: 420px; color: var(--gray-500);">
+                <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.6; max-width: 420px; color: var(--gray-500); text-align: center;">
                     Then explore the enrichment overview, click gene sets for detailed enrichment plots, and check the overlap heatmap to find redundant pathways. Use the <span style="color: var(--green-600); font-weight: 500;">Aa</span> and <span style="color: var(--green-600); font-weight: 500;">&#9881;</span> buttons to customize each plot for publication.
                 </div>
             </div>
@@ -2341,79 +2345,59 @@
 <div class="site-footer">
     GSEA Web Tool &mdash; <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>, Karolinska Institutet
     &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
-    <span id="devVersionTag" style="display: inline-block; margin-left: 10px; padding: 1px 8px; background: #fef3cd; color: #856404; border-radius: 3px; font-size: 0.9em; cursor: help;" title="Click for changelog">dev v9</span>
 </div>
 
-<!-- Dev version changelog (click version tag to toggle) -->
-<div id="devChangelog" style="display: none; max-width: 700px; margin: 0 auto 16px; padding: 14px 18px; background: #fffef5; border: 1px solid #ffc107; border-radius: 6px; font-size: 0.82em; color: #333; text-align: left;">
-    <div style="font-weight: 700; margin-bottom: 6px; color: #856404;">Development Changelog</div>
-
-    <div style="margin-bottom: 8px;">
-        <strong>dev v9</strong> <span style="color: #888;">(2026-03-14)</span>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">
-            <li>Fixed R script exports — removed unused dependencies (dplyr, tidyr), proper alpha() for fill, added print(), cleaner formatting</li>
-            <li>Graph headers reorganized: "Settings: Aa ⚙ | Export: .svg .png .csv .R" with separator and labels</li>
-            <li>CSV export for all plots — bubble (overview data), ES (full enrichment data with leading edge), ranked list, overlap matrix</li>
-            <li>Sidebar aligns with results panel — green header rows now at the same vertical position</li>
-        </ul>
-    </div>
-
-    <div style="margin-bottom: 8px;">
-        <strong>dev v8</strong> <span style="color: #888;">(2026-03-14)</span>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">
-            <li>Overlap-based redundancy filtering — filter bubble plot and results table by Jaccard similarity threshold</li>
-            <li>Gene set selector popup — manually show/hide individual gene sets in bubble plot and table, with overlap info</li>
-            <li>Subtle tier notes below collection checkboxes explaining H → C2/C5 → C3/C6 → C7/C8 hierarchy</li>
-            <li>Redesigned empty state — "New to Enrich?" welcome with green action labels and progressive instructions</li>
-        </ul>
-    </div>
-
-    <div style="margin-bottom: 8px;">
-        <strong>dev v7</strong> <span style="color: #888;">(2026-03-14)</span>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">
-            <li>R script export — "R" button on every plot downloads a ready-to-run ggplot2 script</li>
-            <li>"How to interpret enrichment data" educational guide in nav bar</li>
-            <li>Stats box no longer jumps when changing text settings (corner cached per gene set)</li>
-            <li>Bigger, friendlier empty state text across all tabs</li>
-            <li>Cleaned up gene set collection checkboxes — removed colorful tier badges, added right-aligned counts</li>
-            <li>"Scale all" control in Aa text settings — +/− to resize all fonts, Bold all toggle</li>
-        </ul>
-    </div>
-
-    <div style="margin-bottom: 8px;">
-        <strong>dev v6</strong> <span style="color: #888;">(2026-03-13)</span>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">
-            <li>"Re-run significant hits" section in Card 4 with FDR threshold dropdown and live hit count</li>
-        </ul>
-    </div>
-
-    <div style="margin-bottom: 8px;">
-        <strong>dev v5</strong> <span style="color: #888;">(2026-03-13)</span>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">
-            <li>fgsea-style adaptive permutations — non-significant gene sets stop early for ~3-4x speedup</li>
-            <li>Fixed rerunFiltered() bug (wrong message format)</li>
-        </ul>
-    </div>
-
-    <div style="margin-bottom: 8px;">
-        <strong>dev v4</strong> <span style="color: #888;">(2026-03-13)</span>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">
-            <li>Merged CRISPR + Perturbation into single "CRISPR / Perturbation" data type</li>
-            <li>Click-outside-to-close for all settings popups</li>
-            <li>Permutation strategy advice in How to Use</li>
-            <li>"Re-run filtered" button in results table</li>
-        </ul>
-    </div>
-
-    <div style="margin-bottom: 0;">
-        <strong>dev v3</strong> <span style="color: #888;">(2026-03-12)</span>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">
-            <li>Per-text font controls (Aa button) for all plots</li>
-            <li>Data type toggle (Expression / CRISPR) with inline selector</li>
-            <li>Smart stats box placement based on ES curve shape</li>
-            <li>Tier filtering in gene set browser</li>
-            <li>Dataset warnings for low gene overlap</li>
-        </ul>
+<!-- Changelog Modal (development only) -->
+<div id="changelogModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:3000; justify-content:center; align-items:center;">
+    <div style="background:white; max-width:600px; width:90%; max-height:80vh; overflow-y:auto; border-radius:8px; padding:20px; position:relative;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0;">Changelog (development)</h3>
+            <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+        </div>
+        <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>dev-9</strong> <span style="color:#888;">(2026-03-14)</span></p>
+            <ul>
+                <li>Fixed R script exports — removed unused dependencies, proper alpha() for fill, added print()</li>
+                <li>Graph headers reorganized: "Settings: Aa ⚙ | Export: .svg .png .csv .R"</li>
+                <li>CSV export for all plots (overview, ES, ranked list, overlap matrix)</li>
+                <li>Sidebar green headers aligned with results panel headers</li>
+            </ul>
+            <p><strong>dev-8</strong> <span style="color:#888;">(2026-03-14)</span></p>
+            <ul>
+                <li>Overlap-based redundancy filtering in bubble plot and results table (Jaccard threshold)</li>
+                <li>Gene set selector popup — manually show/hide sets with overlap info</li>
+                <li>Subtle tier notes below collection checkboxes</li>
+                <li>Redesigned empty state — "New to Enrich?" with green action labels</li>
+            </ul>
+            <p><strong>dev-7</strong> <span style="color:#888;">(2026-03-14)</span></p>
+            <ul>
+                <li>R script export (.R button) on every plot — generates ggplot2 scripts</li>
+                <li>"How to interpret enrichment data" educational guide</li>
+                <li>Stats box corner cached per gene set (no more jumping)</li>
+                <li>Cleaned up gene set collection layout with set counts</li>
+                <li>"Scale all" control in Aa text settings</li>
+            </ul>
+            <p><strong>dev-6</strong> <span style="color:#888;">(2026-03-13)</span></p>
+            <ul>
+                <li>"Re-run significant hits" with FDR threshold dropdown and live hit count</li>
+            </ul>
+            <p><strong>dev-5</strong> <span style="color:#888;">(2026-03-13)</span></p>
+            <ul>
+                <li>fgsea-style adaptive permutations — ~3-4x speedup for non-significant sets</li>
+                <li>Fixed rerunFiltered() bug</li>
+            </ul>
+            <p><strong>dev-4</strong> <span style="color:#888;">(2026-03-13)</span></p>
+            <ul>
+                <li>CRISPR / Perturbation data type merged</li>
+                <li>Click-outside-to-close for settings popups</li>
+                <li>"Re-run filtered" button in results table</li>
+            </ul>
+            <p><strong>dev-3 and earlier</strong> <span style="color:#888;">(2026-03-12)</span></p>
+            <ul>
+                <li>Per-text font controls (Aa), data type toggle, smart stats box placement</li>
+                <li>Gene set browser with tier filtering, dataset warnings</li>
+            </ul>
+        </div>
     </div>
 </div>
 
@@ -2535,6 +2519,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>

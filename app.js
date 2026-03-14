@@ -353,12 +353,11 @@ class GSEAApp {
         interpretClose.addEventListener('click', closeInterpret);
         interpretBackdrop.addEventListener('click', closeInterpret);
 
-        // Dev version changelog toggle
-        const devTag = document.getElementById('devVersionTag');
-        if (devTag) {
-            devTag.addEventListener('click', () => {
-                const cl = document.getElementById('devChangelog');
-                cl.style.display = cl.style.display === 'none' ? 'block' : 'none';
+        // Changelog modal — close on backdrop click
+        const changelogModal = document.getElementById('changelogModal');
+        if (changelogModal) {
+            changelogModal.addEventListener('click', (e) => {
+                if (e.target === changelogModal) changelogModal.style.display = 'none';
             });
         }
 
