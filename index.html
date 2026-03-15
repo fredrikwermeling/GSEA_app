@@ -2345,16 +2345,16 @@
                                         <span class="result-count" id="esFilterCount" style="font-size: 0.82em; color: var(--gray-500);"></span>
                                     </div>
                                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                        <div style="flex: 1; min-width: 250px; position: relative;">
-                                            <input type="text" class="form-control" id="geneSetSearchInput" placeholder="Search gene sets..." style="width: 100%;" autocomplete="off">
-                                            <div id="geneSetSearchDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 6px 6px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
-                                            <!-- Hidden select to maintain compatibility -->
-                                            <select id="geneSetSelector" style="display: none;">
+                                        <div style="flex: 1; min-width: 250px;">
+                                            <input type="text" class="form-control" id="geneSetSearchInput" placeholder="🔍 Filter gene sets..." style="width: 100%; font-size: 0.85em; margin-bottom: 4px;" autocomplete="off">
+                                            <select class="form-control" id="geneSetSelector" style="width: 100%; font-size: 0.85em;" size="1">
                                                 <option value="">Select a gene set...</option>
                                             </select>
                                         </div>
-                                        <button class="btn btn-outline btn-sm" id="prevGeneSetBtn" title="Previous gene set">&#9664;</button>
-                                        <button class="btn btn-outline btn-sm" id="nextGeneSetBtn" title="Next gene set">&#9654;</button>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <button class="btn btn-outline btn-sm" id="prevGeneSetBtn" title="Previous gene set" style="padding: 2px 8px;">&#9650;</button>
+                                            <button class="btn btn-outline btn-sm" id="nextGeneSetBtn" title="Next gene set" style="padding: 2px 8px;">&#9660;</button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div id="esPlot"></div>
@@ -2993,6 +2993,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=50"></script>
+<script src="app.js?v=51"></script>
 </body>
 </html>

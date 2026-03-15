@@ -278,32 +278,25 @@ class GSEAApp {
             btn.addEventListener('click', () => this.showTab(btn.dataset.tab));
         });
 
-        // Gene set selector for ES plot (hidden select, still used internally)
+        // Gene set selector for ES plot
         document.getElementById('geneSetSelector').addEventListener('change', (e) => {
             if (e.target.value) {
                 this.renderESPlot(e.target.value);
                 this.renderGeneSetInfo(e.target.value);
                 this.renderGeneDetailTable(e.target.value);
-                // Sync search input text
-                const input = document.getElementById('geneSetSearchInput');
-                if (input) input.value = this.cleanName(e.target.value);
             }
         });
 
-        // Searchable gene set selector
+        // Search filter for gene set selector
         this._initGeneSetSearch();
 
         // Enrichment Plot tab filters — re-populate dropdown when changed
         ['esFdrFilter', 'esPvalFilter', 'esDirectionFilter'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
-                const currentVal = document.getElementById('geneSetSelector').value;
+                // Clear search filter when changing FDR/pval/direction
+                const searchInput = document.getElementById('geneSetSearchInput');
+                if (searchInput) searchInput.value = '';
                 this.populateGeneSetSelector();
-                // Restore selection if still in filtered list
-                if (currentVal) {
-                    const sel = document.getElementById('geneSetSelector');
-                    const stillExists = Array.from(sel.options).some(o => o.value === currentVal);
-                    if (stillExists) sel.value = currentVal;
-                }
                 this._initGeneSetSearch();
             });
         });
@@ -1932,8 +1925,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 if (this.results.length > 0) {
                     const topSet = this.results[0].name;
                     document.getElementById('geneSetSelector').value = topSet;
-                    const searchInput = document.getElementById('geneSetSearchInput');
-                    if (searchInput) searchInput.value = this.cleanName(topSet);
                     this.renderESPlot(topSet);
                     this.renderGeneSetInfo(topSet);
                     this.renderGeneDetailTable(topSet);
@@ -1994,8 +1985,9 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         this.renderOverlapHeatmap();
     }
 
-    populateGeneSetSelector() {
+    populateGeneSetSelector(searchFilter) {
         const sel = document.getElementById('geneSetSelector');
+        const currentVal = sel.value;
         sel.innerHTML = '<option value="">Select a gene set...</option>';
 
         // Read enrichment plot tab filters
@@ -2006,8 +1998,9 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const pvalThresh = esPvalEl ? parseFloat(esPvalEl.value) : 1;
         const dirFilter = esDirEl ? esDirEl.value : 'all';
 
-        // Filter results
+        // Filter results by FDR/pval/direction + hidden sets
         let filtered = this.results.filter(r => {
+            if (this._hiddenSets.has(r.name)) return false;
             if (fdrThresh < 1 && r.fdr >= fdrThresh) return false;
             if (pvalThresh < 1 && r.pvalue >= pvalThresh) return false;
             if (dirFilter === 'up' && r.nes <= 0) return false;
@@ -2015,9 +2008,27 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             return true;
         });
 
+        // Apply search filter if provided
+        if (searchFilter) {
+            const q = searchFilter.toLowerCase();
+            filtered = filtered.filter(r => r.name.toLowerCase().includes(q));
+        }
+
         // Update count
         const countEl = document.getElementById('esFilterCount');
-        if (countEl) countEl.textContent = `${filtered.length} of ${this.results.length} gene sets`;
+        if (countEl) {
+            const totalFiltered = this.results.filter(r => {
+                if (this._hiddenSets.has(r.name)) return false;
+                if (fdrThresh < 1 && r.fdr >= fdrThresh) return false;
+                if (pvalThresh < 1 && r.pvalue >= pvalThresh) return false;
+                if (dirFilter === 'up' && r.nes <= 0) return false;
+                if (dirFilter === 'down' && r.nes > 0) return false;
+                return true;
+            }).length;
+            countEl.textContent = searchFilter
+                ? `${filtered.length} matches (${totalFiltered} of ${this.results.length} gene sets)`
+                : `${totalFiltered} of ${this.results.length} gene sets`;
+        }
 
         // Group by positive/negative NES
         const pos = filtered.filter(r => r.nes > 0).sort((a, b) => b.nes - a.nes);
@@ -2025,10 +2036,10 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         if (pos.length > 0) {
             const group = document.createElement('optgroup');
-            group.label = `Upregulated (${pos.length})`;
+            group.label = `▲ Upregulated (${pos.length})`;
             for (const r of pos) {
                 const opt = new Option(
-                    `${this.cleanName(r.name)} (NES: ${r.nes.toFixed(2)}, FDR: ${this.formatPval(r.fdr)})`,
+                    `${this.cleanName(r.name)}  —  NES: ${r.nes.toFixed(2)}, FDR: ${this.formatPval(r.fdr)}`,
                     r.name
                 );
                 group.appendChild(opt);
@@ -2038,15 +2049,21 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         if (neg.length > 0) {
             const group = document.createElement('optgroup');
-            group.label = `Downregulated (${neg.length})`;
+            group.label = `▼ Downregulated (${neg.length})`;
             for (const r of neg) {
                 const opt = new Option(
-                    `${this.cleanName(r.name)} (NES: ${r.nes.toFixed(2)}, FDR: ${this.formatPval(r.fdr)})`,
+                    `${this.cleanName(r.name)}  —  NES: ${r.nes.toFixed(2)}, FDR: ${this.formatPval(r.fdr)}`,
                     r.name
                 );
                 group.appendChild(opt);
             }
             sel.appendChild(group);
+        }
+
+        // Restore previous selection if still exists
+        if (currentVal) {
+            const stillExists = Array.from(sel.options).some(o => o.value === currentVal);
+            if (stillExists) sel.value = currentVal;
         }
     }
 
@@ -3000,104 +3017,28 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
     _initGeneSetSearch() {
         const input = document.getElementById('geneSetSearchInput');
-        const dropdown = document.getElementById('geneSetSearchDropdown');
         const sel = document.getElementById('geneSetSelector');
-        if (!input || !dropdown) return;
+        if (!input || !sel) return;
+
+        // Remove old listeners by replacing element
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
 
         let debounceTimer = null;
-
-        const showDropdown = (filter) => {
-            // Read filters
-            const esFdrEl = document.getElementById('esFdrFilter');
-            const esPvalEl = document.getElementById('esPvalFilter');
-            const esDirEl = document.getElementById('esDirectionFilter');
-            const fdrT = esFdrEl ? parseFloat(esFdrEl.value) : 1;
-            const pvalT = esPvalEl ? parseFloat(esPvalEl.value) : 1;
-            const dirF = esDirEl ? esDirEl.value : 'all';
-
-            const passesFilter = (r) => {
-                if (fdrT < 1 && r.fdr >= fdrT) return false;
-                if (pvalT < 1 && r.pvalue >= pvalT) return false;
-                if (dirF === 'up' && r.nes <= 0) return false;
-                if (dirF === 'down' && r.nes > 0) return false;
-                return true;
-            };
-
-            const query = (filter || '').toLowerCase();
-            const allResults = this.results || [];
-
-            // When searching, show ALL matching results (filtered first, then others dimmed)
-            // When browsing (no query), only show filtered results
-            let matches;
-            if (query) {
-                matches = allResults.filter(r => r.name.toLowerCase().includes(query));
-                // Sort: filtered first, then by |NES|
-                matches.sort((a, b) => {
-                    const aPass = passesFilter(a) ? 0 : 1;
-                    const bPass = passesFilter(b) ? 0 : 1;
-                    if (aPass !== bPass) return aPass - bPass;
-                    return Math.abs(b.nes) - Math.abs(a.nes);
-                });
-            } else {
-                matches = allResults.filter(passesFilter);
-                matches.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
-            }
-
-            if (matches.length === 0) {
-                dropdown.innerHTML = '<div style="padding: 8px 12px; color: #999; font-size: 0.85em;">No matching gene sets</div>';
-                dropdown.style.display = 'block';
-                return;
-            }
-
-            // Limit to 100 for performance
-            const shown = matches.slice(0, 100);
-            dropdown.innerHTML = shown.map(r => {
-                const passes = passesFilter(r);
-                const info = `<span style="color: #888; font-size: 0.8em; margin-left: 6px;">NES: ${r.nes.toFixed(2)} FDR: ${this.formatPval(r.fdr)}</span>`;
-                const isSelected = r.name === sel.value;
-                const dimStyle = !passes ? 'opacity: 0.5;' : '';
-                return `<div class="gs-search-item" data-value="${r.name}" style="padding: 5px 10px; cursor: pointer; font-size: 0.85em; border-bottom: 1px solid #f3f4f6; ${dimStyle}${isSelected ? 'background: var(--green-50);' : ''}" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='${isSelected ? 'var(--green-50)' : ''}'">
-                    <span style="font-weight: 500;">${this.cleanName(r.name)}</span>${info}
-                </div>`;
-            }).join('');
-
-            if (matches.length > 100) {
-                dropdown.innerHTML += `<div style="padding: 5px 10px; color: #999; font-size: 0.8em; text-align: center;">${matches.length - 100} more — type to filter</div>`;
-            }
-            dropdown.style.display = 'block';
-        };
-
-        const hideDropdown = () => {
-            setTimeout(() => { dropdown.style.display = 'none'; }, 200);
-        };
-
-        const selectItem = (value) => {
-            sel.value = value;
-            input.value = this.cleanName(value);
-            dropdown.style.display = 'none';
-            sel.dispatchEvent(new Event('change'));
-        };
-
-        input.addEventListener('focus', () => showDropdown(input.value));
-        input.addEventListener('input', () => {
+        newInput.addEventListener('input', () => {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => showDropdown(input.value), 100);
-        });
-        input.addEventListener('blur', hideDropdown);
-
-        dropdown.addEventListener('mousedown', (e) => {
-            const item = e.target.closest('.gs-search-item');
-            if (item) {
-                e.preventDefault();
-                selectItem(item.dataset.value);
-            }
+            debounceTimer = setTimeout(() => {
+                const query = newInput.value.trim();
+                this.populateGeneSetSelector(query || undefined);
+            }, 150);
         });
 
-        // Keyboard navigation
-        input.addEventListener('keydown', (e) => {
+        // Clear search on Escape
+        newInput.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                dropdown.style.display = 'none';
-                input.blur();
+                newInput.value = '';
+                this.populateGeneSetSelector();
+                newInput.blur();
             }
         });
     }
@@ -4051,10 +3992,13 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (e.target.id === 'gsfApply') {
                 popup.style.display = 'none';
                 document.getElementById('geneSetFilterBackdrop').style.display = 'none';
-                // Apply to all tabs — hidden sets are shared
+                // Apply to ALL tabs — hidden sets are shared
                 self.renderBubblePlot();
                 self.filterAndRenderTable();
                 if (self.results) self.renderOverlapHeatmap();
+                // Also refresh enrichment plot gene set selector
+                self.populateGeneSetSelector();
+                self._initGeneSetSearch();
             } else if (e.target.id === 'gsfCancel') {
                 popup.style.display = 'none';
                 document.getElementById('geneSetFilterBackdrop').style.display = 'none';
