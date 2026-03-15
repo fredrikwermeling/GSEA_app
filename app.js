@@ -291,7 +291,7 @@ class GSEAApp {
         this._initGeneSetSearch();
 
         // Enrichment Plot tab filters — re-populate dropdown when changed
-        ['esFdrFilter', 'esPvalFilter', 'esDirectionFilter'].forEach(id => {
+        ['esFdrFilter', 'esPvalFilter', 'esDirectionFilter', 'esRedundancyFilter'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
                 // Clear search filter when changing FDR/pval/direction
                 const searchInput = document.getElementById('geneSetSearchInput');
@@ -2012,9 +2012,11 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const esFdrEl = document.getElementById('esFdrFilter');
         const esPvalEl = document.getElementById('esPvalFilter');
         const esDirEl = document.getElementById('esDirectionFilter');
+        const esRedEl = document.getElementById('esRedundancyFilter');
         const fdrThresh = esFdrEl ? parseFloat(esFdrEl.value) : 1;
         const pvalThresh = esPvalEl ? parseFloat(esPvalEl.value) : 1;
         const dirFilter = esDirEl ? esDirEl.value : 'all';
+        const redundancyThresh = esRedEl ? parseFloat(esRedEl.value) : 0;
 
         // Filter results by FDR/pval/direction + hidden sets
         let filtered = this.results.filter(r => {
@@ -2026,6 +2028,17 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             return true;
         });
 
+        // Apply redundancy filter — keep only cluster representatives
+        if (redundancyThresh > 0 && filtered.length > 1) {
+            const clusters = this._computeOverlapClusters(filtered, redundancyThresh);
+            const reps = this._getClusterRepresentatives(clusters);
+            // Keep sets that are representatives OR not in any cluster
+            filtered = filtered.filter(r => reps.has(r.name) || !clusters[r.name]);
+        }
+
+        // Capture count before search filter
+        const totalFiltered = filtered.length;
+
         // Apply search filter if provided
         if (searchFilter) {
             const q = searchFilter.toLowerCase();
@@ -2035,14 +2048,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // Update count
         const countEl = document.getElementById('esFilterCount');
         if (countEl) {
-            const totalFiltered = this.results.filter(r => {
-                if (this._hiddenSets.has(r.name)) return false;
-                if (fdrThresh < 1 && r.fdr >= fdrThresh) return false;
-                if (pvalThresh < 1 && r.pvalue >= pvalThresh) return false;
-                if (dirFilter === 'up' && r.nes <= 0) return false;
-                if (dirFilter === 'down' && r.nes > 0) return false;
-                return true;
-            }).length;
             countEl.textContent = searchFilter
                 ? `${filtered.length} matches (${totalFiltered} of ${this.results.length} gene sets)`
                 : `${totalFiltered} of ${this.results.length} gene sets`;
@@ -4009,10 +4014,42 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             }
             if (e.target.id === 'gsfFdrFilter') {
                 self._gsfFdrFilter = e.target.value;
+                // Auto-update selection: show sets passing filter, hide those that don't
+                const fdrT = self._gsfFdrFilter === 'all' ? Infinity : parseFloat(self._gsfFdrFilter);
+                for (const r of self.results) {
+                    if (r.fdr < fdrT) {
+                        self._hiddenSets.delete(r.name);
+                    } else {
+                        self._hiddenSets.add(r.name);
+                    }
+                }
+                // Also apply p-value filter if set
+                const pT = self._gsfPvalFilter && self._gsfPvalFilter !== 'all' ? parseFloat(self._gsfPvalFilter) : Infinity;
+                if (pT < Infinity) {
+                    for (const r of self.results) {
+                        if (r.pvalue >= pT) self._hiddenSets.add(r.name);
+                    }
+                }
                 self._renderGeneSetFilter();
             }
             if (e.target.id === 'gsfPvalFilter') {
                 self._gsfPvalFilter = e.target.value;
+                // Auto-update selection: show sets passing filter, hide those that don't
+                const pT = self._gsfPvalFilter === 'all' ? Infinity : parseFloat(self._gsfPvalFilter);
+                for (const r of self.results) {
+                    if (r.pvalue < pT) {
+                        self._hiddenSets.delete(r.name);
+                    } else {
+                        self._hiddenSets.add(r.name);
+                    }
+                }
+                // Also apply FDR filter if set
+                const fdrT = self._gsfFdrFilter && self._gsfFdrFilter !== 'all' ? parseFloat(self._gsfFdrFilter) : Infinity;
+                if (fdrT < Infinity) {
+                    for (const r of self.results) {
+                        if (r.fdr >= fdrT) self._hiddenSets.add(r.name);
+                    }
+                }
                 self._renderGeneSetFilter();
             }
             if (e.target.id === 'gsfClusterThresh') {
@@ -4896,6 +4933,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             el('esFdrFilter', '0.25');
             el('esPvalFilter', '1');
             el('esDirectionFilter', 'all');
+            el('esRedundancyFilter', '0');
             this.populateGeneSetSelector();
             this._initGeneSetSearch();
         }
