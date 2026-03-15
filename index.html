@@ -1510,7 +1510,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.26</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.27</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2246,48 +2246,6 @@
                 <p>Run GSEA, then click a gene set in the overview plot or results table to see its enrichment profile here</p>
             </div>
             <div id="enrichmentResults" style="display: none;">
-                <!-- Gene set selector row with filters -->
-                <div class="card" style="margin-bottom: 8px;">
-                    <div class="card-content" style="padding: 8px 14px;">
-                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px;">
-                            <select class="form-control" id="esFdrFilter" style="width: auto; font-size: 0.85em;" title="Filter dropdown by FDR">
-                                <option value="1">All FDR</option>
-                                <option value="0.5">FDR &lt; 0.5</option>
-                                <option value="0.25" selected>FDR &lt; 0.25</option>
-                                <option value="0.1">FDR &lt; 0.1</option>
-                                <option value="0.05">FDR &lt; 0.05</option>
-                                <option value="0.01">FDR &lt; 0.01</option>
-                            </select>
-                            <select class="form-control" id="esPvalFilter" style="width: auto; font-size: 0.85em;" title="Filter dropdown by p-value">
-                                <option value="1" selected>All p-values</option>
-                                <option value="0.1">p &lt; 0.1</option>
-                                <option value="0.05">p &lt; 0.05</option>
-                                <option value="0.01">p &lt; 0.01</option>
-                                <option value="0.001">p &lt; 0.001</option>
-                            </select>
-                            <select class="form-control" id="esDirectionFilter" style="width: auto; font-size: 0.85em;" title="Filter by direction">
-                                <option value="all">All directions</option>
-                                <option value="up">Upregulated (NES &gt; 0)</option>
-                                <option value="down">Downregulated (NES &lt; 0)</option>
-                            </select>
-                            <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('enrichment')" title="Reset filters to defaults" style="font-size: 0.85em;">↺ Reset</button>
-                            <span class="result-count" id="esFilterCount" style="font-size: 0.82em; color: var(--gray-500);"></span>
-                        </div>
-                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                            <div style="flex: 1; min-width: 250px; position: relative;">
-                                <input type="text" class="form-control" id="geneSetSearchInput" placeholder="Search gene sets..." style="width: 100%;" autocomplete="off">
-                                <div id="geneSetSearchDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 6px 6px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
-                                <!-- Hidden select to maintain compatibility -->
-                                <select id="geneSetSelector" style="display: none;">
-                                    <option value="">Select a gene set...</option>
-                                </select>
-                            </div>
-                            <button class="btn btn-outline btn-sm" id="prevGeneSetBtn" title="Previous gene set">&#9664;</button>
-                            <button class="btn btn-outline btn-sm" id="nextGeneSetBtn" title="Next gene set">&#9654;</button>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- ES plot + info side by side -->
                 <div style="display: flex; gap: 10px; align-items: flex-start;">
                     <!-- Plot column -->
@@ -2360,6 +2318,45 @@
                                 </div>
                             </div>
                             <div class="card-content" style="padding: 8px;">
+                                <!-- Gene set selector + filters (inside card, below green header) -->
+                                <div style="padding: 4px 6px 8px; border-bottom: 1px solid #eee; margin-bottom: 6px;">
+                                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px;">
+                                        <select class="form-control" id="esFdrFilter" style="width: auto; font-size: 0.85em;" title="Filter dropdown by FDR">
+                                            <option value="1">All FDR</option>
+                                            <option value="0.5">FDR &lt; 0.5</option>
+                                            <option value="0.25" selected>FDR &lt; 0.25</option>
+                                            <option value="0.1">FDR &lt; 0.1</option>
+                                            <option value="0.05">FDR &lt; 0.05</option>
+                                            <option value="0.01">FDR &lt; 0.01</option>
+                                        </select>
+                                        <select class="form-control" id="esPvalFilter" style="width: auto; font-size: 0.85em;" title="Filter dropdown by p-value">
+                                            <option value="1" selected>All p-values</option>
+                                            <option value="0.1">p &lt; 0.1</option>
+                                            <option value="0.05">p &lt; 0.05</option>
+                                            <option value="0.01">p &lt; 0.01</option>
+                                            <option value="0.001">p &lt; 0.001</option>
+                                        </select>
+                                        <select class="form-control" id="esDirectionFilter" style="width: auto; font-size: 0.85em;" title="Filter by direction">
+                                            <option value="all">All directions</option>
+                                            <option value="up">Upregulated (NES &gt; 0)</option>
+                                            <option value="down">Downregulated (NES &lt; 0)</option>
+                                        </select>
+                                        <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('enrichment')" title="Reset filters to defaults" style="font-size: 0.85em;">↺ Reset</button>
+                                        <span class="result-count" id="esFilterCount" style="font-size: 0.82em; color: var(--gray-500);"></span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                        <div style="flex: 1; min-width: 250px; position: relative;">
+                                            <input type="text" class="form-control" id="geneSetSearchInput" placeholder="Search gene sets..." style="width: 100%;" autocomplete="off">
+                                            <div id="geneSetSearchDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 6px 6px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+                                            <!-- Hidden select to maintain compatibility -->
+                                            <select id="geneSetSelector" style="display: none;">
+                                                <option value="">Select a gene set...</option>
+                                            </select>
+                                        </div>
+                                        <button class="btn btn-outline btn-sm" id="prevGeneSetBtn" title="Previous gene set">&#9664;</button>
+                                        <button class="btn btn-outline btn-sm" id="nextGeneSetBtn" title="Next gene set">&#9654;</button>
+                                    </div>
+                                </div>
                                 <div id="esPlot"></div>
                             </div>
                         </div>
@@ -2677,6 +2674,31 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.27</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <ul>
+                <li>Fixed enrichment plot not rendering (variable ordering bug)</li>
+                <li>Moved gene set filter bar + search below the green "Enrichment Score Plot" header</li>
+            </ul>
+            <details style="margin: 6px 0 12px; padding: 8px; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+                <summary style="cursor: pointer; font-weight: 600; font-size: 11px; color: #374151;">Benchmark: Run GSEA vs Smart Run</summary>
+                <div style="margin-top: 8px; font-size: 11px;">
+                    <p style="margin: 4px 0;"><strong>Accuracy</strong> (vs 10,000-permutation ground truth, Hallmark 50 sets):</p>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin: 4px 0;">
+                        <tr style="background: #f3f4f6;"><th style="padding: 2px 4px; text-align: left;">Perms</th><th>NES correlation</th><th>FDR RMSE</th><th>Missed</th><th>False+</th></tr>
+                        <tr><td style="padding: 2px 4px;">100</td><td style="text-align:center;">0.924</td><td style="text-align:center;">0.054</td><td style="text-align:center;">0.4</td><td style="text-align:center;">0</td></tr>
+                        <tr><td style="padding: 2px 4px;">1,000</td><td style="text-align:center;">0.926</td><td style="text-align:center;">0.025</td><td style="text-align:center;">0.2</td><td style="text-align:center;">0</td></tr>
+                        <tr><td style="padding: 2px 4px;">5,000</td><td style="text-align:center;">0.941</td><td style="text-align:center;">0.020</td><td style="text-align:center;">0</td><td style="text-align:center;">0</td></tr>
+                    </table>
+                    <p style="margin: 6px 0 2px;"><strong>Speed</strong> (1,000 permutations):</p>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin: 4px 0;">
+                        <tr style="background: #f3f4f6;"><th style="padding: 2px 4px; text-align: left;">Collection</th><th>Run GSEA</th><th>Smart Run</th><th>Speedup</th></tr>
+                        <tr><td style="padding: 2px 4px;">Hallmark (50)</td><td style="text-align:center;">0.54s</td><td style="text-align:center;">0.23s</td><td style="text-align:center;font-weight:600;">2.3×</td></tr>
+                        <tr><td style="padding: 2px 4px;">+ KEGG (855)</td><td style="text-align:center;">5.3s</td><td style="text-align:center;">0.91s</td><td style="text-align:center;font-weight:600;">5.8×</td></tr>
+                        <tr><td style="padding: 2px 4px;">+ Reactome (2547)</td><td style="text-align:center;">14.7s</td><td style="text-align:center;">2.2s</td><td style="text-align:center;font-weight:600;">6.6×</td></tr>
+                    </table>
+                    <p style="margin: 6px 0 2px;"><strong>Key findings:</strong> Smart Run is 2–7× faster with biggest gains on large collections. No false positives at any permutation count. 1,000 permutations is optimal: high accuracy, fast execution. NES reproducibility SD: 0.005–0.024.</p>
+                </div>
+            </details>
             <p><strong>v.26</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>Enrichment Plot search: now finds all gene sets when typing (filter-passing shown first, others dimmed)</li>
@@ -2971,6 +2993,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=49"></script>
+<script src="app.js?v=50"></script>
 </body>
 </html>

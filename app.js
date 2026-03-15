@@ -2795,6 +2795,16 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             });
         }
 
+        // Compute y-range for metric panel — use actual min/max of ALL metrics
+        // (must be computed before zero-cross annotation which uses metYMin)
+        let metActualMin = 0, metActualMax = 0;
+        for (let i = 0; i < N; i++) {
+            if (metrics[i] < metActualMin) metActualMin = metrics[i];
+            if (metrics[i] > metActualMax) metActualMax = metrics[i];
+        }
+        const metYMin = metActualMin * 1.05;
+        const metYMax = metActualMax * 1.05;
+
         // Zero cross annotation — positioned below the metric panel to avoid overlapping bars
         if (zeroCross >= 0 && s.showZeroCross) {
             // Place the annotation below the zero line with arrow pointing up
@@ -2835,15 +2845,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 });
             }
         }
-
-        // Compute y-range for metric panel — use actual min/max of ALL metrics
-        let metActualMin = 0, metActualMax = 0;
-        for (let i = 0; i < N; i++) {
-            if (metrics[i] < metActualMin) metActualMin = metrics[i];
-            if (metrics[i] > metActualMax) metActualMax = metrics[i];
-        }
-        const metYMin = metActualMin * 1.05;
-        const metYMax = metActualMax * 1.05;
 
         // Text font references for ES plot
         const esYLabelFont = this._getTextFont('es', 'esYLabel');
