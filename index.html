@@ -1510,7 +1510,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.24</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.25</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1701,7 +1701,7 @@
 
                 <div class="form-group" style="margin-top: 0;">
                     <div class="example-data-grid" style="background: var(--green-50); border-radius: var(--radius-sm); padding: 6px;">
-                        <div style="font-size: 0.75em; color: var(--gray-500); margin-bottom: 2px; padding: 0 4px;">DepMap cancer cell lines — click to load</div>
+                        <div style="font-size: 0.75em; color: var(--gray-500); margin-bottom: 2px; padding: 0 4px;"><a href="https://depmap.org/" target="_blank" style="color: var(--gray-500); text-decoration: underline;">DepMap</a> cancer cell line data</div>
                         <div class="example-row">
                             <div class="example-cell-info"><span class="example-cell-name">A375</span><span class="example-cancer-type">Skin (Melanoma)</span></div>
                             <div class="example-buttons"><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('A375','expression')">Expression</button><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('A375','crispr')">CRISPR</button></div>
@@ -2052,7 +2052,7 @@
 
         <!-- Tab: Overview -->
         <div class="tab-panel active" id="tab-overview">
-            <div id="overviewEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center; transform: translateX(-60px);">
+            <div id="overviewEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center;">
                 <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
                 <div style="margin-bottom: 6px;">
                     Load test data for <span style="color: var(--green-600); font-weight: 600;">skin, lung, colorectal, brain</span> or <span style="color: var(--green-600); font-weight: 600;">blood cancer</span> &mdash; or upload your own data set &mdash; and click <span style="color: var(--green-600); font-weight: 600;">Run GSEA</span>
@@ -2657,6 +2657,12 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.25</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <ul>
+                <li>DepMap label updated with link; expression z-scores no longer capped at 20 (proper robust MAD floor)</li>
+                <li>Select Sets defaults: FDR &lt; 0.25, overlap &gt; 30%, auto-selects best per cluster on open</li>
+                <li>"New to Enrich?" centering fixed after reset</li>
+            </ul>
             <p><strong>v.24</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>FDR filters now range 0.5–0.01 everywhere; p-value filters range 0.1–0.001</li>
@@ -2938,6 +2944,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=47"></script>
+<script src="app.js?v=48"></script>
 </body>
 </html>

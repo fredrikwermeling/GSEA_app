@@ -60,8 +60,11 @@ def process_expression(df, cell_lines):
     # Compute median and MAD across all cell lines
     median = df.median(axis=0)
     mad = (df - median).abs().median(axis=0)
-    # Avoid division by zero
-    mad = mad.replace(0, 1e-6)
+    # Use 5th percentile of non-zero MADs as floor (avoids extreme z-scores
+    # from near-zero variability genes while preserving true signal)
+    nonzero_mads = mad[mad > 0]
+    min_mad = nonzero_mads.quantile(0.05) if len(nonzero_mads) > 0 else 0.1
+    mad = mad.clip(lower=min_mad)
 
     results = {}
     for name, ach_id in cell_lines.items():
@@ -70,8 +73,6 @@ def process_expression(df, cell_lines):
             continue
         row = df.loc[ach_id]
         zscores = (row - median) / mad
-        # Cap extreme z-scores (from near-zero MAD genes)
-        zscores = zscores.clip(-20, 20)
         # Build gene list, sorted by z-score descending
         genes = []
         for col in df.columns:

@@ -3798,7 +3798,36 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         this._gsfSortCol = this._gsfSortCol || 'nes';
         this._gsfSortAsc = this._gsfSortAsc !== undefined ? this._gsfSortAsc : false;
 
+        // Set defaults on first open: FDR < 0.25, overlap > 30%, auto-select
+        if (!this._gsfInitialized) {
+            this._gsfFdrFilter = '0.25';
+            this._gsfClusterThreshold = 0.3;
+            this._gsfInitialized = true;
+        }
+
         this._renderGeneSetFilter();
+
+        // Auto-select best per cluster on first open
+        if (this._gsfAutoSelectOnOpen) return; // already done
+        this._gsfAutoSelectOnOpen = true;
+        // Trigger auto-select after render
+        const thresh = this._gsfClusterThreshold || 0.3;
+        if (thresh > 0) {
+            const clusterInput = this.results.filter(r => r.fdr < 0.25);
+            const cappedInput = clusterInput.length > 500
+                ? clusterInput.slice().sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes)).slice(0, 500)
+                : clusterInput;
+            const cls = this._computeOverlapClusters(cappedInput, thresh);
+            const reps = this._getClusterRepresentatives(cls);
+            for (const [name, cid] of Object.entries(cls)) {
+                if (reps.has(name)) {
+                    this._hiddenSets.delete(name);
+                } else {
+                    this._hiddenSets.add(name);
+                }
+            }
+            this._renderGeneSetFilter();
+        }
     }
 
     _renderGeneSetFilter() {
