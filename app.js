@@ -4073,13 +4073,24 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (e.target.id === 'gsfApply') {
                 popup.style.display = 'none';
                 document.getElementById('geneSetFilterBackdrop').style.display = 'none';
-                // If Select Sets used overlap clustering, reset the per-tab overlap filters
-                // to avoid confusing double-filtering
+                // Sync Select Sets filters to all tabs
+                const syncFdr = self._gsfFdrFilter || 'all';
+                const syncPval = self._gsfPvalFilter || 'all';
+                // Map Select Sets FDR/pval values to per-tab dropdown values
+                const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+                // Results Table (uses 'all' for no filter)
+                setVal('fdrFilter', syncFdr === 'all' ? 'all' : syncFdr);
+                setVal('pvalueFilter', syncPval === 'all' ? 'all' : syncPval);
+                // Overview (uses '1' for no filter)
+                setVal('overviewFdrFilter', syncFdr === 'all' ? '1' : syncFdr);
+                setVal('overviewPvalFilter', syncPval === 'all' ? '1' : syncPval);
+                // Enrichment Score Plot (uses '1' for no filter)
+                setVal('esFdrFilter', syncFdr === 'all' ? '1' : syncFdr);
+                setVal('esPvalFilter', syncPval === 'all' ? '1' : syncPval);
+                // If Select Sets used overlap clustering, reset per-tab overlap filters
                 if (self._gsfClusterThreshold > 0) {
-                    const tableOF = document.getElementById('tableOverlapFilter');
-                    const overviewOF = document.getElementById('overviewOverlapFilter');
-                    if (tableOF) tableOF.value = '0';
-                    if (overviewOF) overviewOF.value = '0';
+                    setVal('tableOverlapFilter', '0');
+                    setVal('overviewOverlapFilter', '0');
                     self._overlapFilterThreshold = 0;
                 }
                 // Apply to ALL tabs — hidden sets are shared
