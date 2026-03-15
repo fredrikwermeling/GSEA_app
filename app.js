@@ -3855,6 +3855,11 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             const thresh = parseFloat(gsfPvalVal);
             sorted = sorted.filter(r => r.pvalue < thresh);
         }
+        // Filter by search query
+        const searchQ = (this._gsfSearchVal || '').toLowerCase();
+        if (searchQ) {
+            sorted = sorted.filter(r => r.name.toLowerCase().includes(searchQ));
+        }
 
         const clusterColors = ['#d97706', '#7c3aed', '#059669', '#dc2626', '#2563eb', '#db2777', '#ca8a04', '#0891b2'];
 
@@ -3905,14 +3910,11 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         if (gsfClusterThresh > 0) html += `<th class="gsf-sort" data-gsf-col="cluster" style="${thStyle} text-align: center; width: 55px;">Cluster${sortArrow('cluster')}</th>`;
         html += `</tr></thead><tbody>`;
 
-        const searchQ = (this._gsfSearchVal || '').toLowerCase();
         const MAX_DISPLAY_ROWS = 500;
         let displayCount = 0;
-        let totalMatching = 0;
+        const totalMatching = sorted.length;
         for (const r of sorted) {
-            if (searchQ && !r.name.toLowerCase().includes(searchQ)) continue;
-            totalMatching++;
-            if (displayCount >= MAX_DISPLAY_ROWS) continue;
+            if (displayCount >= MAX_DISPLAY_ROWS) break;
             const hidden = this._hiddenSets.has(r.name);
             const coll = this._getSetCollection(r.name);
             const nesColor = r.nes > 0 ? '#dc2626' : '#2563eb';
@@ -3950,6 +3952,15 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         body.innerHTML = html;
         popup.style.display = 'block';
         document.getElementById('geneSetFilterBackdrop').style.display = 'block';
+
+        // Restore focus to search input if user was typing
+        if (searchQ) {
+            const searchInput = document.getElementById('gsfSearch');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+            }
+        }
 
         // Wire up events (re-bind each time since we rebuild the entire DOM)
         // Use event delegation on body
@@ -4045,14 +4056,12 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 self.showTab('overview');
             }
         };
+        let gsfSearchTimer = null;
         body.oninput = function(e) {
             if (e.target.id === 'gsfSearch') {
                 self._gsfSearchVal = e.target.value;
-                const q = e.target.value.toLowerCase();
-                body.querySelectorAll('.gsf-row').forEach(row => {
-                    const name = row.dataset.name.toLowerCase();
-                    row.style.display = name.includes(q) ? '' : 'none';
-                });
+                clearTimeout(gsfSearchTimer);
+                gsfSearchTimer = setTimeout(() => self._renderGeneSetFilter(), 200);
             }
         };
     }
