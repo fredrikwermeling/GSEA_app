@@ -1500,7 +1500,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.12</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.13</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2481,6 +2481,16 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>dev-13</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <ul>
+                <li>Smart Run (iterative): 3-phase automated GSEA — screens diverse sets, expands around hits, refines with high permutations</li>
+                <li>Async rendering pipeline with elapsed timer — prevents browser crash on large result sets</li>
+                <li>Overlap cache capped at top 200 results to prevent O(n²) crash</li>
+                <li>Expand around hits: find and test gene sets similar to your significant results</li>
+                <li>Bubble plot pinning: pin specific gene sets to always show in the overview plot</li>
+                <li>Gene Set Browser: pre-computed Jaccard diversity filter for instant switching</li>
+                <li>Warning dialog tip adapts to current permutation setting</li>
+            </ul>
             <p><strong>dev-12</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>All plots now have editable, movable title annotations</li>
