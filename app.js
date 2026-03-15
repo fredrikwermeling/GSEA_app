@@ -206,6 +206,7 @@ class GSEAApp {
             this._updateCollectionFilterForTier();
             this.filterGeneSetBrowser();
         });
+        document.getElementById('gsbJaccardFilter').addEventListener('change', () => this.filterGeneSetBrowser());
         document.getElementById('gsbSelectAll').addEventListener('click', () => this.gsbSelectAllVisible());
         document.getElementById('gsbDeselectAll').addEventListener('click', () => this.gsbDeselectAll());
         document.getElementById('gsbDownloadBtn').addEventListener('click', () => this.gsbDownloadSelectedCSV());
@@ -1387,8 +1388,8 @@ class GSEAApp {
                 range: [-1.5, top.length + 0.5],
                 fixedrange: true
             },
-            height: Math.max(440, top.length * 26 + 140),
-            margin: { l: 15, r: 160, t: 40, b: 50 },
+            height: Math.max(440, top.length * 26 + 160),
+            margin: { l: 15, r: 160, t: 55, b: 55 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -1617,7 +1618,7 @@ class GSEAApp {
                 fixedrange: true
             },
             height: 250,
-            margin: { l: 65, r: 20, t: 35, b: 50 },
+            margin: { l: 65, r: 20, t: 50, b: 50 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -2600,7 +2601,7 @@ class GSEAApp {
         const layout = {
             height: overlapHeight,
             width: overlapWidth,
-            margin: { l: 10, r: 50, t: 40, b: 10 },
+            margin: { l: 10, r: 50, t: 55, b: 10 },
             xaxis: { tickfont: { size: overlapTickFont.visible !== false ? overlapTickFont.size : 0, family: overlapTickFont.family }, tickangle: -45, automargin: true, showgrid: false, fixedrange: true },
             yaxis: { tickfont: { size: overlapTickFont.visible !== false ? overlapTickFont.size : 0, family: overlapTickFont.family }, automargin: true, showgrid: false, autorange: 'reversed', fixedrange: true },
             annotations: overlapAnnotations,
@@ -4002,6 +4003,7 @@ class GSEAApp {
         document.getElementById('gsbTierFilter').value = 'all';
         this._updateCollectionFilterForTier();
         document.getElementById('gsbCollectionFilter').value = 'all';
+        document.getElementById('gsbJaccardFilter').value = 'off';
 
         // Reset detail panel
         document.getElementById('gsbDetailTitle').textContent = 'Gene Set Details';
@@ -4094,6 +4096,48 @@ class GSEAApp {
             this._gsbLastGeneHits = [];
         }
 
+        // Jaccard diversity filter: greedy selection keeping only diverse sets
+        const jaccardThreshold = document.getElementById('gsbJaccardFilter').value;
+        let jaccardFiltered = 0;
+        if (jaccardThreshold !== 'off') {
+            const maxJ = parseFloat(jaccardThreshold);
+            // Pre-compute gene sets as uppercase Sets (cached on item for reuse)
+            for (const item of filtered) {
+                if (!item._geneSet) item._geneSet = new Set(item.genes.map(g => g.toUpperCase()));
+            }
+            const kept = [];
+            const keptGeneSets = []; // parallel array of Set objects for fast Jaccard
+            for (const item of filtered) {
+                const itemGenes = item._geneSet;
+                let tooSimilar = false;
+                for (const keptGenes of keptGeneSets) {
+                    // Quick size-based check: if smaller/larger > maxJ is impossible, skip
+                    const sA = itemGenes.size, sB = keptGenes.size;
+                    const minSize = Math.min(sA, sB), maxSize = Math.max(sA, sB);
+                    // Max possible Jaccard = minSize / maxSize (when smaller is subset of larger)
+                    if (minSize / maxSize < maxJ) continue;
+                    // Jaccard = |A ∩ B| / |A ∪ B|
+                    let intersection = 0;
+                    const smaller = sA <= sB ? itemGenes : keptGenes;
+                    const larger = sA <= sB ? keptGenes : itemGenes;
+                    for (const g of smaller) {
+                        if (larger.has(g)) intersection++;
+                    }
+                    const union = sA + sB - intersection;
+                    if (union > 0 && intersection / union >= maxJ) {
+                        tooSimilar = true;
+                        break;
+                    }
+                }
+                if (!tooSimilar) {
+                    kept.push(item);
+                    keptGeneSets.push(itemGenes);
+                }
+            }
+            jaccardFiltered = filtered.length - kept.length;
+            filtered = kept;
+        }
+
         // Build flat list with section headers
         this._gsbFlatList = [];
 
@@ -4102,6 +4146,14 @@ class GSEAApp {
             this._gsbFlatList.push({
                 type: 'info',
                 text: `Gene match: ${this._gsbLastGeneHits.join(', ')} found in ${filtered.length} gene sets`
+            });
+        }
+
+        // If Jaccard filter active, show info banner
+        if (jaccardFiltered > 0) {
+            this._gsbFlatList.push({
+                type: 'info',
+                text: `Diversity filter: showing ${filtered.length} diverse sets (${jaccardFiltered} similar sets hidden, J ≥ ${jaccardThreshold})`
             });
         }
 

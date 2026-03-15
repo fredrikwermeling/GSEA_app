@@ -2629,6 +2629,13 @@
             <option value="c8">C8: Cell Type</option>
             <option value="custom">Custom</option>
         </select>
+        <select class="gsb-collection-filter" id="gsbJaccardFilter" title="Filter out gene sets too similar to already-selected ones (Jaccard index)">
+            <option value="off">Similarity: Off</option>
+            <option value="0.1">J &lt; 0.1 (very diverse)</option>
+            <option value="0.2">J &lt; 0.2</option>
+            <option value="0.3">J &lt; 0.3</option>
+            <option value="0.5">J &lt; 0.5</option>
+        </select>
         <button class="btn btn-secondary btn-sm" id="gsbSelectAll">Select All Visible</button>
         <button class="btn btn-secondary btn-sm" id="gsbDeselectAll">Deselect All</button>
         <span class="gsb-results-count" id="gsbResultsCount"></span>
