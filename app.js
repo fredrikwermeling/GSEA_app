@@ -108,6 +108,7 @@ class GSEAApp {
         // Overlap-based redundancy filtering
         this._overlapCache = null;       // { pairwise: Map, setGenes: {} }
         this._hiddenSets = new Set();    // gene set names hidden by user or overlap filter
+        this._pinnedBubbleSets = new Set(); // gene sets pinned to always show in bubble plot
         this._overlapFilterThreshold = 0; // 0 = off, 50/70/80 = % Jaccard overlap
 
         // Table sort state
@@ -266,8 +267,9 @@ class GSEAApp {
             }
         });
 
-        // Run / Cancel
+        // Run / Cancel / Smart Run
         document.getElementById('runBtn').addEventListener('click', () => this.runGSEA());
+        document.getElementById('smartRunBtn').addEventListener('click', () => this.runSmartGSEA());
         document.getElementById('cancelBtn').addEventListener('click', () => this.cancelAnalysis());
 
         // Tabs
@@ -350,6 +352,7 @@ class GSEAApp {
 
         // Re-run significant hits (Card 4 button)
         document.getElementById('rerunSignificantBtn').addEventListener('click', () => this.rerunSignificant());
+        document.getElementById('expandHitsBtn').addEventListener('click', () => this.expandAroundHits());
         document.getElementById('rerunFdrThreshold').addEventListener('change', () => this.updateRerunHitCount());
 
         // Methods card buttons
@@ -733,6 +736,7 @@ class GSEAApp {
         const hasData = this.rawData && geneCol && metricCol;
         const hasGeneSets = this.getActiveGeneSets() !== null;
         document.getElementById('runBtn').disabled = !(hasData && hasGeneSets);
+        document.getElementById('smartRunBtn').disabled = !(hasData && hasGeneSets);
     }
 
     getActiveGeneSets() {
@@ -881,12 +885,16 @@ class GSEAApp {
         const nSets = Object.keys(geneSets).length;
         if (nSets > 5000) {
             const estMinutes = Math.max(1, Math.round(nSets * this.settings.permutations / 500000));
+            const permTip = this.settings.permutations <= 200
+                ? `• You're using ${this.settings.permutations} permutations (good for screening). After results, use "Re-run filtered" with ≥1000 for publication-quality statistics.`
+                : `• Lower permutations (e.g. 100–200) for faster screening, then use "Re-run filtered" with ≥1000 permutations for publication-quality p-values.`;
             const proceed = confirm(
                 `You are about to analyze ${nSets.toLocaleString()} gene sets with ${this.settings.permutations.toLocaleString()} permutations.\n\n` +
                 `Estimated time: ~${estMinutes} minute${estMinutes > 1 ? 's' : ''}.\n\n` +
                 `Tips:\n` +
                 `• Start with Hallmark (50 sets) for a quick, interpretable overview.\n` +
-                `• You can lower permutations (e.g. 100–200) for faster screening, then use "Re-run filtered" with ≥1000 permutations for publication-quality p-values.\n\nContinue?`
+                `${permTip}\n` +
+                `• Consider using "Smart Run" for iterative analysis of large collections.\n\nContinue?`
             );
             if (!proceed) {
                 document.getElementById('progressContainer').classList.add('hidden');
@@ -897,6 +905,7 @@ class GSEAApp {
         }
 
         this.analysisDate = new Date();
+        this._allRunGeneSets = geneSets; // Store for "Expand around hits"
 
         this.worker.postMessage({
             type: 'run',
@@ -913,11 +922,294 @@ class GSEAApp {
     }
 
     cancelAnalysis() {
+        this._smartRunCancelled = true;
         this.createWorker();
         document.getElementById('runBtn').style.display = '';
         document.getElementById('cancelBtn').style.display = 'none';
         document.getElementById('progressContainer').classList.remove('active');
         this.showStatus('runStatus', 'warning', 'Analysis cancelled.');
+    }
+
+    // --------------------------------------------------------
+    // Smart Run — iterative GSEA
+    // --------------------------------------------------------
+    async runSmartGSEA() {
+        this.buildRankedList();
+        if (this.rankedList.genes.length === 0) {
+            this.showStatus('runStatus', 'error', 'No valid gene-metric pairs found.');
+            return;
+        }
+        const allGeneSets = this.getActiveGeneSets();
+        if (!allGeneSets) {
+            this.showStatus('runStatus', 'error', 'No gene sets loaded.');
+            return;
+        }
+        this.readSettings();
+        this._allRunGeneSets = allGeneSets;
+        this._smartRunCancelled = false;
+
+        const nTotal = Object.keys(allGeneSets).length;
+        if (nTotal <= 200) {
+            // Small enough to run directly
+            this.runGSEA();
+            return;
+        }
+
+        const proceed = confirm(
+            `Smart Run will analyze ${nTotal.toLocaleString()} gene sets in 3 phases:\n\n` +
+            `Phase 1: Screen diverse sets (J<0.1) with 100 permutations\n` +
+            `Phase 2: Expand around hits — test related gene sets\n` +
+            `Phase 3: Refine significant hits with ${Math.max(1000, this.settings.permutations)} permutations\n\n` +
+            `This is faster and more stable than running all sets at once.\n\nContinue?`
+        );
+        if (!proceed) return;
+
+        // Show progress
+        document.getElementById('runBtn').style.display = 'none';
+        document.getElementById('smartRunBtn').style.display = 'none';
+        document.getElementById('cancelBtn').style.display = '';
+        document.getElementById('progressContainer').classList.add('active');
+        this.hideStatus('runStatus');
+        this.analysisDate = new Date();
+
+        // --- Phase 1: Screen diverse sets ---
+        document.getElementById('progressText').textContent = 'Phase 1/3: Computing diversity filter...';
+        await new Promise(r => setTimeout(r, 0));
+
+        const diverseSets = this._computeDiverseSubset(allGeneSets, 0.1);
+        const nDiverse = Object.keys(diverseSets).length;
+
+        if (this._smartRunCancelled) return;
+        document.getElementById('progressText').textContent = `Phase 1/3: Screening ${nDiverse} diverse sets with 100 permutations...`;
+
+        await this._runWorkerAsync(diverseSets, {
+            permutations: 100,
+            minSize: this.settings.minSize,
+            maxSize: this.settings.maxSize,
+            weightP: this.settings.weightP
+        });
+
+        if (this._smartRunCancelled) return;
+
+        // Store Phase 1 results
+        this.results = this._lastWorkerResults;
+        const phase1Hits = this.results.filter(r => r.fdr < 0.25);
+
+        // --- Phase 2: Expand around hits ---
+        if (phase1Hits.length > 0) {
+            document.getElementById('progressText').textContent = `Phase 2/3: Finding sets related to ${phase1Hits.length} hits...`;
+            await new Promise(r => setTimeout(r, 0));
+
+            const expansionSets = this._findRelatedSets(phase1Hits, allGeneSets, 0.1);
+            const nExpansion = Object.keys(expansionSets).length;
+
+            if (nExpansion > 0 && !this._smartRunCancelled) {
+                document.getElementById('progressText').textContent = `Phase 2/3: Testing ${nExpansion} related sets...`;
+                this._rerunSetNames = new Set(Object.keys(expansionSets));
+
+                await this._runWorkerAsync(expansionSets, {
+                    permutations: 100,
+                    minSize: this.settings.minSize,
+                    maxSize: this.settings.maxSize,
+                    weightP: this.settings.weightP
+                });
+
+                if (this._smartRunCancelled) return;
+
+                // Merge Phase 2 results
+                const newResults = this._lastWorkerResults;
+                const existingNames = new Set(this.results.map(r => r.name));
+                for (const r of newResults) {
+                    if (!existingNames.has(r.name)) this.results.push(r);
+                }
+                this._rerunSetNames = null;
+            }
+        }
+
+        // --- Phase 3: Refine hits with high permutations ---
+        const allHits = this.results.filter(r => r.fdr < 0.25);
+        if (allHits.length > 0 && !this._smartRunCancelled) {
+            const refinePerm = Math.max(1000, this.settings.permutations);
+            document.getElementById('progressText').textContent = `Phase 3/3: Refining ${allHits.length} hits with ${refinePerm} permutations...`;
+
+            const refineSets = {};
+            for (const r of allHits) {
+                if (allGeneSets[r.name]) refineSets[r.name] = allGeneSets[r.name];
+            }
+            this._rerunSetNames = new Set(Object.keys(refineSets));
+
+            await this._runWorkerAsync(refineSets, {
+                permutations: refinePerm,
+                minSize: this.settings.minSize,
+                maxSize: this.settings.maxSize,
+                weightP: this.settings.weightP
+            });
+
+            if (this._smartRunCancelled) return;
+
+            // Merge refined results
+            const refinedByName = {};
+            for (const r of this._lastWorkerResults) refinedByName[r.name] = r;
+            this.results = this.results.map(r => refinedByName[r.name] || r);
+            this._rerunSetNames = null;
+        }
+
+        // Done — render results
+        document.getElementById('runBtn').style.display = '';
+        document.getElementById('smartRunBtn').style.display = '';
+        document.getElementById('cancelBtn').style.display = 'none';
+        document.getElementById('rerunSection').style.display = '';
+        this.updateRerunHitCount();
+
+        const nSig = this.results.filter(r => r.fdr < 0.25).length;
+        const doneMsg = `Smart Run complete! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25)`;
+        await this._renderResultsAsync(doneMsg);
+    }
+
+    /** Run worker and return a promise that resolves when complete */
+    _runWorkerAsync(geneSets, settings) {
+        return new Promise((resolve, reject) => {
+            const handler = (e) => {
+                const data = e.data;
+                if (data.type === 'progress') {
+                    // Prepend phase info to progress text
+                    const phasePrefix = document.getElementById('progressText').textContent.match(/^Phase \d\/\d:/)?.[0] || '';
+                    document.getElementById('progressBar').style.width = data.percent + '%';
+                    if (phasePrefix) {
+                        document.getElementById('progressText').textContent = `${phasePrefix} ${data.text}`;
+                    }
+                }
+                if (data.type === 'complete') {
+                    this.worker.onmessage = (e) => this.handleWorkerMessage(e);
+                    this._lastWorkerResults = data.results;
+                    resolve(data.results);
+                }
+                if (data.type === 'error') {
+                    this.worker.onmessage = (e) => this.handleWorkerMessage(e);
+                    reject(new Error(data.message));
+                }
+            };
+            this.worker.onmessage = handler;
+            this.worker.postMessage({
+                type: 'run',
+                rankedGenes: this.rankedList.genes,
+                rankedMetrics: this.rankedList.metrics,
+                geneSets,
+                settings
+            });
+        });
+    }
+
+    /** Compute a diverse subset of gene sets using greedy Jaccard filtering */
+    _computeDiverseSubset(geneSets, maxJaccard) {
+        const entries = Object.entries(geneSets);
+        const kept = {};
+        const keptGeneSets = [];
+        for (const [name, genes] of entries) {
+            const geneSet = new Set(genes.map(g => g.toUpperCase()));
+            let tooSimilar = false;
+            for (const keptGS of keptGeneSets) {
+                const sA = geneSet.size, sB = keptGS.size;
+                if (Math.min(sA, sB) / Math.max(sA, sB) < maxJaccard) continue;
+                let intersection = 0;
+                const smaller = sA <= sB ? geneSet : keptGS;
+                const larger = sA <= sB ? keptGS : geneSet;
+                for (const g of smaller) {
+                    if (larger.has(g)) intersection++;
+                }
+                if ((sA + sB - intersection) > 0 && intersection / (sA + sB - intersection) >= maxJaccard) {
+                    tooSimilar = true;
+                    break;
+                }
+            }
+            if (!tooSimilar) {
+                kept[name] = genes;
+                keptGeneSets.push(geneSet);
+            }
+        }
+        return kept;
+    }
+
+    /** Find gene sets related (Jaccard > threshold) to any hit */
+    _findRelatedSets(hits, allGeneSets, minJaccard) {
+        const hitGeneSets = hits.map(r => ({
+            name: r.name,
+            genes: new Set((allGeneSets[r.name] || []).map(g => g.toUpperCase()))
+        }));
+        const alreadyTested = new Set(this.results.map(r => r.name));
+        const related = {};
+        for (const [name, genes] of Object.entries(allGeneSets)) {
+            if (alreadyTested.has(name)) continue;
+            const geneSet = new Set(genes.map(g => g.toUpperCase()));
+            for (const hit of hitGeneSets) {
+                const sA = geneSet.size, sB = hit.genes.size;
+                if (Math.min(sA, sB) / Math.max(sA, sB) < minJaccard) continue;
+                let intersection = 0;
+                const smaller = sA <= sB ? geneSet : hit.genes;
+                const larger = sA <= sB ? hit.genes : geneSet;
+                for (const g of smaller) {
+                    if (larger.has(g)) intersection++;
+                }
+                const union = sA + sB - intersection;
+                if (union > 0 && intersection / union >= minJaccard) {
+                    related[name] = genes;
+                    break;
+                }
+            }
+        }
+        return related;
+    }
+
+    // --------------------------------------------------------
+    // Expand Around Hits
+    // --------------------------------------------------------
+    expandAroundHits() {
+        if (!this.results || !this._allRunGeneSets) {
+            this.showStatus('runStatus', 'error', 'Run GSEA first to generate results.');
+            return;
+        }
+        const hits = this.results.filter(r => r.fdr < 0.25);
+        if (hits.length === 0) {
+            this.showStatus('runStatus', 'warning', 'No significant hits (FDR < 0.25) to expand around.');
+            return;
+        }
+
+        const related = this._findRelatedSets(hits, this._allRunGeneSets, 0.1);
+        const nRelated = Object.keys(related).length;
+        if (nRelated === 0) {
+            this.showStatus('runStatus', 'info', 'No additional related gene sets found.');
+            return;
+        }
+
+        this.readSettings();
+        const perms = this.settings.permutations;
+        const proceed = confirm(
+            `Found ${nRelated} gene sets similar to your ${hits.length} significant hits (Jaccard > 0.1).\n\n` +
+            `Run with ${perms} permutations?\n\n` +
+            `This helps discover the most specific pathway driving the enrichment.`
+        );
+        if (!proceed) return;
+
+        // Use the re-run mechanism to merge results
+        this._rerunSetNames = new Set(Object.keys(related));
+        document.getElementById('runBtn').style.display = 'none';
+        document.getElementById('cancelBtn').style.display = '';
+        document.getElementById('progressContainer').classList.add('active');
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressText').textContent = `Expanding: testing ${nRelated} related gene sets...`;
+
+        this.worker.postMessage({
+            type: 'run',
+            rankedGenes: this.rankedList.genes,
+            rankedMetrics: this.rankedList.metrics,
+            geneSets: related,
+            settings: {
+                permutations: perms,
+                minSize: this.settings.minSize,
+                maxSize: this.settings.maxSize,
+                weightP: this.settings.weightP
+            }
+        });
     }
 
     rerunFiltered() {
@@ -1118,44 +1410,37 @@ class GSEAApp {
         }
 
         if (data.type === 'complete') {
-            // If this was a re-run, merge new results into existing results
+            // If this was a re-run/expand, merge new results into existing results
             if (this._rerunSetNames && this._rerunSetNames.size > 0 && this.results) {
                 const newResultsByName = {};
                 for (const r of data.results) newResultsByName[r.name] = r;
-                this.results = this.results.map(r =>
-                    newResultsByName[r.name] ? newResultsByName[r.name] : r
-                );
+                // Update existing results
+                const existingNames = new Set();
+                this.results = this.results.map(r => {
+                    existingNames.add(r.name);
+                    return newResultsByName[r.name] ? newResultsByName[r.name] : r;
+                });
+                // Add any new results not previously in the list
+                for (const r of data.results) {
+                    if (!existingNames.has(r.name)) this.results.push(r);
+                }
                 this._rerunSetNames = null;
             } else {
                 this.results = data.results;
             }
             document.getElementById('runBtn').style.display = '';
+            document.getElementById('smartRunBtn').style.display = '';
             document.getElementById('cancelBtn').style.display = 'none';
 
             const nSig = this.results.filter(r => r.fdr < 0.25).length;
             const doneMsg = `Done! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25)`;
 
-            // Show rendering progress while processing results
-            document.getElementById('progressBar').style.width = '100%';
-            document.getElementById('progressText').textContent = 'Rendering results...';
-
             // Show re-run options now that we have results
             document.getElementById('rerunSection').style.display = '';
             this.updateRerunHitCount();
 
-            // Build overlap cache for redundancy filtering
-            this._buildOverlapCache();
-
-            // Use setTimeout to let the UI update before heavy rendering
-            setTimeout(() => {
-                try {
-                    this.displayResults();
-                } catch (err) {
-                    console.error('Error rendering results:', err);
-                }
-                document.getElementById('progressContainer').classList.remove('active');
-                this.showStatus('runStatus', 'success', doneMsg);
-            }, 50);
+            // Render results asynchronously with step-by-step progress
+            this._renderResultsAsync(doneMsg);
         }
 
         if (data.type === 'error') {
@@ -1174,7 +1459,78 @@ class GSEAApp {
     }
 
     // --------------------------------------------------------
-    // Display Results
+    // Async Rendering Pipeline
+    // --------------------------------------------------------
+    async _renderResultsAsync(doneMsg) {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        progressBar.style.width = '100%';
+
+        // Elapsed timer
+        const startTime = Date.now();
+        const timer = setInterval(() => {
+            const elapsed = Math.round((Date.now() - startTime) / 1000);
+            const base = this._renderStepLabel || 'Rendering results';
+            progressText.textContent = `${base}... (${elapsed}s)`;
+        }, 1000);
+
+        const step = async (label, fn) => {
+            this._renderStepLabel = label;
+            progressText.textContent = `${label}...`;
+            await new Promise(r => setTimeout(r, 0)); // yield to browser
+            try { fn(); } catch (err) { console.error(`Error in ${label}:`, err); }
+        };
+
+        try {
+            // Show result panels
+            document.getElementById('overviewEmpty').style.display = 'none';
+            document.getElementById('overviewResults').style.display = '';
+            document.getElementById('enrichmentEmpty').style.display = 'none';
+            document.getElementById('enrichmentResults').style.display = '';
+            document.getElementById('tableEmpty').style.display = 'none';
+            document.getElementById('tableResults').style.display = '';
+            document.getElementById('overlapEmpty').style.display = 'none';
+            document.getElementById('overlapResults').style.display = '';
+            document.getElementById('openSettingsBtn').style.display = '';
+            document.getElementById('methodsCard').style.display = '';
+            this.updateSettingsTabVisibility();
+            this._syncSidebarOffset();
+
+            await step('Rendering overview', () => {
+                this.populateGeneSetSelector();
+                this.renderBubblePlot();
+            });
+            await step('Rendering ranked list', () => {
+                this.renderRankedPlot();
+            });
+            await step('Building results table', () => {
+                this.filterAndRenderTable();
+                this.generateMethods();
+                this.renderTopBottomGenes();
+            });
+            await step('Rendering enrichment plot', () => {
+                if (this.results.length > 0) {
+                    const topSet = this.results[0].name;
+                    document.getElementById('geneSetSelector').value = topSet;
+                    this.renderESPlot(topSet);
+                    this.renderGeneSetInfo(topSet);
+                    this.renderGeneDetailTable(topSet);
+                }
+            });
+            await step('Building overlap data', () => {
+                this._buildOverlapCache();
+                this.renderOverlapHeatmap();
+            });
+        } finally {
+            clearInterval(timer);
+            this._renderStepLabel = null;
+            document.getElementById('progressContainer').classList.remove('active');
+            this.showStatus('runStatus', 'success', doneMsg);
+        }
+    }
+
+    // --------------------------------------------------------
+    // Display Results (called for re-renders, not initial load)
     // --------------------------------------------------------
     displayResults() {
         // Show results panels, hide empty states
@@ -1277,10 +1633,14 @@ class GSEAApp {
         if (this._overlapFilterThreshold > 0) {
             filtered = this._applyOverlapFilter(filtered, this._overlapFilterThreshold);
         }
-        // Sort by |NES| and take top N
-        const top = filtered
-            .sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes))
-            .slice(0, topN);
+        // Sort by |NES| and take top N, plus any pinned sets
+        const sorted = filtered.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
+        const topSet = new Set(sorted.slice(0, topN).map(r => r.name));
+        // Add pinned sets that pass filters
+        for (const r of filtered) {
+            if (this._pinnedBubbleSets.has(r.name)) topSet.add(r.name);
+        }
+        const top = sorted.filter(r => topSet.has(r.name));
 
         if (top.length === 0) {
             Plotly.newPlot('bubblePlot', [], {
@@ -2668,7 +3028,19 @@ class GSEAApp {
 
         const rankedGenesUpper = new Set(this.rankedList.genes.map(g => g.toUpperCase()));
         const setGenes = {};
-        for (const r of this.results) {
+
+        // For large result sets, only compute overlap for top results by FDR
+        const MAX_OVERLAP_SETS = 200;
+        let overlapResults = this.results;
+        this._overlapCapped = false;
+        if (overlapResults.length > MAX_OVERLAP_SETS) {
+            overlapResults = [...overlapResults]
+                .sort((a, b) => a.fdr - b.fdr)
+                .slice(0, MAX_OVERLAP_SETS);
+            this._overlapCapped = true;
+        }
+
+        for (const r of overlapResults) {
             if (activeGeneSets[r.name]) {
                 setGenes[r.name] = activeGeneSets[r.name]
                     .map(g => g.toUpperCase())
@@ -2678,7 +3050,7 @@ class GSEAApp {
 
         // Build pairwise Jaccard map: key = "nameA|||nameB" (sorted), value = jaccard
         const pairwise = new Map();
-        const names = this.results.map(r => r.name).filter(n => setGenes[n]);
+        const names = overlapResults.map(r => r.name).filter(n => setGenes[n]);
         for (let i = 0; i < names.length; i++) {
             for (let j = i + 1; j < names.length; j++) {
                 const a = names[i], b = names[j];
@@ -3122,7 +3494,11 @@ class GSEAApp {
 
         for (const r of filtered) {
             const tr = document.createElement('tr');
+            const isPinned = this._pinnedBubbleSets.has(r.name);
             tr.innerHTML = `
+                <td style="width:28px;padding:2px;text-align:center;cursor:pointer" class="pin-cell" title="${isPinned ? 'Unpin from bubble plot' : 'Pin to bubble plot'}">
+                    <span style="opacity:${isPinned ? '1' : '0.25'};font-size:13px">&#128204;</span>
+                </td>
                 <td title="${r.name}">${this.cleanName(r.name)}</td>
                 <td>${r.size}</td>
                 <td class="${r.es >= 0 ? 'positive' : 'negative'}">${r.es.toFixed(4)}</td>
@@ -3131,6 +3507,17 @@ class GSEAApp {
                 <td>${this.formatPval(r.fdr)}</td>
                 <td class="leading-edge-cell" title="${(r.leadingEdge || []).join(', ')}">${(r.leadingEdge || []).length} genes</td>
             `;
+            // Pin/unpin click on first cell
+            tr.querySelector('.pin-cell').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this._pinnedBubbleSets.has(r.name)) {
+                    this._pinnedBubbleSets.delete(r.name);
+                } else {
+                    this._pinnedBubbleSets.add(r.name);
+                }
+                this.renderBubblePlot();
+                this.filterAndRenderTable();
+            });
             tr.addEventListener('click', () => {
                 document.getElementById('geneSetSelector').value = r.name;
                 this.renderESPlot(r.name);
@@ -3142,6 +3529,7 @@ class GSEAApp {
         // Update sort indicators
         document.querySelectorAll('#resultsTable thead th').forEach(th => {
             const arrow = th.querySelector('.sort-arrow');
+            if (!arrow) return; // skip pin column (no sort arrow)
             if (th.dataset.col === this.sortCol) {
                 th.classList.add('sorted');
                 arrow.textContent = this.sortAsc ? '\u25B2' : '\u25BC';

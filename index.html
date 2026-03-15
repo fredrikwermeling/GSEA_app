@@ -1883,6 +1883,7 @@
             <div class="card-title">4. Run Analysis</div>
             <div class="card-content">
                 <button class="btn btn-primary btn-lg" id="runBtn" disabled>Run GSEA</button>
+                <button class="btn btn-secondary btn-lg" id="smartRunBtn" disabled style="margin-top: 8px; font-size: 0.85em;" title="Iterative analysis: screens diverse gene sets first, then expands around hits with full permutations">Smart Run (iterative)</button>
                 <button class="btn btn-secondary btn-lg" id="cancelBtn" style="display:none; margin-top: 8px;">Cancel</button>
                 <div class="progress-container" id="progressContainer">
                     <div class="progress-bar-bg">
@@ -1895,6 +1896,13 @@
                 <!-- Re-run options (shown after results) -->
                 <div id="rerunSection" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
                     <div style="font-size: 0.82em; font-weight: 600; color: var(--gray-600); margin-bottom: 6px;">Re-run options</div>
+
+                    <!-- Expand around hits -->
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+                        <button class="btn btn-sm" id="expandHitsBtn" style="background: var(--blue-50, #eff6ff); border: 1px solid var(--blue-600, #2563eb); color: var(--blue-700, #1d4ed8); font-size: 0.82em; white-space: nowrap;">&#x1F50D; Expand around hits</button>
+                        <span id="expandHitsInfo" style="font-size: 0.78em; color: var(--gray-500); white-space: nowrap;"></span>
+                        <span class="info-icon" style="font-size: 0.75em;">?<span class="info-tooltip"><b>Expand around hits</b><br>Finds gene sets similar (Jaccard &gt; 0.1) to your significant results and runs them. This helps discover the most specific pathway driving the enrichment signal.</span></span>
+                    </div>
 
                     <!-- Re-run significant hits -->
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
@@ -2420,6 +2428,7 @@
                             <table class="data-table" id="resultsTable">
                                 <thead>
                                     <tr>
+                                        <th style="width:28px;padding:2px" title="Pin to bubble plot">&#128204;</th>
                                         <th data-col="name">Gene Set <span class="sort-arrow">&#9650;</span></th>
                                         <th data-col="size">Size <span class="sort-arrow">&#9650;</span></th>
                                         <th data-col="es">ES <span class="sort-arrow">&#9650;</span></th>
@@ -2676,6 +2685,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=32"></script>
+<script src="app.js?v=33"></script>
 </body>
 </html>
