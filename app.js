@@ -1148,7 +1148,7 @@ ranked_stats <- c(
             for (const coll of msigdbCollections) {
                 script += `{\n`;
                 script += `    cat("  Loading ${coll.label}...\\n")\n`;
-                script += `    m <- msigdbr(species = "Homo sapiens", category = "${coll.category}")\n`;
+                script += `    m <- msigdbr(species = "Homo sapiens", collection = "${coll.category}")\n`;
                 script += `    sets <- split(m$gene_symbol, m$gs_name)\n`;
                 script += `    gene_sets <- c(gene_sets, sets)\n`;
                 script += `}\n`;
@@ -1210,9 +1210,11 @@ results <- fgsea(
     stats = ranked_stats,
     minSize = ${minSize},
     maxSize = ${maxSize},
-    nPermSimple = ${permutations}
+    nPermSimple = max(${permutations}, 10000)
 )
-cat("Done! Found", sum(results$padj < 0.25), "significant sets (FDR < 0.25)\\n")
+cat("Done! Found", sum(results$padj < 0.25, na.rm = TRUE), "significant sets (FDR < 0.25)\\n")
+n_na <- sum(is.na(results$padj))
+if (n_na > 0) cat("Note:", n_na, "pathways had NA p-values (unbalanced gene-level stats)\\n")
 
 # --- Format for Enrich import ---
 enrich_results <- lapply(seq_len(nrow(results)), function(i) {
