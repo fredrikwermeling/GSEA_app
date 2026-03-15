@@ -35,13 +35,23 @@ function runGSEA({ rankedGenes, rankedMetrics, geneSets, settings }) {
 
     // Filter gene sets by size, map gene names to ranked indices
     const validSets = [];
+    const totalInput = Object.keys(geneSets).length;
+    let excludedTooSmall = 0;
+    let excludedTooLarge = 0;
+    let excludedNoOverlap = 0;
     for (const [name, genes] of Object.entries(geneSets)) {
         const hitIndices = [];
         for (const g of genes) {
             const idx = geneRankMap.get(g.toUpperCase());
             if (idx !== undefined) hitIndices.push(idx);
         }
-        if (hitIndices.length >= minSize && hitIndices.length <= maxSize) {
+        if (hitIndices.length === 0) {
+            excludedNoOverlap++;
+        } else if (hitIndices.length < minSize) {
+            excludedTooSmall++;
+        } else if (hitIndices.length > maxSize) {
+            excludedTooLarge++;
+        } else {
             hitIndices.sort((a, b) => a - b);
             validSets.push({ name, hitIndices });
         }
@@ -56,10 +66,18 @@ function runGSEA({ rankedGenes, rankedMetrics, geneSets, settings }) {
         return;
     }
 
+    // Build exclusion summary
+    const exclusions = [];
+    if (excludedTooSmall > 0) exclusions.push(`${excludedTooSmall} too few genes (<${minSize})`);
+    if (excludedTooLarge > 0) exclusions.push(`${excludedTooLarge} too many genes (>${maxSize})`);
+    if (excludedNoOverlap > 0) exclusions.push(`${excludedNoOverlap} no matching genes`);
+    const excludedTotal = totalInput - totalSets;
+
     self.postMessage({
         type: 'progress',
         percent: 2,
-        text: `${totalSets} gene sets passed size filter. Computing enrichment scores...`
+        text: `${totalSets} of ${totalInput} gene sets passed size filter${excludedTotal > 0 ? ' (' + exclusions.join(', ') + ')' : ''}. Computing enrichment scores...`,
+        sizeFilterInfo: { totalInput, totalPassed: totalSets, excludedTooSmall, excludedTooLarge, excludedNoOverlap }
     });
 
     // ---- STEP 1: Observed enrichment scores ----

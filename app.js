@@ -1825,6 +1825,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         if (data.type === 'progress') {
             document.getElementById('progressBar').style.width = data.percent + '%';
             document.getElementById('progressText').textContent = data.text;
+            // Capture size filter info for completion message
+            if (data.sizeFilterInfo) this._lastSizeFilterInfo = data.sizeFilterInfo;
         }
 
         if (data.type === 'complete') {
@@ -1851,7 +1853,18 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             document.getElementById('cancelBtn').style.display = 'none';
 
             const nSig = this.results.filter(r => r.fdr < 0.25).length;
-            const doneMsg = `Done! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25)`;
+            let doneMsg = `Done! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25)`;
+            // Add exclusion details if any sets were filtered out
+            const sfi = this._lastSizeFilterInfo;
+            if (sfi && sfi.totalInput > sfi.totalPassed) {
+                const excluded = sfi.totalInput - sfi.totalPassed;
+                const reasons = [];
+                if (sfi.excludedTooSmall > 0) reasons.push(`${sfi.excludedTooSmall} too few genes`);
+                if (sfi.excludedTooLarge > 0) reasons.push(`${sfi.excludedTooLarge} too many genes`);
+                if (sfi.excludedNoOverlap > 0) reasons.push(`${sfi.excludedNoOverlap} no matching genes`);
+                doneMsg += `. ${excluded} excluded (${reasons.join(', ')})`;
+            }
+            this._lastSizeFilterInfo = null;
 
             // Show re-run options now that we have results
             document.getElementById('rerunSection').style.display = '';
@@ -3825,7 +3838,22 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         if (clusterInput.length > 500) {
             clusterInput = clusterInput.slice().sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes)).slice(0, 500);
         }
-        const clusters = this._computeOverlapClusters(clusterInput, gsfClusterThresh);
+        const rawClusters = this._computeOverlapClusters(clusterInput, gsfClusterThresh);
+        // Renumber clusters sequentially so displayed sets start from 1
+        const clusterRemap = {};
+        let nextId = 1;
+        // Assign new IDs in order of first appearance (sorted by |NES|)
+        const clusterOrder = clusterInput.slice().sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
+        for (const r of clusterOrder) {
+            const oldId = rawClusters[r.name];
+            if (oldId && !clusterRemap[oldId]) {
+                clusterRemap[oldId] = nextId++;
+            }
+        }
+        const clusters = {};
+        for (const [name, oldId] of Object.entries(rawClusters)) {
+            clusters[name] = clusterRemap[oldId] || oldId;
+        }
 
         // Sort results
         let sorted = this.results.slice();
@@ -3944,7 +3972,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         html += `</tbody></table></div>`;
         html += `<div style="margin-top: 8px; display: flex; gap: 6px; justify-content: flex-end;">`;
         const visibleCount = this.results.filter(r => !this._hiddenSets.has(r.name)).length;
-        html += `<span style="flex: 1; font-size: 0.82em; color: var(--gray-500); align-self: center;" id="gsfCount">${visibleCount} of ${this.results.length} visible</span>`;
+        html += `<span style="flex: 1; font-size: 0.82em; color: var(--gray-500); align-self: center;" id="gsfCount">${visibleCount} of ${this.results.length} selected</span>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfCancel">Cancel</button>`;
         html += `<button class="btn btn-sm" id="gsfApply" style="background: var(--green-600); color: white;">Apply</button>`;
         html += `</div>`;
@@ -3977,7 +4005,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                     if (row) row.style.opacity = '0.45';
                 }
                 const total = self.results.length;
-                document.getElementById('gsfCount').textContent = `${total - self._hiddenSets.size} of ${total} visible`;
+                document.getElementById('gsfCount').textContent = `${total - self._hiddenSets.size} of ${total} selected`;
             }
             if (e.target.id === 'gsfFdrFilter') {
                 self._gsfFdrFilter = e.target.value;
@@ -4022,12 +4050,12 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 self._hiddenSets.clear();
                 body.querySelectorAll('.gsf-check').forEach(c => { c.checked = true; });
                 body.querySelectorAll('.gsf-row').forEach(r => { r.style.opacity = '1'; });
-                document.getElementById('gsfCount').textContent = `${self.results.length} of ${self.results.length} visible`;
+                document.getElementById('gsfCount').textContent = `${self.results.length} of ${self.results.length} selected`;
             } else if (e.target.id === 'gsfHideAll') {
                 self.results.forEach(r => self._hiddenSets.add(r.name));
                 body.querySelectorAll('.gsf-check').forEach(c => { c.checked = false; });
                 body.querySelectorAll('.gsf-row').forEach(r => { r.style.opacity = '0.45'; });
-                document.getElementById('gsfCount').textContent = `0 of ${self.results.length} visible`;
+                document.getElementById('gsfCount').textContent = `0 of ${self.results.length} selected`;
             } else if (e.target.id === 'gsfAutoSelect') {
                 // Auto-select: show best per cluster, hide others in clusters
                 const thresh = self._gsfClusterThreshold !== undefined ? self._gsfClusterThreshold : 0.3;
@@ -4154,8 +4182,14 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 } else {
                     this._pinnedBubbleSets.add(r.name);
                 }
+                // Update pin icon immediately
+                const pinSpan = e.currentTarget.querySelector('span');
+                if (pinSpan) pinSpan.style.opacity = this._pinnedBubbleSets.has(r.name) ? '1' : '0.25';
+                e.currentTarget.title = this._pinnedBubbleSets.has(r.name) ? 'Unpin from overview' : 'Pin to overview (lollipop plot)';
+                // Show/hide "View pinned" button
+                const vpBtn = document.getElementById('viewPinnedBtn');
+                if (vpBtn) vpBtn.style.display = this._pinnedBubbleSets.size > 0 ? '' : 'none';
                 this.renderBubblePlot();
-                this.filterAndRenderTable();
             });
             tr.addEventListener('click', () => {
                 document.getElementById('geneSetSelector').value = r.name;
