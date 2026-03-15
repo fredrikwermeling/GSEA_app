@@ -40,7 +40,7 @@ class GSEAApp {
             esLineColor: '#15a04a',
             esLineWidth: 2.5,
             showStatsBox: true,
-            showZeroCross: true,
+            showZeroCross: false,
             showESIndicator: true,
             showCorrelationLabels: true,
             showPanelBorders: true,
