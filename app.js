@@ -440,6 +440,19 @@ class GSEAApp {
             el.addEventListener(evType, () => this.updateSettings());
         });
 
+        // Overview toolbar controls — re-render lollipop on change
+        ['overviewFdrFilter', 'overviewPvalFilter', 'overviewDirectionFilter', 'overviewTopN', 'overviewOverlapFilter'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', () => {
+                // Sync topN and FDR with gear popup
+                if (id === 'overviewTopN') document.getElementById('topN').value = el.value;
+                if (id === 'overviewFdrFilter') document.getElementById('fdrDisplayThreshold').value = el.value;
+                if (id === 'overviewPvalFilter') document.getElementById('pvalDisplayThreshold').value = el.value;
+                if (id === 'overviewOverlapFilter') this._overlapFilterThreshold = parseInt(el.value);
+                this.renderBubblePlot();
+            });
+        });
+
         // Methods toggle (collapsible)
         document.getElementById('methodsToggle').addEventListener('click', () => {
             const body = document.getElementById('methodsBody');
@@ -2003,9 +2016,17 @@ cat("Upload this file to Enrich to visualize the results.\\n")
     // --------------------------------------------------------
     renderBubblePlot() {
         this.readSettings();
-        const fdrThresh = parseFloat(this.settings.fdrDisplayThreshold);
-        const pvalThresh = parseFloat(document.getElementById('pvalDisplayThreshold')?.value || '1');
-        const topN = this.settings.topN;
+        // Read from overview toolbar (primary) with gear popup as fallback
+        const ovFdr = document.getElementById('overviewFdrFilter');
+        const ovPval = document.getElementById('overviewPvalFilter');
+        const ovTopN = document.getElementById('overviewTopN');
+        const ovDir = document.getElementById('overviewDirectionFilter');
+        const ovOverlap = document.getElementById('overviewOverlapFilter');
+        const fdrThresh = ovFdr ? parseFloat(ovFdr.value) : parseFloat(this.settings.fdrDisplayThreshold);
+        const pvalThresh = ovPval ? parseFloat(ovPval.value) : parseFloat(document.getElementById('pvalDisplayThreshold')?.value || '1');
+        const topN = ovTopN ? parseInt(ovTopN.value) : this.settings.topN;
+        const dirFilter = ovDir ? ovDir.value : 'all';
+        const overlapThresh = ovOverlap ? parseInt(ovOverlap.value) : this._overlapFilterThreshold;
         const fontFam = this.settings.fontFamily + ', sans-serif';
         const baseFontSize = this.settings.fontSize;
 
@@ -2020,10 +2041,19 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         if (pvalThresh < 1) {
             filtered = filtered.filter(r => r.pvalue < pvalThresh);
         }
-        // Apply overlap redundancy filter
-        if (this._overlapFilterThreshold > 0) {
-            filtered = this._applyOverlapFilter(filtered, this._overlapFilterThreshold);
+        // Direction filter
+        if (dirFilter === 'up') {
+            filtered = filtered.filter(r => r.nes > 0);
+        } else if (dirFilter === 'down') {
+            filtered = filtered.filter(r => r.nes < 0);
         }
+        // Apply overlap redundancy filter
+        if (overlapThresh > 0) {
+            filtered = this._applyOverlapFilter(filtered, overlapThresh);
+        }
+        // Update result count
+        const countEl = document.getElementById('overviewResultCount');
+        if (countEl) countEl.textContent = `${filtered.length} sets`;
         // Sort by |NES| and take top N, plus any pinned sets
         const sorted = filtered.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
         const topSet = new Set(sorted.slice(0, topN).map(r => r.name));
@@ -3796,8 +3826,13 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         html += `</tr></thead><tbody>`;
 
         const searchQ = (this._gsfSearchVal || '').toLowerCase();
+        const MAX_DISPLAY_ROWS = 500;
+        let displayCount = 0;
+        let totalMatching = 0;
         for (const r of sorted) {
             if (searchQ && !r.name.toLowerCase().includes(searchQ)) continue;
+            totalMatching++;
+            if (displayCount >= MAX_DISPLAY_ROWS) continue;
             const hidden = this._hiddenSets.has(r.name);
             const coll = this._getSetCollection(r.name);
             const nesColor = r.nes > 0 ? '#dc2626' : '#2563eb';
@@ -3818,8 +3853,12 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             html += `<td style="padding: 3px 6px; text-align: center; font-size: 0.85em; color: var(--gray-500);">${coll}</td>`;
             if (gsfClusterThresh > 0) html += `<td style="padding: 3px 6px; text-align: center;">${clusterBadge}</td>`;
             html += `</tr>`;
+            displayCount++;
         }
 
+        if (totalMatching > MAX_DISPLAY_ROWS) {
+            html += `<tr><td colspan="8" style="padding: 8px; text-align: center; color: var(--gray-500); font-size: 0.85em;">Showing ${MAX_DISPLAY_ROWS} of ${totalMatching} matching sets. Use the search box to narrow results.</td></tr>`;
+        }
         html += `</tbody></table></div>`;
         html += `<div style="margin-top: 8px; display: flex; gap: 6px; justify-content: flex-end;">`;
         const visibleCount = this.results.filter(r => !this._hiddenSets.has(r.name)).length;
@@ -5456,6 +5495,13 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
     updateSettings() {
         this.readSettings();
+        // Sync gear popup values to overview toolbar
+        const ovFdr = document.getElementById('overviewFdrFilter');
+        const ovPval = document.getElementById('overviewPvalFilter');
+        const ovTopN = document.getElementById('overviewTopN');
+        if (ovFdr) ovFdr.value = this.settings.fdrDisplayThreshold;
+        if (ovPval) ovPval.value = document.getElementById('pvalDisplayThreshold')?.value || '1';
+        if (ovTopN) ovTopN.value = this.settings.topN;
         if (this.results) {
             // Re-render active tab's plots
             if (this.activeTab === 'overview') {

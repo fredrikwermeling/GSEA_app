@@ -1510,7 +1510,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.22</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.23</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2058,7 +2058,7 @@
                 </div>
                 <div style="font-size: 0.88em; color: var(--gray-500);">(both in the sidebar on the left)</div>
                 <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.7; max-width: 520px; color: var(--gray-500); text-align: center;">
-                    Explore the enrichment overview, click gene sets for detailed plots, and check the overlap heatmap to find redundant pathways. Use <span style="color: var(--green-600); font-weight: 500;">Aa</span> and <span style="color: var(--green-600); font-weight: 500;">&#9881;</span> to customize plots for export.
+                    The <span style="color: var(--green-600); font-weight: 500;">Overview</span> tab shows the top enriched pathways. Click any gene set to see its <span style="color: var(--green-600); font-weight: 500;">Enrichment Plot</span>. Use the <span style="color: var(--green-600); font-weight: 500;">Results Table</span> to browse and filter all results, and <span style="color: var(--green-600); font-weight: 500;">Overlap</span> to find redundant pathways. Use <span style="color: var(--green-600); font-weight: 500;">Aa</span> and <span style="color: var(--green-600); font-weight: 500;">&#9881;</span> to customize plots for export.
                 </div>
                 <div style="margin-top: 14px; font-size: 0.82em; line-height: 1.6; max-width: 520px; color: var(--gray-400); text-align: center;">
                     <strong style="color: var(--gray-500);">Performance note:</strong> Over 33,000 MSigDB gene sets are available, but large analyses may be very slow or become unresponsive depending on your computer. For heavy analyses, Enrich can generate an <strong>R script</strong> (fgsea) &mdash; run it locally in R and upload the results back here to use Enrich&rsquo;s visualization tools.
@@ -2146,6 +2146,42 @@
                         </div>
                     </div>
                     <div class="card-content">
+                        <div class="table-toolbar" id="overviewToolbar">
+                            <select class="form-control" id="overviewFdrFilter" style="width: auto;" title="FDR threshold">
+                                <option value="1">All FDR</option>
+                                <option value="0.25" selected>FDR &lt; 0.25</option>
+                                <option value="0.1">FDR &lt; 0.1</option>
+                                <option value="0.05">FDR &lt; 0.05</option>
+                                <option value="0.01">FDR &lt; 0.01</option>
+                            </select>
+                            <select class="form-control" id="overviewPvalFilter" style="width: auto;" title="p-value threshold">
+                                <option value="1" selected>All p-values</option>
+                                <option value="0.05">p &lt; 0.05</option>
+                                <option value="0.01">p &lt; 0.01</option>
+                                <option value="0.001">p &lt; 0.001</option>
+                            </select>
+                            <select class="form-control" id="overviewDirectionFilter" style="width: auto;" title="Direction filter">
+                                <option value="all">All directions</option>
+                                <option value="up">Upregulated (NES &gt; 0)</option>
+                                <option value="down">Downregulated (NES &lt; 0)</option>
+                            </select>
+                            <select class="form-control" id="overviewTopN" style="width: auto;" title="Max gene sets to show">
+                                <option value="10">Top 10</option>
+                                <option value="20" selected>Top 20</option>
+                                <option value="30">Top 30</option>
+                                <option value="50">Top 50</option>
+                                <option value="100">Top 100</option>
+                            </select>
+                            <select class="form-control" id="overviewOverlapFilter" style="width: auto;" title="Filter redundant gene sets by overlap">
+                                <option value="0">No overlap filter</option>
+                                <option value="50">Overlap &gt; 50%</option>
+                                <option value="30">Overlap &gt; 30%</option>
+                                <option value="20">Overlap &gt; 20%</option>
+                                <option value="10">Overlap &gt; 10%</option>
+                            </select>
+                            <button class="btn btn-outline btn-sm" onclick="app.openGeneSetFilter('bubble')" title="Select which gene sets to show">&#9998; Select sets</button>
+                            <span class="result-count" id="overviewResultCount"></span>
+                        </div>
                         <div id="bubblePlot"></div>
                     </div>
                 </div>
@@ -2480,7 +2516,7 @@
                             <select class="form-control" id="fdrFilter" style="width: auto;">
                                 <option value="all">All FDR</option>
                                 <option value="0.5">FDR &lt; 0.5</option>
-                                <option value="0.25">FDR &lt; 0.25</option>
+                                <option value="0.25" selected>FDR &lt; 0.25</option>
                                 <option value="0.1">FDR &lt; 0.1</option>
                                 <option value="0.05">FDR &lt; 0.05</option>
                                 <option value="0.01">FDR &lt; 0.01</option>
@@ -2592,6 +2628,12 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.23</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <ul>
+                <li>Settings toolbar above Enrichment Overview (FDR, p-value, direction, top N, overlap filter)</li>
+                <li>Select Sets popup capped at 500 rows to prevent browser freeze</li>
+                <li>Results Table FDR default set to 0.25</li>
+            </ul>
             <p><strong>v.21</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>C2 and C5 gene set collections split into subcategories (KEGG, Reactome, WikiPathways, BioCarta, PID, CGP; GO:BP, GO:CC, GO:MF, HPO)</li>
@@ -2858,6 +2900,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=45"></script>
+<script src="app.js?v=46"></script>
 </body>
 </html>
