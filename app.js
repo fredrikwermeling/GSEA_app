@@ -3381,7 +3381,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                     textRow.push(`${genesI.length} genes`);
                 } else {
                     const overlap = this._computeOverlap(genesI, genesJ);
-                    const union = new Set([...genesI, ...genesJ]).size;
+                    const union = genesI.length + genesJ.length - overlap;
                     const jaccard = union > 0 ? overlap / union : 0;
                     row.push(jaccard);
                     textRow.push(`${overlap} shared<br>J=${jaccard.toFixed(2)}`);
@@ -3533,7 +3533,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 const genesA = setGenes[a], genesB = setGenes[b];
                 if (!genesA || !genesB) continue;
                 const inter = this._computeOverlap(genesA, genesB);
-                const union = new Set([...genesA, ...genesB]).size;
+                const union = genesA.length + genesB.length - inter;
                 const jaccard = union > 0 ? inter / union : 0;
                 if (jaccard > 0.05) { // only store non-trivial overlaps
                     const key = a < b ? `${a}|||${b}` : `${b}|||${a}`;
@@ -3665,8 +3665,20 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const gsfPvalVal = this._gsfPvalFilter || 'all';
         const gsfClusterThresh = this._gsfClusterThreshold !== undefined ? this._gsfClusterThreshold : 0.3;
 
-        // Compute clusters
-        const clusters = this._computeOverlapClusters(this.results, gsfClusterThresh);
+        // Compute clusters (on filtered results to avoid O(n²) on thousands of sets)
+        let clusterInput = this.results;
+        if (gsfFdrVal !== 'all') {
+            const t = parseFloat(gsfFdrVal);
+            clusterInput = clusterInput.filter(r => r.fdr < t);
+        }
+        if (gsfPvalVal !== 'all') {
+            const t = parseFloat(gsfPvalVal);
+            clusterInput = clusterInput.filter(r => r.pvalue < t);
+        }
+        if (clusterInput.length > 500) {
+            clusterInput = clusterInput.slice().sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes)).slice(0, 500);
+        }
+        const clusters = this._computeOverlapClusters(clusterInput, gsfClusterThresh);
 
         // Sort results
         let sorted = this.results.slice();
