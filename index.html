@@ -1500,7 +1500,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.11</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.12</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2472,6 +2472,20 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>dev-12</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <ul>
+                <li>All plots now have editable, movable title annotations</li>
+                <li>Aa text visibility toggle (eye icon) now works for all elements across all plots</li>
+                <li>ES plot: axis labels are now draggable annotations; hit markers panel labeled "Gene hits"</li>
+                <li>ES plot: separate ES/metric tick font controls in Aa settings</li>
+                <li>Bubble plot: FDR colorbar now movable; colorbar tick font controllable</li>
+                <li>Overlap heatmap: FDR filter dropdown above plot (default &lt; 0.25, up to All)</li>
+                <li>Gene set browser &amp; info panel: "View on MSigDB" link for each gene set</li>
+                <li>Select Sets: Jaccard max similarity filter for diversity-based iterative selection</li>
+                <li>Results table &amp; Card 4: added FDR &lt; 0.5 and p &lt; 0.1 inclusive filter options</li>
+                <li>"Re-run filtered" now merges results instead of replacing (preserves non-re-run sets)</li>
+                <li>Fixed bubble plot left margin text cropping</li>
+            </ul>
             <p><strong>dev-11</strong> <span style="color:#888;">(2026-03-14)</span></p>
             <ul>
                 <li>Fixed nav bar centering — version badge no longer offsets navigation links</li>
