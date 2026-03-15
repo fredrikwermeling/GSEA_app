@@ -1062,10 +1062,10 @@ class GSEAApp {
             document.getElementById('runWarningInfo').innerHTML =
                 `<b>Smart Run</b> will analyze <b>${nTotal.toLocaleString()}</b> gene sets in 3 phases:` +
                 `<ol style="margin: 6px 0 0 16px; padding: 0; font-size: 0.9em; line-height: 1.5;">` +
-                `<li><b>Screen</b> diverse sets with 100 permutations</li>` +
-                `<li><b>Expand</b> around hits — test related gene sets</li>` +
-                `<li><b>Refine</b> significant hits with 1,000 permutations</li></ol>` +
-                `<div style="margin-top: 6px; font-size: 0.85em; color: var(--gray-500);">This is faster and more stable than running all sets at once.</div>`;
+                `<li><b>Screen</b> — select diverse (non-redundant) subset, test with 100 permutations</li>` +
+                `<li><b>Expand</b> — test sets related to any hits from Phase 1</li>` +
+                `<li><b>Refine</b> — re-run significant hits with 1,000 permutations for precise FDR</li></ol>` +
+                `<div style="margin-top: 6px; font-size: 0.85em; color: var(--gray-500);">Redundant gene sets (Jaccard overlap > 10%) are skipped since they would produce near-identical results. This is 2–7× faster than testing all sets. Use "Run GSEA" if you want to test every set.</div>`;
 
             document.getElementById('runWarningTips').innerHTML =
                 `<li>You can cancel between phases without losing earlier results.</li>`;
@@ -1475,7 +1475,12 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         this.updateRerunHitCount();
 
         const nSig = this.results.filter(r => r.fdr < 0.25).length;
-        const doneMsg = `Smart Run complete! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25)`;
+        const nTested = this.results.length;
+        const nSkipped = nTotal - nTested;
+        let doneMsg = `Smart Run complete! ${nTested} gene sets tested, ${nSig} significant (FDR < 0.25)`;
+        if (nSkipped > 0) {
+            doneMsg += `. ${nSkipped} redundant sets skipped (similar to tested sets, Jaccard > 0.1)`;
+        }
         await this._renderResultsAsync(doneMsg);
     }
 
