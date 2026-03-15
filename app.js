@@ -41,6 +41,7 @@ class GSEAApp {
             esLineWidth: 2.5,
             showStatsBox: true,
             showZeroCross: true,
+            showESIndicator: true,
             showCorrelationLabels: true,
             showPanelBorders: true,
             showHitMarkers: true,
@@ -277,14 +278,20 @@ class GSEAApp {
             btn.addEventListener('click', () => this.showTab(btn.dataset.tab));
         });
 
-        // Gene set selector for ES plot
+        // Gene set selector for ES plot (hidden select, still used internally)
         document.getElementById('geneSetSelector').addEventListener('change', (e) => {
             if (e.target.value) {
                 this.renderESPlot(e.target.value);
                 this.renderGeneSetInfo(e.target.value);
                 this.renderGeneDetailTable(e.target.value);
+                // Sync search input text
+                const input = document.getElementById('geneSetSearchInput');
+                if (input) input.value = this.cleanName(e.target.value);
             }
         });
+
+        // Searchable gene set selector
+        this._initGeneSetSearch();
 
         // Prev/Next gene set buttons
         document.getElementById('prevGeneSetBtn').addEventListener('click', () => this.navigateGeneSet(-1));
@@ -989,6 +996,72 @@ class GSEAApp {
         });
     }
 
+    _showSmartRunDialog(nTotal) {
+        return new Promise((resolve) => {
+            const dialog = document.getElementById('runWarningDialog');
+            const backdrop = document.getElementById('runWarningBackdrop');
+            const permInput = document.getElementById('runWarningPermInput');
+
+            permInput.value = Math.max(1000, this.settings.permutations);
+
+            document.getElementById('runWarningInfo').innerHTML =
+                `<b>Smart Run</b> will analyze <b>${nTotal.toLocaleString()}</b> gene sets in 3 phases:` +
+                `<ol style="margin: 6px 0 0 16px; padding: 0; font-size: 0.9em; line-height: 1.5;">` +
+                `<li><b>Screen</b> diverse sets (Jaccard &lt; 0.1) with 100 permutations</li>` +
+                `<li><b>Expand</b> around hits — test related gene sets</li>` +
+                `<li><b>Refine</b> significant hits with full permutations</li></ol>` +
+                `<div style="margin-top: 6px; font-size: 0.85em; color: var(--gray-500);">This is faster and more stable than running all sets at once.</div>`;
+
+            document.getElementById('runWarningTips').innerHTML =
+                `<li>Phase 3 will use the permutation count set above for final p-values.</li>` +
+                `<li>You can cancel between phases without losing earlier results.</li>`;
+
+            const updateEstimate = () => {
+                const p = parseInt(permInput.value) || 1000;
+                const est = Math.max(1, Math.round(nTotal * 0.3 * p / 500000));
+                document.getElementById('runWarningEstimate').textContent =
+                    `Estimated time: ~${est} minute${est > 1 ? 's' : ''} (faster than full run)`;
+            };
+            updateEstimate();
+            permInput.oninput = updateEstimate;
+
+            // Hide R script button for smart run
+            document.getElementById('runWarningRScriptBtn').style.display = 'none';
+            document.getElementById('runWarningRunBtn').textContent = 'Start Smart Run';
+
+            dialog.style.display = 'block';
+            backdrop.style.display = 'block';
+
+            const close = (action) => {
+                dialog.style.display = 'none';
+                backdrop.style.display = 'none';
+                permInput.oninput = null;
+                // Restore buttons
+                document.getElementById('runWarningRScriptBtn').style.display = '';
+                document.getElementById('runWarningRunBtn').textContent = 'Run in Browser';
+                resolve(action);
+            };
+
+            const wireBtn = (id, action) => {
+                const btn = document.getElementById(id);
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.addEventListener('click', () => {
+                    if (action === 'run') {
+                        this.settings.permutations = parseInt(permInput.value) || 1000;
+                        document.getElementById('permutations').value = this.settings.permutations;
+                    }
+                    close(action);
+                });
+            };
+            wireBtn('runWarningCancelBtn', 'cancel');
+            wireBtn('runWarningClose', 'cancel');
+            wireBtn('runWarningRunBtn', 'run');
+
+            backdrop.onclick = () => close('cancel');
+        });
+    }
+
     // --------------------------------------------------------
     // fgsea R Script Generation
     // --------------------------------------------------------
@@ -997,6 +1070,15 @@ class GSEAApp {
         const genes = this.rankedList.genes;
         const metrics = this.rankedList.metrics;
         const { permutations, minSize, maxSize } = this.settings;
+
+        // Build gene dictionary for compact encoding
+        // Each gene name appears only once in the dictionary
+        const allGenes = new Set(genes.map(g => g.toUpperCase()));
+        for (const setGenes of Object.values(geneSets)) {
+            for (const g of setGenes) allGenes.add(g.toUpperCase());
+        }
+        const geneDict = [...allGenes];
+        const geneToIdx = new Map(geneDict.map((g, i) => [g, i + 1])); // 1-based for R
 
         let script = `# ============================================================
 # fgsea Analysis Script — Generated by Enrich
@@ -1007,6 +1089,8 @@ class GSEAApp {
 # This script runs GSEA using the fgsea R package on your data.
 # Results are saved as JSON for re-import into Enrich.
 #
+# Uses dictionary encoding to keep file size small.
+#
 # Install dependencies (run once):
 #   install.packages("BiocManager")
 #   BiocManager::install("fgsea")
@@ -1016,20 +1100,23 @@ class GSEAApp {
 library(fgsea)
 library(jsonlite)
 
+# --- Gene dictionary (${geneDict.length} unique genes) ---
+gene_dict <- c(${geneDict.map(g => `"${this._rEscape(g)}"`).join(',')})
+
 # --- Ranked gene list (${genes.length} genes) ---
-ranked_stats <- c(\n`;
+# Indices into gene_dict, then numeric values
+ranked_idx <- c(${genes.map(g => geneToIdx.get(g.toUpperCase())).join(',')})
+ranked_val <- c(${metrics.join(',')})
+ranked_stats <- ranked_val
+names(ranked_stats) <- gene_dict[ranked_idx]
 
-        const entries = [];
-        for (let i = 0; i < genes.length; i++) {
-            entries.push(`    "${this._rEscape(genes[i])}" = ${metrics[i]}`);
-        }
-        script += entries.join(',\n') + '\n)\n\n';
-
-        script += `# --- Gene sets (${Object.keys(geneSets).length} sets) ---\ngene_sets <- list(\n`;
+# --- Gene sets (${Object.keys(geneSets).length} sets, index-encoded) ---
+gene_sets <- list(
+`;
         const setEntries = [];
         for (const [name, setGenes] of Object.entries(geneSets)) {
-            const geneStr = setGenes.map(g => `"${this._rEscape(g)}"`).join(', ');
-            setEntries.push(`    "${this._rEscape(name)}" = c(${geneStr})`);
+            const indices = setGenes.map(g => geneToIdx.get(g.toUpperCase())).filter(i => i !== undefined);
+            setEntries.push(`    "${this._rEscape(name)}" = gene_dict[c(${indices.join(',')})]`);
         }
         script += setEntries.join(',\n') + '\n)\n\n';
 
@@ -1067,9 +1154,10 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 `;
 
         const blob = new Blob([script], { type: 'text/plain' });
+        const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
         this.downloadBlob(blob, 'enrich_fgsea_analysis.R');
         this.showStatus('runStatus', 'success',
-            `R script downloaded (${genes.length} genes, ${Object.keys(geneSets).length} gene sets). Run in R, then upload the JSON output here.`);
+            `R script downloaded (${sizeMB} MB, ${genes.length} genes, ${Object.keys(geneSets).length} gene sets). Run in R, then upload the JSON output here.`);
     }
 
     // --------------------------------------------------------
@@ -1136,22 +1224,22 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             return;
         }
 
-        const proceed = confirm(
-            `Smart Run will analyze ${nTotal.toLocaleString()} gene sets in 3 phases:\n\n` +
-            `Phase 1: Screen diverse sets (J<0.1) with 100 permutations\n` +
-            `Phase 2: Expand around hits — test related gene sets\n` +
-            `Phase 3: Refine significant hits with ${Math.max(1000, this.settings.permutations)} permutations\n\n` +
-            `This is faster and more stable than running all sets at once.\n\nContinue?`
-        );
-        if (!proceed) return;
+        // Show styled dialog instead of confirm()
+        const action = await this._showSmartRunDialog(nTotal);
+        if (action === 'cancel') return;
 
-        // Show progress
+        // Show progress immediately
         document.getElementById('runBtn').style.display = 'none';
         document.getElementById('smartRunBtn').style.display = 'none';
         document.getElementById('cancelBtn').style.display = '';
         document.getElementById('progressContainer').classList.add('active');
+        document.getElementById('progressText').textContent = 'Initializing Smart Run...';
+        document.getElementById('progressBar').style.width = '2%';
         this.hideStatus('runStatus');
         this.analysisDate = new Date();
+
+        // Yield to let UI update before heavy computation
+        await new Promise(r => setTimeout(r, 50));
 
         // --- Phase 1: Screen diverse sets ---
         document.getElementById('progressText').textContent = 'Phase 1/3: Computing diversity filter...';
@@ -1693,6 +1781,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 if (this.results.length > 0) {
                     const topSet = this.results[0].name;
                     document.getElementById('geneSetSelector').value = topSet;
+                    const searchInput = document.getElementById('geneSetSearchInput');
+                    if (searchInput) searchInput.value = this.cleanName(topSet);
                     this.renderESPlot(topSet);
                     this.renderGeneSetInfo(topSet);
                     this.renderGeneDetailTable(topSet);
@@ -1817,11 +1907,19 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // Sort by |NES| and take top N, plus any pinned sets
         const sorted = filtered.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
         const topSet = new Set(sorted.slice(0, topN).map(r => r.name));
-        // Add pinned sets that pass filters
-        for (const r of filtered) {
-            if (this._pinnedBubbleSets.has(r.name)) topSet.add(r.name);
+        // Add pinned sets — bypass all filters (use unfiltered results)
+        for (const r of this.results) {
+            if (this._pinnedBubbleSets.has(r.name) && !topSet.has(r.name)) {
+                topSet.add(r.name);
+            }
         }
-        const top = sorted.filter(r => topSet.has(r.name));
+        let top = sorted.filter(r => topSet.has(r.name));
+        // Also add pinned sets that were filtered out
+        for (const r of this.results) {
+            if (this._pinnedBubbleSets.has(r.name) && !top.find(t => t.name === r.name)) {
+                top.push(r);
+            }
+        }
 
         if (top.length === 0) {
             Plotly.newPlot('bubblePlot', [], {
@@ -1930,7 +2028,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 fixedrange: true
             },
             height: Math.max(440, top.length * 26 + 160),
-            margin: { l: 15, r: 160, t: 55, b: 55 },
+            margin: { l: 15, r: 160, t: 70, b: 55 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -2377,6 +2475,26 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // ---- Shapes ----
         const panelShapes = [...hitShapes];
 
+        // ES peak indicator — vertical dashed line at the rank where ES peaks
+        if (s.showESIndicator !== false) {
+            // Find the position of maximum |ES| in runningES
+            let esPeakIdx = 0;
+            let esPeakVal = 0;
+            for (let i = 0; i < result.runningES.length; i++) {
+                if (Math.abs(result.runningES[i]) > Math.abs(esPeakVal)) {
+                    esPeakVal = result.runningES[i];
+                    esPeakIdx = i;
+                }
+            }
+            // Vertical line spanning all three panels
+            panelShapes.push({
+                type: 'line', x0: esPeakIdx, x1: esPeakIdx,
+                y0: 0, y1: 1, yref: 'paper',
+                xref: 'x', // same x-axis as ES panel
+                line: { color: '#e67e22', width: 1.2, dash: 'dash' }
+            });
+        }
+
         // Panel borders
         if (s.showPanelBorders) {
             panelShapes.push(
@@ -2510,7 +2628,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (esPosFont.visible) {
                 annotations.push({
                     text: esPosFont.wrap(esPosFont.text || esPosLabel),
-                    xref: 'paper', yref: 'paper', x: 0.0, y: -0.07,
+                    xref: 'paper', yref: 'paper', x: 0.0, y: -0.14,
                     showarrow: false,
                     font: { size: esPosFont.size, family: esPosFont.family, color: s.positiveColor },
                     xanchor: 'left', yanchor: 'top'
@@ -2519,7 +2637,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (esNegFont.visible) {
                 annotations.push({
                     text: esNegFont.wrap(esNegFont.text || esNegLabel),
-                    xref: 'paper', yref: 'paper', x: 1.0, y: -0.07,
+                    xref: 'paper', yref: 'paper', x: 1.0, y: -0.14,
                     showarrow: false,
                     font: { size: esNegFont.size, family: esNegFont.family, color: s.negativeColor },
                     xanchor: 'right', yanchor: 'top'
@@ -2527,9 +2645,14 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             }
         }
 
-        // Compute y-range for metric panel — use actual min/max of the full ranked list
-        const metYMin = Math.min(0, metrics[N - 1]) * 1.05;
-        const metYMax = Math.max(0, metrics[0]) * 1.05;
+        // Compute y-range for metric panel — use actual min/max of ALL metrics
+        let metActualMin = 0, metActualMax = 0;
+        for (let i = 0; i < N; i++) {
+            if (metrics[i] < metActualMin) metActualMin = metrics[i];
+            if (metrics[i] > metActualMax) metActualMax = metrics[i];
+        }
+        const metYMin = metActualMin * 1.05;
+        const metYMax = metActualMax * 1.05;
 
         // Text font references for ES plot
         const esYLabelFont = this._getTextFont('es', 'esYLabel');
@@ -2574,7 +2697,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             annotations.push({
                 text: esXFont.wrap(esXFont.text || 'Rank in Ordered Dataset'),
                 xref: 'paper', yref: 'paper',
-                x: 0.5, y: -0.07,
+                x: 0.5, y: -0.04,
                 showarrow: false,
                 font: { size: esXFont.size, family: esXFont.family },
                 xanchor: 'center', yanchor: 'top'
@@ -2622,7 +2745,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 fixedrange: true
             },
             height: s.esPlotHeight || 580,
-            margin: { l: 65, r: 15, t: 45, b: 60 },
+            margin: { l: 65, r: 15, t: 45, b: 80 },
             font: { family: fontFam },
             paper_bgcolor: s.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -2661,10 +2784,81 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const newIdx = Math.max(0, Math.min(options.length - 1, currentIdx + direction));
         if (options[newIdx]) {
             sel.value = options[newIdx].value;
-            this.renderESPlot(sel.value);
-            this.renderGeneSetInfo(sel.value);
-            this.renderGeneDetailTable(sel.value);
+            sel.dispatchEvent(new Event('change'));
         }
+    }
+
+    _initGeneSetSearch() {
+        const input = document.getElementById('geneSetSearchInput');
+        const dropdown = document.getElementById('geneSetSearchDropdown');
+        const sel = document.getElementById('geneSetSelector');
+        if (!input || !dropdown) return;
+
+        let debounceTimer = null;
+
+        const showDropdown = (filter) => {
+            const options = Array.from(sel.options).filter(o => o.value);
+            const query = (filter || '').toLowerCase();
+            const matches = query
+                ? options.filter(o => o.value.toLowerCase().includes(query) || o.textContent.toLowerCase().includes(query))
+                : options;
+
+            if (matches.length === 0) {
+                dropdown.innerHTML = '<div style="padding: 8px 12px; color: #999; font-size: 0.85em;">No matching gene sets</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+
+            // Limit to 100 for performance
+            const shown = matches.slice(0, 100);
+            dropdown.innerHTML = shown.map(o => {
+                const r = this.results ? this.results.find(r => r.name === o.value) : null;
+                const info = r ? `<span style="color: #888; font-size: 0.8em; margin-left: 6px;">NES: ${r.nes.toFixed(2)} FDR: ${this.formatPval(r.fdr)}</span>` : '';
+                const isSelected = o.value === sel.value;
+                return `<div class="gs-search-item" data-value="${o.value}" style="padding: 5px 10px; cursor: pointer; font-size: 0.85em; border-bottom: 1px solid #f3f4f6; ${isSelected ? 'background: var(--green-50);' : ''}" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='${isSelected ? 'var(--green-50)' : ''}'">
+                    <span style="font-weight: 500;">${this.cleanName(o.value)}</span>${info}
+                </div>`;
+            }).join('');
+
+            if (matches.length > 100) {
+                dropdown.innerHTML += `<div style="padding: 5px 10px; color: #999; font-size: 0.8em; text-align: center;">${matches.length - 100} more — type to filter</div>`;
+            }
+            dropdown.style.display = 'block';
+        };
+
+        const hideDropdown = () => {
+            setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+        };
+
+        const selectItem = (value) => {
+            sel.value = value;
+            input.value = this.cleanName(value);
+            dropdown.style.display = 'none';
+            sel.dispatchEvent(new Event('change'));
+        };
+
+        input.addEventListener('focus', () => showDropdown(input.value));
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => showDropdown(input.value), 100);
+        });
+        input.addEventListener('blur', hideDropdown);
+
+        dropdown.addEventListener('mousedown', (e) => {
+            const item = e.target.closest('.gs-search-item');
+            if (item) {
+                e.preventDefault();
+                selectItem(item.dataset.value);
+            }
+        });
+
+        // Keyboard navigation
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                dropdown.style.display = 'none';
+                input.blur();
+            }
+        });
     }
 
     // --------------------------------------------------------
@@ -3065,6 +3259,9 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // Cap at maxSets
         sigSets = sigSets.slice(0, maxSets);
 
+        // Sort alphabetically by default
+        sigSets.sort((a, b) => a.name.localeCompare(b.name));
+
         // Track which sets are visible in the heatmap (for "Send to Results Table")
         this._overlapVisibleSets = new Set(sigSets.map(r => r.name));
 
@@ -3379,7 +3576,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const body = document.getElementById('geneSetFilterBody');
         const gsfFdrVal = this._gsfFdrFilter || 'all';
         const gsfPvalVal = this._gsfPvalFilter || 'all';
-        const gsfClusterThresh = this._gsfClusterThreshold || 0.3;
+        const gsfClusterThresh = this._gsfClusterThreshold !== undefined ? this._gsfClusterThreshold : 0.3;
 
         // Compute clusters
         const clusters = this._computeOverlapClusters(this.results, gsfClusterThresh);
@@ -3439,13 +3636,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         html += `<select class="form-control" id="gsfClusterThresh" style="width: auto; font-size: 0.85em;" title="Jaccard threshold for overlap clusters">`;
         for (const v of [0, 0.1, 0.2, 0.3, 0.5]) {
             html += `<option value="${v}"${gsfClusterThresh === v ? ' selected' : ''}>${v === 0 ? 'No clusters' : `Overlap > ${(v * 100).toFixed(0)}%`}</option>`;
-        }
-        html += `</select>`;
-        const gsfMaxSim = this._gsfMaxSimilarity || 'all';
-        html += `<select class="form-control" id="gsfMaxSimilarity" style="width: auto; font-size: 0.85em;" title="Max Jaccard similarity — filter out gene sets too similar to checked ones">`;
-        html += `<option value="all"${gsfMaxSim === 'all' ? ' selected' : ''}>All similarity</option>`;
-        for (const v of [0.1, 0.2, 0.3, 0.5]) {
-            html += `<option value="${v}"${gsfMaxSim == v ? ' selected' : ''}>J < ${v} (${v === 0.1 ? 'very different' : v === 0.2 ? 'different' : v === 0.3 ? 'moderate' : 'broad'})</option>`;
         }
         html += `</select>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfAutoSelect" title="Auto-select best representative per overlap cluster">Auto-select</button>`;
@@ -3532,32 +3722,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 self._gsfClusterThreshold = parseFloat(e.target.value);
                 self._renderGeneSetFilter();
             }
-            if (e.target.id === 'gsfMaxSimilarity') {
-                self._gsfMaxSimilarity = e.target.value;
-                if (e.target.value !== 'all') {
-                    // Greedy diversity selection: iterate through results by |NES|,
-                    // keep only sets with Jaccard < threshold to all already-kept sets
-                    const maxJ = parseFloat(e.target.value);
-                    const byNes = self.results.slice().sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
-                    const kept = [];
-                    for (const r of byNes) {
-                        let tooSimilar = false;
-                        for (const k of kept) {
-                            if (self._getCachedJaccard(r.name, k.name) >= maxJ) {
-                                tooSimilar = true;
-                                break;
-                            }
-                        }
-                        if (!tooSimilar) {
-                            kept.push(r);
-                            self._hiddenSets.delete(r.name);
-                        } else {
-                            self._hiddenSets.add(r.name);
-                        }
-                    }
-                }
-                self._renderGeneSetFilter();
-            }
         };
         body.onclick = function(e) {
             const sortTh = e.target.closest('.gsf-sort');
@@ -3592,7 +3756,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 document.getElementById('gsfCount').textContent = `0 of ${self.results.length} visible`;
             } else if (e.target.id === 'gsfAutoSelect') {
                 // Auto-select: show best per cluster, hide others in clusters
-                const thresh = self._gsfClusterThreshold || 0.3;
+                const thresh = self._gsfClusterThreshold !== undefined ? self._gsfClusterThreshold : 0.3;
                 if (thresh <= 0) return;
                 const cls = self._computeOverlapClusters(self.results, thresh);
                 const reps = self._getClusterRepresentatives(cls);
@@ -5082,6 +5246,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const cb = (id) => { const el = document.getElementById(id); return el ? el.checked : true; };
         this.settings.showStatsBox = cb('showStatsBox');
         this.settings.showZeroCross = cb('showZeroCross');
+        this.settings.showESIndicator = cb('showESIndicator');
         this.settings.showCorrelationLabels = cb('showCorrelationLabels');
         this.settings.showPanelBorders = cb('showPanelBorders');
         this.settings.showHitMarkers = cb('showHitMarkers');
