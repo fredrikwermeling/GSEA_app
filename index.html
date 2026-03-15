@@ -1510,7 +1510,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.35</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.35.1</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2596,7 +2596,7 @@
                             <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('table')" title="Reset filters to defaults">↺ Reset</button>
                             <button class="btn btn-outline btn-sm" id="downloadCSVBtn">Download CSV</button>
                             <button class="btn btn-outline btn-sm" id="rerunFilteredBtn" style="background: var(--green-50); border-color: var(--green-600); color: var(--green-700);" title="Re-run GSEA on only the currently visible (filtered) gene sets, e.g. with higher permutations for accurate p-values">🔄 Re-run filtered</button>
-                            <button class="btn btn-outline btn-sm" id="viewPinnedBtn" style="display:none; background: var(--green-50); border-color: var(--green-600); color: var(--green-700);" title="View pinned gene sets in Overview lollipop plot" onclick="app.showTab('overview')">📊 View pinned in Overview</button>
+                            <button class="btn btn-outline btn-sm" id="viewPinnedBtn" style="display:none; background: var(--green-50); border-color: var(--green-600); color: var(--green-700);" title="View pinned gene sets in Overview lollipop plot" onclick="app.viewPinnedInOverview()">📊 View pinned in Overview</button>
                             <span class="result-count" id="resultCount"></span>
                         </div>
                         <div class="table-container">
@@ -2682,7 +2682,7 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
-            <p><strong>v.35</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <p><strong>v.35.1</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>Select Sets: FDR filter now properly applied on first open — sets with FDR ≥ threshold are deselected before auto-select runs</li>
                 <li>Select Sets: Apply now syncs FDR and p-value filters to all tabs (Overview, Enrichment Plot, Results Table)</li>
@@ -3035,6 +3035,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=61"></script>
+<script src="app.js?v=62"></script>
 </body>
 </html>

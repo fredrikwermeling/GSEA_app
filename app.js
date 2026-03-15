@@ -2090,6 +2090,13 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         }
     }
 
+    viewPinnedInOverview() {
+        if (this._pinnedBubbleSets.size === 0) return;
+        this._showOnlyPinned = true;
+        this.renderBubblePlot();
+        this.showTab('overview');
+    }
+
     // --------------------------------------------------------
     // Bubble Plot
     // --------------------------------------------------------
@@ -2135,18 +2142,26 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         if (countEl) countEl.textContent = `${filtered.length} sets`;
         // Sort by |NES| and take top N, plus any pinned sets
         const sorted = filtered.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
-        const topSet = new Set(sorted.slice(0, topN).map(r => r.name));
-        // Add pinned sets — bypass all filters (use unfiltered results)
-        for (const r of this.results) {
-            if (this._pinnedBubbleSets.has(r.name) && !topSet.has(r.name)) {
-                topSet.add(r.name);
+        let top;
+        if (this._showOnlyPinned && this._pinnedBubbleSets.size > 0) {
+            // Show ONLY pinned sets (bypass all filters)
+            top = this.results.filter(r => this._pinnedBubbleSets.has(r.name));
+            top.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
+            this._showOnlyPinned = false; // reset flag after use
+        } else {
+            const topSet = new Set(sorted.slice(0, topN).map(r => r.name));
+            // Add pinned sets — bypass all filters (use unfiltered results)
+            for (const r of this.results) {
+                if (this._pinnedBubbleSets.has(r.name) && !topSet.has(r.name)) {
+                    topSet.add(r.name);
+                }
             }
-        }
-        let top = sorted.filter(r => topSet.has(r.name));
-        // Also add pinned sets that were filtered out
-        for (const r of this.results) {
-            if (this._pinnedBubbleSets.has(r.name) && !top.find(t => t.name === r.name)) {
-                top.push(r);
+            top = sorted.filter(r => topSet.has(r.name));
+            // Also add pinned sets that were filtered out
+            for (const r of this.results) {
+                if (this._pinnedBubbleSets.has(r.name) && !top.find(t => t.name === r.name)) {
+                    top.push(r);
+                }
             }
         }
 
@@ -4141,13 +4156,14 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 }
                 self._renderGeneSetFilter();
             } else if (e.target.id === 'gsfViewInOverview') {
-                // Pin all currently visible (checked) sets and switch to Overview tab
+                // Pin all currently checked sets and show ONLY them in Overview
                 self._pinnedBubbleSets.clear();
                 body.querySelectorAll('.gsf-check:checked').forEach(cb => {
                     self._pinnedBubbleSets.add(cb.dataset.name);
                 });
                 popup.style.display = 'none';
                 document.getElementById('geneSetFilterBackdrop').style.display = 'none';
+                self._showOnlyPinned = true;
                 self.renderBubblePlot();
                 self.filterAndRenderTable();
                 self.showTab('overview');
