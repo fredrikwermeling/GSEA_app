@@ -101,23 +101,14 @@
         .logo-header {
             text-align: center;
             padding: 0 20px;
-            max-height: 240px;
-            overflow: hidden;
-            margin-bottom: -10px;
+            margin-bottom: -4px;
         }
         .logo-header img {
             max-width: 700px;
             height: auto;
             display: inline-block;
-            margin-top: -25px;
-        }
-        .logo-subtitle {
-            font-size: 13px;
-            color: var(--gray-400);
-            font-weight: 400;
-            letter-spacing: 0.3px;
-            margin-top: 0;
-            margin-bottom: 4px;
+            margin-top: -30px;
+            margin-bottom: -50px;
         }
         .example-data-grid { display: flex; flex-direction: column; gap: 1px; }
         .example-row {
@@ -1519,7 +1510,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.19</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.20</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1699,18 +1690,18 @@
         <div class="card">
             <div class="card-title">1. Upload Data</div>
             <div class="card-content">
+                <!-- Step A: Upload or load example -->
                 <div class="form-group">
-                    <label class="form-label">Upload CSV or TSV file with gene-level statistics</label>
+                    <label class="form-label">Upload your ranked gene list</label>
                     <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.tab" class="form-control">
-                    <div class="form-hint">File should have a gene name column and one or more numeric columns</div>
+                    <div class="form-hint">CSV or TSV with a gene name column and a numeric ranking column</div>
                 </div>
-                <div class="form-group" style="margin-top: 4px;">
-                    <label class="form-label" style="margin-bottom: 6px; font-size: 0.88em;">Example datasets
-                        <span class="info-icon" tabindex="0" style="margin-left: 2px;">?
-                            <span class="info-tooltip" style="width:300px;">Real data from <b>DepMap</b> (Broad Institute).<br><b>Expression:</b> gene expression z-score vs median across all DepMap cell lines &mdash; positive = overexpressed in this cancer.<br><b>CRISPR:</b> Chronos gene effect score &mdash; negative = the cancer depends on this gene.</span>
-                        </span>
-                    </label>
-                    <div class="example-data-grid">
+
+                <div style="text-align: center; font-size: 0.8em; color: var(--gray-400); margin: 6px 0; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">or try example data</div>
+
+                <div class="form-group" style="margin-top: 0;">
+                    <div class="example-data-grid" style="background: var(--green-50); border-radius: var(--radius-sm); padding: 6px;">
+                        <div style="font-size: 0.75em; color: var(--gray-500); margin-bottom: 2px; padding: 0 4px;">DepMap cancer cell lines — click to load</div>
                         <div class="example-row">
                             <div class="example-cell-info"><span class="example-cell-name">A375</span><span class="example-cancer-type">Skin (Melanoma)</span></div>
                             <div class="example-buttons"><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('A375','expression')">Expression</button><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('A375','crispr')">CRISPR</button></div>
@@ -1733,36 +1724,43 @@
                         </div>
                     </div>
                 </div>
+
                 <div id="uploadStatus" class="status-box hidden"></div>
 
-                <div class="form-group" style="margin-top: 10px;">
-                    <label class="form-label">Gene name column</label>
-                    <select class="form-control" id="geneColumn" disabled>
-                        <option value="">Upload a file first...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Ranking metric column</label>
-                    <select class="form-control" id="metricColumn" disabled>
-                        <option value="">Upload a file first...</option>
-                    </select>
-                    <div class="form-hint">Genes will be ranked in descending order by this value</div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Data type <span style="color: var(--gray-400); font-weight: 400; font-size: 0.85em;">(optional)</span>
-                        <span class="info-icon">?
-                            <span class="info-tooltip">
-                                Affects interpretation labels only. Does not change the analysis.
+                <!-- Step B: Configure columns (grayed out until data loaded) -->
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--gray-200);">
+                    <div style="font-size: 0.78em; color: var(--gray-400); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Column settings</div>
+                    <div class="form-group" style="margin-bottom: 6px;">
+                        <label class="form-label" style="font-size: 0.85em;">Gene name column</label>
+                        <select class="form-control" id="geneColumn" disabled>
+                            <option value="">Upload a file first...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 6px;">
+                        <label class="form-label" style="font-size: 0.85em;">Ranking metric column</label>
+                        <select class="form-control" id="metricColumn" disabled>
+                            <option value="">Upload a file first...</option>
+                        </select>
+                        <div class="form-hint">Genes will be ranked in descending order by this value</div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 4px;">
+                        <label class="form-label" style="font-size: 0.85em;">Data type <span style="color: var(--gray-400); font-weight: 400; font-size: 0.85em;">(optional)</span>
+                            <span class="info-icon">?
+                                <span class="info-tooltip">
+                                    Affects interpretation labels only. Does not change the analysis.
+                                </span>
                             </span>
-                        </span>
-                    </label>
-                    <select class="form-control" id="dataType">
-                        <option value="expression" selected>Expression</option>
-                        <option value="crispr">CRISPR / Perturbation</option>
-                    </select>
+                        </label>
+                        <select class="form-control" id="dataType">
+                            <option value="expression" selected>Expression</option>
+                            <option value="crispr">CRISPR / Perturbation</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--gray-200);">
-                    <label class="form-label" style="font-size: 0.82em; color: var(--gray-500);">
+
+                <!-- Step C: R results upload (secondary option) -->
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--gray-200);">
+                    <label class="form-label" style="font-size: 0.78em; color: var(--gray-400);">
                         Or upload fgsea results (from R script)
                         <span class="info-icon" tabindex="0" style="margin-left: 2px;">?
                             <span class="info-tooltip" style="width:260px;">Upload the JSON output from the R script generated by Enrich. This lets you visualize results from large analyses that were run in R.</span>
@@ -2823,6 +2821,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=40"></script>
+<script src="app.js?v=41"></script>
 </body>
 </html>
