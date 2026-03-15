@@ -3993,6 +3993,10 @@ class GSEAApp {
             }
         }
 
+        // Pre-compute gene Sets and diversity caches for instant Jaccard filtering
+        // (runs synchronously — typically <500ms even for 30k+ sets)
+        this._gsbPrecomputeDiversity();
+
         // If first time opening (no prior custom selection), start with nothing selected
         if (!this.useCustomSelection) {
             this.selectedGeneSets = new Set();
@@ -4018,6 +4022,54 @@ class GSEAApp {
     closeGeneSetBrowser() {
         document.getElementById('gsbModal').classList.remove('open');
         document.getElementById('gsbBackdrop').classList.remove('open');
+    }
+
+    _gsbPrecomputeDiversity() {
+        const thresholds = [0.1, 0.2, 0.3, 0.5];
+        // Build uppercase gene Sets for all items
+        for (const item of this._gsbAllItems) {
+            if (!item._geneSet) item._geneSet = new Set(item.genes.map(g => g.toUpperCase()));
+        }
+        // Group items by collection
+        const byCollection = {};
+        for (const item of this._gsbAllItems) {
+            if (!byCollection[item.collection]) byCollection[item.collection] = [];
+            byCollection[item.collection].push(item);
+        }
+        // For each collection, run greedy diversity selection at each threshold
+        // Cache: _gsbDiversityCache[threshold] = Set of item names that pass
+        this._gsbDiversityCache = {};
+        for (const t of thresholds) {
+            const passNames = new Set();
+            for (const items of Object.values(byCollection)) {
+                const keptGeneSets = [];
+                for (const item of items) {
+                    const itemGenes = item._geneSet;
+                    let tooSimilar = false;
+                    for (const keptGenes of keptGeneSets) {
+                        const sA = itemGenes.size, sB = keptGenes.size;
+                        const minSize = Math.min(sA, sB), maxSize = Math.max(sA, sB);
+                        if (minSize / maxSize < t) continue;
+                        let intersection = 0;
+                        const smaller = sA <= sB ? itemGenes : keptGenes;
+                        const larger = sA <= sB ? keptGenes : itemGenes;
+                        for (const g of smaller) {
+                            if (larger.has(g)) intersection++;
+                        }
+                        const union = sA + sB - intersection;
+                        if (union > 0 && intersection / union >= t) {
+                            tooSimilar = true;
+                            break;
+                        }
+                    }
+                    if (!tooSimilar) {
+                        passNames.add(item.name);
+                        keptGeneSets.push(itemGenes);
+                    }
+                }
+            }
+            this._gsbDiversityCache[t] = passNames;
+        }
     }
 
     _updateCollectionFilterForTier() {
@@ -4096,46 +4148,17 @@ class GSEAApp {
             this._gsbLastGeneHits = [];
         }
 
-        // Jaccard diversity filter: greedy selection keeping only diverse sets
+        // Jaccard diversity filter: use pre-computed cache for instant filtering
         const jaccardThreshold = document.getElementById('gsbJaccardFilter').value;
         let jaccardFiltered = 0;
-        if (jaccardThreshold !== 'off') {
+        if (jaccardThreshold !== 'off' && this._gsbDiversityCache) {
             const maxJ = parseFloat(jaccardThreshold);
-            // Pre-compute gene sets as uppercase Sets (cached on item for reuse)
-            for (const item of filtered) {
-                if (!item._geneSet) item._geneSet = new Set(item.genes.map(g => g.toUpperCase()));
+            const passNames = this._gsbDiversityCache[maxJ];
+            if (passNames) {
+                const before = filtered.length;
+                filtered = filtered.filter(item => passNames.has(item.name));
+                jaccardFiltered = before - filtered.length;
             }
-            const kept = [];
-            const keptGeneSets = []; // parallel array of Set objects for fast Jaccard
-            for (const item of filtered) {
-                const itemGenes = item._geneSet;
-                let tooSimilar = false;
-                for (const keptGenes of keptGeneSets) {
-                    // Quick size-based check: if smaller/larger > maxJ is impossible, skip
-                    const sA = itemGenes.size, sB = keptGenes.size;
-                    const minSize = Math.min(sA, sB), maxSize = Math.max(sA, sB);
-                    // Max possible Jaccard = minSize / maxSize (when smaller is subset of larger)
-                    if (minSize / maxSize < maxJ) continue;
-                    // Jaccard = |A ∩ B| / |A ∪ B|
-                    let intersection = 0;
-                    const smaller = sA <= sB ? itemGenes : keptGenes;
-                    const larger = sA <= sB ? keptGenes : itemGenes;
-                    for (const g of smaller) {
-                        if (larger.has(g)) intersection++;
-                    }
-                    const union = sA + sB - intersection;
-                    if (union > 0 && intersection / union >= maxJ) {
-                        tooSimilar = true;
-                        break;
-                    }
-                }
-                if (!tooSimilar) {
-                    kept.push(item);
-                    keptGeneSets.push(itemGenes);
-                }
-            }
-            jaccardFiltered = filtered.length - kept.length;
-            filtered = kept;
         }
 
         // Build flat list with section headers
