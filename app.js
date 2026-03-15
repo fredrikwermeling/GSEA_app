@@ -293,6 +293,21 @@ class GSEAApp {
         // Searchable gene set selector
         this._initGeneSetSearch();
 
+        // Enrichment Plot tab filters — re-populate dropdown when changed
+        ['esFdrFilter', 'esPvalFilter', 'esDirectionFilter'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                const currentVal = document.getElementById('geneSetSelector').value;
+                this.populateGeneSetSelector();
+                // Restore selection if still in filtered list
+                if (currentVal) {
+                    const sel = document.getElementById('geneSetSelector');
+                    const stillExists = Array.from(sel.options).some(o => o.value === currentVal);
+                    if (stillExists) sel.value = currentVal;
+                }
+                this._initGeneSetSearch();
+            });
+        });
+
         // Prev/Next gene set buttons
         document.getElementById('prevGeneSetBtn').addEventListener('click', () => this.navigateGeneSet(-1));
         document.getElementById('nextGeneSetBtn').addEventListener('click', () => this.navigateGeneSet(1));
@@ -1980,9 +1995,30 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const sel = document.getElementById('geneSetSelector');
         sel.innerHTML = '<option value="">Select a gene set...</option>';
 
+        // Read enrichment plot tab filters
+        const esFdrEl = document.getElementById('esFdrFilter');
+        const esPvalEl = document.getElementById('esPvalFilter');
+        const esDirEl = document.getElementById('esDirectionFilter');
+        const fdrThresh = esFdrEl ? parseFloat(esFdrEl.value) : 1;
+        const pvalThresh = esPvalEl ? parseFloat(esPvalEl.value) : 1;
+        const dirFilter = esDirEl ? esDirEl.value : 'all';
+
+        // Filter results
+        let filtered = this.results.filter(r => {
+            if (fdrThresh < 1 && r.fdr >= fdrThresh) return false;
+            if (pvalThresh < 1 && r.pvalue >= pvalThresh) return false;
+            if (dirFilter === 'up' && r.nes <= 0) return false;
+            if (dirFilter === 'down' && r.nes > 0) return false;
+            return true;
+        });
+
+        // Update count
+        const countEl = document.getElementById('esFilterCount');
+        if (countEl) countEl.textContent = `${filtered.length} of ${this.results.length} gene sets`;
+
         // Group by positive/negative NES
-        const pos = this.results.filter(r => r.nes > 0).sort((a, b) => b.nes - a.nes);
-        const neg = this.results.filter(r => r.nes <= 0).sort((a, b) => a.nes - b.nes);
+        const pos = filtered.filter(r => r.nes > 0).sort((a, b) => b.nes - a.nes);
+        const neg = filtered.filter(r => r.nes <= 0).sort((a, b) => a.nes - b.nes);
 
         if (pos.length > 0) {
             const group = document.createElement('optgroup');
@@ -2756,14 +2792,16 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             });
         }
 
-        // Zero cross annotation
+        // Zero cross annotation — positioned below the metric panel to avoid overlapping bars
         if (zeroCross >= 0 && s.showZeroCross) {
+            // Place the annotation below the zero line with arrow pointing up
             annotations.push({
-                text: `Zero cross at ${zeroCross}`,
-                x: zeroCross, y: 0,
+                text: `Zero cross at ${zeroCross.toLocaleString()}`,
+                x: zeroCross, y: metYMin * 0.85,
                 xref: 'x3', yref: 'y3',
                 showarrow: true, arrowhead: 0, arrowsize: 0.8, arrowwidth: 1,
-                ax: 0, ay: -22,
+                ax: 0, ay: 18,
+                arrowcolor: '#999',
                 font: { size: Math.max(8, baseFontSize - 4), color: '#666', family: fontFam }
             });
         }
@@ -2813,11 +2851,13 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const esHitFont = this._getTextFont('es', 'hitMarkersLabel');
 
         // Add axis labels as draggable annotations instead of axis titles
+        // Use different x positions to avoid overlap between panels
+        const yLabelSize = Math.min(esYLabelFont.size, 12);  // cap size for consistency
         if (esYLabelFont.visible !== false) {
             annotations.push({
                 text: esYLabelFont.wrap(esYLabelFont.text || 'Enrichment score (ES)'),
                 xref: 'paper', yref: 'paper',
-                x: -0.07, y: (esBot + esTop) / 2,
+                x: -0.09, y: (esBot + esTop) / 2,
                 showarrow: false, textangle: -90,
                 font: { size: esYLabelFont.size, family: esYLabelFont.family },
                 xanchor: 'center', yanchor: 'middle'
@@ -2827,9 +2867,9 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             annotations.push({
                 text: esHitFont.wrap(esHitFont.text || 'Gene hits'),
                 xref: 'paper', yref: 'paper',
-                x: -0.07, y: (hitBot + hitTop) / 2,
+                x: -0.03, y: (hitBot + hitTop) / 2,
                 showarrow: false, textangle: -90,
-                font: { size: esHitFont.size, family: esHitFont.family },
+                font: { size: Math.min(esHitFont.size, 9), family: esHitFont.family },
                 xanchor: 'center', yanchor: 'middle'
             });
         }
@@ -2837,7 +2877,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             annotations.push({
                 text: esMetricFont.wrap(esMetricFont.text || metricLabel),
                 xref: 'paper', yref: 'paper',
-                x: -0.07, y: (metBot + metTop) / 2,
+                x: -0.09, y: (metBot + metTop) / 2,
                 showarrow: false, textangle: -90,
                 font: { size: esMetricFont.size, family: esMetricFont.family },
                 xanchor: 'center', yanchor: 'middle'
@@ -2895,7 +2935,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 fixedrange: true
             },
             height: s.esPlotHeight || 580,
-            margin: { l: 65, r: 15, t: 45, b: 80 },
+            margin: { l: 75, r: 15, t: 45, b: 80 },
             font: { family: fontFam },
             paper_bgcolor: s.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -2909,6 +2949,22 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const dims = this.getPlotDimensions('esPlot', undefined, layout.height);
         if (dims.width) layout.width = dims.width;
         if (dims.height) layout.height = dims.height;
+
+        // Preserve user-edited annotation positions from previous render
+        const plotDiv = document.getElementById('esPlot');
+        if (plotDiv && plotDiv.layout && plotDiv.layout.annotations) {
+            const prevAnns = plotDiv.layout.annotations;
+            // Match annotations by text content and restore x/y positions
+            for (const ann of annotations) {
+                const match = prevAnns.find(p => p.text === ann.text);
+                if (match) {
+                    ann.x = match.x;
+                    ann.y = match.y;
+                    if (match.ax !== undefined) ann.ax = match.ax;
+                    if (match.ay !== undefined) ann.ay = match.ay;
+                }
+            }
+        }
 
         Plotly.newPlot('esPlot',
             [esLine, esZero, rugAnchor, ...traces3, metZero],
@@ -2947,11 +3003,26 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         let debounceTimer = null;
 
         const showDropdown = (filter) => {
-            const options = Array.from(sel.options).filter(o => o.value);
+            // Use filtered results directly for better search
+            const esFdrEl = document.getElementById('esFdrFilter');
+            const esPvalEl = document.getElementById('esPvalFilter');
+            const esDirEl = document.getElementById('esDirectionFilter');
+            const fdrT = esFdrEl ? parseFloat(esFdrEl.value) : 1;
+            const pvalT = esPvalEl ? parseFloat(esPvalEl.value) : 1;
+            const dirF = esDirEl ? esDirEl.value : 'all';
+
+            let filteredResults = this.results ? this.results.filter(r => {
+                if (fdrT < 1 && r.fdr >= fdrT) return false;
+                if (pvalT < 1 && r.pvalue >= pvalT) return false;
+                if (dirF === 'up' && r.nes <= 0) return false;
+                if (dirF === 'down' && r.nes > 0) return false;
+                return true;
+            }) : [];
+
             const query = (filter || '').toLowerCase();
             const matches = query
-                ? options.filter(o => o.value.toLowerCase().includes(query) || o.textContent.toLowerCase().includes(query))
-                : options;
+                ? filteredResults.filter(r => r.name.toLowerCase().includes(query))
+                : filteredResults;
 
             if (matches.length === 0) {
                 dropdown.innerHTML = '<div style="padding: 8px 12px; color: #999; font-size: 0.85em;">No matching gene sets</div>';
@@ -2959,14 +3030,16 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 return;
             }
 
+            // Sort by |NES| descending
+            matches.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
+
             // Limit to 100 for performance
             const shown = matches.slice(0, 100);
-            dropdown.innerHTML = shown.map(o => {
-                const r = this.results ? this.results.find(r => r.name === o.value) : null;
-                const info = r ? `<span style="color: #888; font-size: 0.8em; margin-left: 6px;">NES: ${r.nes.toFixed(2)} FDR: ${this.formatPval(r.fdr)}</span>` : '';
-                const isSelected = o.value === sel.value;
-                return `<div class="gs-search-item" data-value="${o.value}" style="padding: 5px 10px; cursor: pointer; font-size: 0.85em; border-bottom: 1px solid #f3f4f6; ${isSelected ? 'background: var(--green-50);' : ''}" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='${isSelected ? 'var(--green-50)' : ''}'">
-                    <span style="font-weight: 500;">${this.cleanName(o.value)}</span>${info}
+            dropdown.innerHTML = shown.map(r => {
+                const info = `<span style="color: #888; font-size: 0.8em; margin-left: 6px;">NES: ${r.nes.toFixed(2)} FDR: ${this.formatPval(r.fdr)}</span>`;
+                const isSelected = r.name === sel.value;
+                return `<div class="gs-search-item" data-value="${r.name}" style="padding: 5px 10px; cursor: pointer; font-size: 0.85em; border-bottom: 1px solid #f3f4f6; ${isSelected ? 'background: var(--green-50);' : ''}" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='${isSelected ? 'var(--green-50)' : ''}'">
+                    <span style="font-weight: 500;">${this.cleanName(r.name)}</span>${info}
                 </div>`;
             }).join('');
 
@@ -3793,7 +3866,9 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         html += `<option value="all"${gsfFdrVal === 'all' ? ' selected' : ''}>All FDR</option>`;
         html += `<option value="0.5"${gsfFdrVal === '0.5' ? ' selected' : ''}>FDR < 0.5</option>`;
         html += `<option value="0.25"${gsfFdrVal === '0.25' ? ' selected' : ''}>FDR < 0.25</option>`;
+        html += `<option value="0.1"${gsfFdrVal === '0.1' ? ' selected' : ''}>FDR < 0.1</option>`;
         html += `<option value="0.05"${gsfFdrVal === '0.05' ? ' selected' : ''}>FDR < 0.05</option>`;
+        html += `<option value="0.01"${gsfFdrVal === '0.01' ? ' selected' : ''}>FDR < 0.01</option>`;
         html += `</select>`;
         html += `<select class="form-control" id="gsfPvalFilter" style="width: auto; font-size: 0.85em;">`;
         html += `<option value="all"${gsfPvalVal === 'all' ? ' selected' : ''}>All p-val</option>`;
@@ -3810,6 +3885,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         html += `<button class="btn btn-outline btn-sm" id="gsfAutoSelect" title="Auto-select best representative per overlap cluster">Auto-select</button>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfShowAll">Show all</button>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfHideAll">Hide all</button>`;
+        html += `<button class="btn btn-sm" id="gsfViewInOverview" style="background: var(--green-50); border: 1px solid var(--green-600); color: var(--green-700);" title="Pin visible sets and view in Overview lollipop plot">📊 View in Overview</button>`;
         html += `</div>`;
 
         html += `<div style="max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;">`;
@@ -3917,6 +3993,18 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (e.target.id === 'gsfApply') {
                 popup.style.display = 'none';
                 document.getElementById('geneSetFilterBackdrop').style.display = 'none';
+                // Propagate Select Sets FDR/pval filters to the results table filters
+                if (self._gsfContext === 'table') {
+                    const fdrSel = document.getElementById('fdrFilter');
+                    const pvalSel = document.getElementById('pvalueFilter');
+                    if (fdrSel && self._gsfFdrFilter && self._gsfFdrFilter !== 'all') {
+                        // Set to matching value or closest available
+                        fdrSel.value = self._gsfFdrFilter;
+                    }
+                    if (pvalSel && self._gsfPvalFilter && self._gsfPvalFilter !== 'all') {
+                        pvalSel.value = self._gsfPvalFilter;
+                    }
+                }
                 self.renderBubblePlot();
                 self.filterAndRenderTable();
             } else if (e.target.id === 'gsfCancel') {
@@ -3947,6 +4035,17 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                     }
                 }
                 self._renderGeneSetFilter();
+            } else if (e.target.id === 'gsfViewInOverview') {
+                // Pin all currently visible (checked) sets and switch to Overview tab
+                self._pinnedBubbleSets.clear();
+                body.querySelectorAll('.gsf-check:checked').forEach(cb => {
+                    self._pinnedBubbleSets.add(cb.dataset.name);
+                });
+                popup.style.display = 'none';
+                document.getElementById('geneSetFilterBackdrop').style.display = 'none';
+                self.renderBubblePlot();
+                self.filterAndRenderTable();
+                self.showTab('overview');
             }
         };
         body.oninput = function(e) {
@@ -4030,7 +4129,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             const tr = document.createElement('tr');
             const isPinned = this._pinnedBubbleSets.has(r.name);
             tr.innerHTML = `
-                <td style="width:28px;padding:2px;text-align:center;cursor:pointer" class="pin-cell" title="${isPinned ? 'Unpin from bubble plot' : 'Pin to bubble plot'}">
+                <td style="width:28px;padding:2px;text-align:center;cursor:pointer" class="pin-cell" title="${isPinned ? 'Unpin from overview' : 'Pin to overview (lollipop plot)'}">
                     <span style="opacity:${isPinned ? '1' : '0.25'};font-size:13px">&#128204;</span>
                 </td>
                 <td title="${r.name}">${this.cleanName(r.name)}</td>

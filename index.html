@@ -1510,7 +1510,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.23</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.24</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1995,6 +1995,7 @@
                             <option value="0.1">FDR &lt; 0.1</option>
                             <option value="0.05" selected>FDR &lt; 0.05</option>
                             <option value="0.01">FDR &lt; 0.01</option>
+                            <option value="0.001">FDR &lt; 0.001</option>
                         </select>
                         <span id="rerunHitCount" style="font-size: 0.78em; color: var(--gray-500); white-space: nowrap;"></span>
                         <span class="info-icon" style="font-size: 0.75em;">?<span class="info-tooltip"><b>Re-run significant hits</b><br>Re-runs GSEA on only the gene sets below the selected FDR threshold. Use this after an initial fast screen (low permutations) to refine p-values for your hits with higher permutations. The current permutation setting (in Card 3) is used.</span></span>
@@ -2090,6 +2091,7 @@
                                 <label class="form-label">FDR threshold</label>
                                 <select class="form-control settings-live" id="fdrDisplayThreshold">
                                     <option value="1">Show all</option>
+                                    <option value="0.5">FDR &lt; 0.5</option>
                                     <option value="0.25" selected>FDR &lt; 0.25</option>
                                     <option value="0.1">FDR &lt; 0.1</option>
                                     <option value="0.05">FDR &lt; 0.05</option>
@@ -2100,6 +2102,7 @@
                                 <label class="form-label">p-value threshold</label>
                                 <select class="form-control settings-live" id="pvalDisplayThreshold">
                                     <option value="1" selected>Show all</option>
+                                    <option value="0.1">p &lt; 0.1</option>
                                     <option value="0.05">p &lt; 0.05</option>
                                     <option value="0.01">p &lt; 0.01</option>
                                     <option value="0.001">p &lt; 0.001</option>
@@ -2128,7 +2131,7 @@
                             <div class="form-hint">Set to 0 for auto-sizing</div>
                             <div style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px;">
                                 <div class="form-group">
-                                    <label class="form-label">Overlap redundancy filter
+                                    <label class="form-label">Redundancy filter
                                         <span class="info-icon" style="font-size: 9px;">?
                                             <span class="info-tooltip" style="width: 260px;">Hide gene sets that overlap (Jaccard similarity) with a higher-priority set above this threshold. Hallmark &gt; C2/C5 &gt; C3/C6 &gt; C7/C8. Same tier: higher |NES| wins.</span>
                                         </span>
@@ -2149,6 +2152,7 @@
                         <div class="table-toolbar" id="overviewToolbar">
                             <select class="form-control" id="overviewFdrFilter" style="width: auto;" title="FDR threshold">
                                 <option value="1">All FDR</option>
+                                <option value="0.5">FDR &lt; 0.5</option>
                                 <option value="0.25" selected>FDR &lt; 0.25</option>
                                 <option value="0.1">FDR &lt; 0.1</option>
                                 <option value="0.05">FDR &lt; 0.05</option>
@@ -2156,6 +2160,7 @@
                             </select>
                             <select class="form-control" id="overviewPvalFilter" style="width: auto;" title="p-value threshold">
                                 <option value="1" selected>All p-values</option>
+                                <option value="0.1">p &lt; 0.1</option>
                                 <option value="0.05">p &lt; 0.05</option>
                                 <option value="0.01">p &lt; 0.01</option>
                                 <option value="0.001">p &lt; 0.001</option>
@@ -2172,8 +2177,8 @@
                                 <option value="50">Top 50</option>
                                 <option value="100">Top 100</option>
                             </select>
-                            <select class="form-control" id="overviewOverlapFilter" style="width: auto;" title="Filter redundant gene sets by overlap">
-                                <option value="0">No overlap filter</option>
+                            <select class="form-control" id="overviewOverlapFilter" style="width: auto;" title="Remove redundant gene sets sharing genes above this threshold">
+                                <option value="0">No redundancy filter</option>
                                 <option value="50">Overlap &gt; 50%</option>
                                 <option value="30">Overlap &gt; 30%</option>
                                 <option value="20">Overlap &gt; 20%</option>
@@ -2240,9 +2245,32 @@
                 <p>Run GSEA, then click a gene set in the overview plot or results table to see its enrichment profile here</p>
             </div>
             <div id="enrichmentResults" style="display: none;">
-                <!-- Gene set selector row -->
+                <!-- Gene set selector row with filters -->
                 <div class="card" style="margin-bottom: 8px;">
                     <div class="card-content" style="padding: 8px 14px;">
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px;">
+                            <select class="form-control" id="esFdrFilter" style="width: auto; font-size: 0.85em;" title="Filter dropdown by FDR">
+                                <option value="1">All FDR</option>
+                                <option value="0.5">FDR &lt; 0.5</option>
+                                <option value="0.25" selected>FDR &lt; 0.25</option>
+                                <option value="0.1">FDR &lt; 0.1</option>
+                                <option value="0.05">FDR &lt; 0.05</option>
+                                <option value="0.01">FDR &lt; 0.01</option>
+                            </select>
+                            <select class="form-control" id="esPvalFilter" style="width: auto; font-size: 0.85em;" title="Filter dropdown by p-value">
+                                <option value="1" selected>All p-values</option>
+                                <option value="0.1">p &lt; 0.1</option>
+                                <option value="0.05">p &lt; 0.05</option>
+                                <option value="0.01">p &lt; 0.01</option>
+                                <option value="0.001">p &lt; 0.001</option>
+                            </select>
+                            <select class="form-control" id="esDirectionFilter" style="width: auto; font-size: 0.85em;" title="Filter by direction">
+                                <option value="all">All directions</option>
+                                <option value="up">Upregulated (NES &gt; 0)</option>
+                                <option value="down">Downregulated (NES &lt; 0)</option>
+                            </select>
+                            <span class="result-count" id="esFilterCount" style="font-size: 0.82em; color: var(--gray-500);"></span>
+                        </div>
                         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                             <div style="flex: 1; min-width: 250px; position: relative;">
                                 <input type="text" class="form-control" id="geneSetSearchInput" placeholder="Search gene sets..." style="width: 100%;" autocomplete="off">
@@ -2473,6 +2501,7 @@
                         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; font-size: 0.85em;">
                             <label style="color: var(--gray-600); font-weight: 500; margin: 0;">Show:</label>
                             <select class="form-control settings-live" id="overlapFdrFilter" style="width: auto; font-size: 0.85em;">
+                                <option value="0.01">FDR &lt; 0.01</option>
                                 <option value="0.05">FDR &lt; 0.05</option>
                                 <option value="0.1">FDR &lt; 0.1</option>
                                 <option value="0.25" selected>FDR &lt; 0.25</option>
@@ -2481,8 +2510,8 @@
                             </select>
                             <label style="color: var(--gray-600); font-weight: 500; margin: 0;">Max sets:</label>
                             <input type="number" class="form-control settings-live" id="overlapMaxSets" value="20" min="5" max="50" style="max-width: 65px; font-size: 0.85em;">
-                            <label style="color: var(--gray-600); font-weight: 500; margin: 0;">Collapse:</label>
-                            <input type="number" class="form-control settings-live" id="overlapCollapseThresh" value="50" min="10" max="100" style="max-width: 55px; font-size: 0.85em;">
+                            <label style="color: var(--gray-600); font-weight: 500; margin: 0;">Redundancy filter:</label>
+                            <input type="number" class="form-control settings-live" id="overlapCollapseThresh" value="50" min="10" max="100" style="max-width: 55px; font-size: 0.85em;" title="Merge gene sets sharing more than this % of genes (keeps highest |NES|)">
                             <span style="color: var(--gray-500);">%</span>
                             <button class="btn btn-outline btn-sm" id="overlapToTableBtn" title="Show only these gene sets in the Results Table" style="font-size: 0.85em;">Send to Table</button>
                         </div>
@@ -2491,7 +2520,7 @@
                 </div>
                 <div id="condensedInfo" style="display: none; margin-top: 8px;">
                     <div class="card">
-                        <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Collapsed Gene Sets</div>
+                        <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Merged Gene Sets (Redundancy Filter)</div>
                         <div class="card-content" style="padding: 8px 10px; font-size: 0.82em; max-height: 200px; overflow-y: auto;" id="condensedList"></div>
                     </div>
                 </div>
@@ -2533,8 +2562,8 @@
                                 <option value="up">Upregulated (NES &gt; 0)</option>
                                 <option value="down">Downregulated (NES &lt; 0)</option>
                             </select>
-                            <select class="form-control" id="tableOverlapFilter" style="width: auto;" title="Filter redundant gene sets by overlap">
-                                <option value="0">No overlap filter</option>
+                            <select class="form-control" id="tableOverlapFilter" style="width: auto;" title="Remove redundant gene sets sharing genes above this threshold">
+                                <option value="0">No redundancy filter</option>
                                 <option value="50">Overlap &gt; 50%</option>
                                 <option value="30">Overlap &gt; 30%</option>
                                 <option value="20">Overlap &gt; 20%</option>
@@ -2628,6 +2657,15 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.24</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <ul>
+                <li>FDR filters now range 0.5–0.01 everywhere; p-value filters range 0.1–0.001</li>
+                <li>Enrichment Plot tab: new FDR/p-value/direction filter bar above gene set search — controls which sets appear in dropdown</li>
+                <li>Select Sets popup: filters now propagate to Results Table; new "View in Overview" button pins selected sets to lollipop plot</li>
+                <li>Enrichment Score Plot: fixed y-axis label overlap ("Gene hits" moved inward), zero cross separated from bars, annotation positions preserved when settings change</li>
+                <li>"Collapse %" renamed to "Redundancy filter" throughout; overlap filter harmonized across tabs</li>
+                <li>Pin icon tooltip updated to "Pin to overview (lollipop plot)"</li>
+            </ul>
             <p><strong>v.23</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>Settings toolbar above Enrichment Overview (FDR, p-value, direction, top N, overlap filter)</li>
@@ -2900,6 +2938,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=46"></script>
+<script src="app.js?v=47"></script>
 </body>
 </html>
