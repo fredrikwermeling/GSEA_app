@@ -4143,71 +4143,40 @@ class GSEAApp {
     // --------------------------------------------------------
     // Example Data
     // --------------------------------------------------------
-    loadExampleData() {
-        // Generate a simple example: gene names with simulated log2FC values
-        this.showStatus('uploadStatus', 'info', 'Loading example data...');
+    async loadExampleData() {
+        const select = document.getElementById('exampleDataSelect');
+        const dataType = select.value; // 'expression' or 'crispr'
+        const fileMap = {
+            expression: 'web_data/depmap_expression_A375_vs_A549.json',
+            crispr: 'web_data/depmap_crispr_A375_vs_A549.json'
+        };
+        const metricMap = {
+            expression: 'log2FC_Expression',
+            crispr: 'GeneEffect_CRISPR'
+        };
+        const labelMap = {
+            expression: 'Expression (log₂ TPM difference)',
+            crispr: 'CRISPR KO (Chronos gene effect difference)'
+        };
 
-        // Create example data with some known Hallmark pathway genes upregulated
-        const exampleGenes = this.generateExampleData();
-        this.rawData = exampleGenes;
-        this.populateColumnDropdowns(['Gene', 'log2FoldChange', 'pvalue']);
-        document.getElementById('geneColumn').value = 'Gene';
-        document.getElementById('metricColumn').value = 'log2FoldChange';
-        this.showStatus('uploadStatus', 'success',
-            `Loaded example data: ${exampleGenes.length} genes with simulated log2FC values`);
-        this.checkReady();
-    }
+        this.showStatus('uploadStatus', 'info', 'Loading DepMap example data...');
 
-    generateExampleData() {
-        // Use Hallmark gene sets to create biologically meaningful example data
-        const hallmark = this.geneSets['hallmark'];
-        if (!hallmark) return [];
+        try {
+            const resp = await fetch(fileMap[dataType]);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
 
-        // Collect all unique genes from Hallmark sets
-        const allGenes = new Set();
-        for (const genes of Object.values(hallmark)) {
-            for (const g of genes) allGenes.add(g.toUpperCase());
+            this.rawData = data;
+            const metricCol = metricMap[dataType];
+            this.populateColumnDropdowns(['Gene', metricCol]);
+            document.getElementById('geneColumn').value = 'Gene';
+            document.getElementById('metricColumn').value = metricCol;
+            this.showStatus('uploadStatus', 'success',
+                `Loaded DepMap ${labelMap[dataType]}: ${data.length} genes — A375 (melanoma) vs A549 (lung adenocarcinoma)`);
+            this.checkReady();
+        } catch (err) {
+            this.showStatus('uploadStatus', 'error', `Failed to load example data: ${err.message}`);
         }
-
-        // Pick sets to be "enriched" (upregulated) and "depleted" (downregulated)
-        const setNames = Object.keys(hallmark);
-        const upSets = ['HALLMARK_TNFA_SIGNALING_VIA_NFKB', 'HALLMARK_INFLAMMATORY_RESPONSE',
-                        'HALLMARK_INTERFERON_GAMMA_RESPONSE'];
-        const downSets = ['HALLMARK_OXIDATIVE_PHOSPHORYLATION', 'HALLMARK_FATTY_ACID_METABOLISM'];
-
-        const upGenes = new Set();
-        const downGenes = new Set();
-        for (const name of upSets) {
-            if (hallmark[name]) {
-                for (const g of hallmark[name]) upGenes.add(g.toUpperCase());
-            }
-        }
-        for (const name of downSets) {
-            if (hallmark[name]) {
-                for (const g of hallmark[name]) downGenes.add(g.toUpperCase());
-            }
-        }
-
-        // Generate data
-        const data = [];
-        for (const gene of allGenes) {
-            let log2fc;
-            if (upGenes.has(gene)) {
-                log2fc = 0.5 + Math.random() * 3;
-            } else if (downGenes.has(gene)) {
-                log2fc = -(0.5 + Math.random() * 3);
-            } else {
-                log2fc = (Math.random() - 0.5) * 1.5;
-            }
-            const pval = Math.pow(10, -Math.abs(log2fc) * (1 + Math.random() * 2));
-            data.push({
-                Gene: gene,
-                log2FoldChange: Math.round(log2fc * 10000) / 10000,
-                pvalue: pval
-            });
-        }
-
-        return data;
     }
 
     // --------------------------------------------------------
