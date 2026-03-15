@@ -743,7 +743,12 @@ class GSEAApp {
         const hasData = this.rawData && geneCol && metricCol;
         const hasGeneSets = this.getActiveGeneSets() !== null;
         document.getElementById('runBtn').disabled = !(hasData && hasGeneSets);
-        document.getElementById('smartRunBtn').disabled = !(hasData && hasGeneSets);
+        const smartBtn = document.getElementById('smartRunBtn');
+        smartBtn.disabled = !(hasData && hasGeneSets);
+        // Only show Smart Run when >1000 gene sets selected
+        const geneSets = hasGeneSets ? this.getActiveGeneSets() : null;
+        const nSets = geneSets ? Object.keys(geneSets).length : 0;
+        smartBtn.style.display = (hasData && hasGeneSets && nSets > 1000) ? '' : 'none';
     }
 
     getActiveGeneSets() {
@@ -890,7 +895,7 @@ class GSEAApp {
 
         // Warn about large jobs
         const nSets = Object.keys(geneSets).length;
-        if (nSets > 5000) {
+        if (nSets > 2000) {
             const action = await this._showRunWarningDialog(nSets, geneSets);
             if (action === 'cancel' || action === 'rscript') {
                 container.classList.remove('active');
@@ -1002,28 +1007,24 @@ class GSEAApp {
             const backdrop = document.getElementById('runWarningBackdrop');
             const permInput = document.getElementById('runWarningPermInput');
 
-            permInput.value = Math.max(1000, this.settings.permutations);
+            // Smart Run uses fixed permutations: 100 for screening, 1000 for final
+            permInput.value = 1000;
+            permInput.parentElement.style.display = 'none';
 
             document.getElementById('runWarningInfo').innerHTML =
                 `<b>Smart Run</b> will analyze <b>${nTotal.toLocaleString()}</b> gene sets in 3 phases:` +
                 `<ol style="margin: 6px 0 0 16px; padding: 0; font-size: 0.9em; line-height: 1.5;">` +
-                `<li><b>Screen</b> diverse sets (Jaccard &lt; 0.1) with 100 permutations</li>` +
+                `<li><b>Screen</b> diverse sets with 100 permutations</li>` +
                 `<li><b>Expand</b> around hits — test related gene sets</li>` +
-                `<li><b>Refine</b> significant hits with full permutations</li></ol>` +
+                `<li><b>Refine</b> significant hits with 1,000 permutations</li></ol>` +
                 `<div style="margin-top: 6px; font-size: 0.85em; color: var(--gray-500);">This is faster and more stable than running all sets at once.</div>`;
 
             document.getElementById('runWarningTips').innerHTML =
-                `<li>Phase 3 will use the permutation count set above for final p-values.</li>` +
                 `<li>You can cancel between phases without losing earlier results.</li>`;
 
-            const updateEstimate = () => {
-                const p = parseInt(permInput.value) || 1000;
-                const est = Math.max(1, Math.round(nTotal * 0.3 * p / 500000));
-                document.getElementById('runWarningEstimate').textContent =
-                    `Estimated time: ~${est} minute${est > 1 ? 's' : ''} (faster than full run)`;
-            };
-            updateEstimate();
-            permInput.oninput = updateEstimate;
+            const est = Math.max(1, Math.round(nTotal * 0.3 * 1000 / 500000));
+            document.getElementById('runWarningEstimate').textContent =
+                `Estimated time: ~${est} minute${est > 1 ? 's' : ''}`;
 
             // Hide R script button for smart run
             document.getElementById('runWarningRScriptBtn').style.display = 'none';
@@ -1036,7 +1037,8 @@ class GSEAApp {
                 dialog.style.display = 'none';
                 backdrop.style.display = 'none';
                 permInput.oninput = null;
-                // Restore buttons
+                // Restore buttons and permutation input visibility
+                permInput.parentElement.style.display = '';
                 document.getElementById('runWarningRScriptBtn').style.display = '';
                 document.getElementById('runWarningRunBtn').textContent = 'Run in Browser';
                 resolve(action);
