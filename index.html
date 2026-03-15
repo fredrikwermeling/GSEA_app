@@ -101,8 +101,6 @@
         .logo-header {
             text-align: center;
             padding: 0 20px;
-            max-height: 250px;
-            overflow: hidden;
             margin-bottom: -4px;
         }
         .logo-header img {
@@ -110,26 +108,27 @@
             height: auto;
             display: inline-block;
             margin-top: -30px;
+            margin-bottom: -4px;
         }
         .logo-subtitle {
             font-size: 13px;
-            color: var(--gray-500);
+            color: var(--gray-400);
             font-weight: 400;
-            letter-spacing: 0.5px;
-            margin-top: -8px;
+            letter-spacing: 0.3px;
+            margin-top: 0;
             margin-bottom: 4px;
         }
-        .example-data-grid { display: flex; flex-direction: column; gap: 3px; }
+        .example-data-grid { display: flex; flex-direction: column; gap: 2px; }
         .example-row {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 4px 8px; background: var(--gray-100); border-radius: var(--radius-sm);
-            font-size: 0.82em;
+            padding: 3px 8px; background: var(--gray-100); border-radius: var(--radius-sm);
+            font-size: 0.85em;
         }
         .example-cell-info { display: flex; align-items: center; gap: 6px; min-width: 0; }
-        .example-cell-name { font-weight: 600; font-family: 'Roboto Mono', monospace; font-size: 0.92em; }
-        .example-cancer-type { color: var(--gray-500); font-size: 0.88em; white-space: nowrap; }
-        .example-buttons { display: flex; gap: 3px; flex-shrink: 0; }
-        .btn-xs { padding: 2px 7px; font-size: 0.78em; border-radius: 3px; }
+        .example-cell-name { font-weight: 700; font-family: 'Roboto Mono', monospace; font-size: 0.95em; }
+        .example-cancer-type { color: var(--gray-600); font-size: 0.92em; }
+        .example-buttons { display: flex; gap: 2px; flex-shrink: 0; }
+        .btn-xs { padding: 1px 5px; font-size: 0.68em; border-radius: 3px; }
         .nav-bar {
             display: flex;
             flex-wrap: wrap;
@@ -1509,7 +1508,6 @@
 <!-- Header -->
 <div class="logo-header">
     <img src="enrich logo v3.png" alt="Enrich - a Gene Set Enrichment Analysis (GSEA) tool">
-    <div class="logo-subtitle">a gene set enrichment analysis (GSEA) tool</div>
 </div>
 
 <!-- Navigation -->
@@ -1520,7 +1518,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.14</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.15</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2569,6 +2567,12 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>dev-15</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <ul>
+                <li>Fix logo subtitle positioning (remove overflow clip)</li>
+                <li>Smaller Expression/CRISPR buttons, larger cancer type text</li>
+                <li>Auto-sync data type selector when loading example data</li>
+            </ul>
             <p><strong>dev-14</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>R script export: download a self-contained fgsea R script for large analyses — run in R, upload results back for visualization</li>
@@ -2794,6 +2798,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=35"></script>
+<script src="app.js?v=36"></script>
 </body>
 </html>

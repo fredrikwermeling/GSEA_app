@@ -4365,9 +4365,12 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             document.getElementById('geneColumn').value = 'Gene';
             document.getElementById('metricColumn').value = metricCol;
 
-            // Auto-set data type
-            document.getElementById('dataType').value = dataType === 'crispr' ? 'crispr' : 'expression';
-            this.settings.dataType = dataType === 'crispr' ? 'crispr' : 'expression';
+            // Auto-set data type (sync both selectors)
+            const dtVal = dataType === 'crispr' ? 'crispr' : 'expression';
+            document.getElementById('dataType').value = dtVal;
+            const dtInline = document.getElementById('dataTypeInline');
+            if (dtInline) dtInline.value = dtVal;
+            this.settings.dataType = dtVal;
 
             this.showStatus('uploadStatus', 'success',
                 `Loaded ${cellLine} \u2014 ${cellLineInfo[cellLine]} \u2014 ${labelMap[dataType]}: ${data.length.toLocaleString()} genes (DepMap)`);
