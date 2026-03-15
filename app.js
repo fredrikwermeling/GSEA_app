@@ -1859,9 +1859,9 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (sfi && sfi.totalInput > sfi.totalPassed) {
                 const excluded = sfi.totalInput - sfi.totalPassed;
                 const reasons = [];
-                if (sfi.excludedTooSmall > 0) reasons.push(`${sfi.excludedTooSmall} too few genes`);
-                if (sfi.excludedTooLarge > 0) reasons.push(`${sfi.excludedTooLarge} too many genes`);
-                if (sfi.excludedNoOverlap > 0) reasons.push(`${sfi.excludedNoOverlap} no matching genes`);
+                if (sfi.excludedTooSmall > 0) reasons.push(`${sfi.excludedTooSmall} had fewer than ${this.settings.minSize} matching genes (Min size)`);
+                if (sfi.excludedTooLarge > 0) reasons.push(`${sfi.excludedTooLarge} had more than ${this.settings.maxSize} matching genes (Max size)`);
+                if (sfi.excludedNoOverlap > 0) reasons.push(`${sfi.excludedNoOverlap} had no genes in your data`);
                 doneMsg += `. ${excluded} excluded (${reasons.join(', ')})`;
             }
             this._lastSizeFilterInfo = null;
@@ -4073,6 +4073,15 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (e.target.id === 'gsfApply') {
                 popup.style.display = 'none';
                 document.getElementById('geneSetFilterBackdrop').style.display = 'none';
+                // If Select Sets used overlap clustering, reset the per-tab overlap filters
+                // to avoid confusing double-filtering
+                if (self._gsfClusterThreshold > 0) {
+                    const tableOF = document.getElementById('tableOverlapFilter');
+                    const overviewOF = document.getElementById('overviewOverlapFilter');
+                    if (tableOF) tableOF.value = '0';
+                    if (overviewOF) overviewOF.value = '0';
+                    self._overlapFilterThreshold = 0;
+                }
                 // Apply to ALL tabs — hidden sets are shared
                 self.renderBubblePlot();
                 self.filterAndRenderTable();
