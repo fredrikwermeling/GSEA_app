@@ -64,12 +64,15 @@ class GSEAApp {
         // Per-text-element font settings
         this.textElements = {
             bubble: [
+                { key: 'title', label: 'Title', editable: true, defaultText: 'Enrichment Overview', defaultSize: 14 },
                 { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Normalized Enrichment Score (NES)', defaultSize: 12 },
                 { key: 'yTickFont', label: 'Y-axis labels', editable: false, defaultSize: 11 },
                 { key: 'colorbarTitle', label: 'Colorbar title', editable: true, defaultText: 'FDR', defaultSize: 11 },
+                { key: 'colorbarTickFont', label: 'Colorbar ticks', editable: false, defaultSize: 10 },
                 { key: 'sizeAnnotation', label: 'Size annotation', editable: false, defaultSize: 10 }
             ],
             ranked: [
+                { key: 'title', label: 'Title', editable: true, defaultText: 'Ranked List Metric', defaultSize: 14 },
                 { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Rank in Ordered Dataset', defaultSize: 11 },
                 { key: 'yAxisLabel', label: 'Y-axis label', editable: true, defaultText: 'Ranked list metric', defaultSize: 11 },
                 { key: 'xTickFont', label: 'X-axis ticks', editable: false, defaultSize: 10 },
@@ -78,16 +81,19 @@ class GSEAApp {
                 { key: 'negLabel', label: 'Negative label', editable: true, defaultText: 'Negatively correlated', defaultSize: 9 }
             ],
             es: [
-                { key: 'title', label: 'Title', editable: false, defaultSize: 16 },
+                { key: 'title', label: 'Title', editable: true, defaultSize: 16 },
                 { key: 'esYLabel', label: 'ES Y-axis label', editable: true, defaultText: 'Enrichment score (ES)', defaultSize: 14 },
-                { key: 'metricYLabel', label: 'Metric Y-axis label', editable: false, defaultSize: 13 },
+                { key: 'hitMarkersLabel', label: 'Hit markers label', editable: true, defaultText: 'Gene hits', defaultSize: 10 },
+                { key: 'metricYLabel', label: 'Metric Y-axis label', editable: true, defaultText: '', defaultSize: 13 },
                 { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Rank in Ordered Dataset', defaultSize: 14 },
                 { key: 'statsBox', label: 'Stats box', editable: false, defaultSize: 13, defaultFamily: 'Roboto Mono' },
                 { key: 'posLabel', label: 'Positive label', editable: true, defaultText: 'Positively correlated', defaultSize: 12 },
                 { key: 'negLabel', label: 'Negative label', editable: true, defaultText: 'Negatively correlated', defaultSize: 12 },
-                { key: 'tickFont', label: 'Axis ticks', editable: false, defaultSize: 12 }
+                { key: 'esTickFont', label: 'ES axis ticks', editable: false, defaultSize: 11 },
+                { key: 'tickFont', label: 'Metric axis ticks', editable: false, defaultSize: 11 }
             ],
             overlap: [
+                { key: 'title', label: 'Title', editable: true, defaultText: 'Gene Set Overlap', defaultSize: 14 },
                 { key: 'colorbarTitle', label: 'Colorbar title', editable: true, defaultText: 'Jaccard Index', defaultSize: 11 },
                 { key: 'tickFont', label: 'Axis labels', editable: false, defaultSize: 10 }
             ]
@@ -1009,6 +1015,9 @@ class GSEAApp {
             return;
         }
 
+        // Track which sets are being re-run so we can merge results
+        this._rerunSetNames = new Set(Object.keys(rerunSets));
+
         // Run GSEA with only the filtered sets
         this.readSettings();
         const s = this.settings;
@@ -1108,7 +1117,17 @@ class GSEAApp {
         }
 
         if (data.type === 'complete') {
-            this.results = data.results;
+            // If this was a re-run, merge new results into existing results
+            if (this._rerunSetNames && this._rerunSetNames.size > 0 && this.results) {
+                const newResultsByName = {};
+                for (const r of data.results) newResultsByName[r.name] = r;
+                this.results = this.results.map(r =>
+                    newResultsByName[r.name] ? newResultsByName[r.name] : r
+                );
+                this._rerunSetNames = null;
+            } else {
+                this.results = data.results;
+            }
             document.getElementById('runBtn').style.display = '';
             document.getElementById('cancelBtn').style.display = 'none';
 
@@ -1304,6 +1323,8 @@ class GSEAApp {
             { type: 'line', xref: 'paper', yref: 'paper', x0: 0, x1: 1, y0: 0, y1: 0, line: { color: '#333', width: 1 } }   // bottom
         );
 
+        const cbTitleFont = this._getTextFont('bubble', 'colorbarTitle');
+        const cbTickFont = this._getTextFont('bubble', 'colorbarTickFont');
         const trace = {
             x: top.map(r => r.nes),
             y: top.map((_, i) => i),
@@ -1317,14 +1338,14 @@ class GSEAApp {
                 cmax: maxLogFdr,
                 showscale: true,
                 colorbar: {
-                    title: { text: this._getTextFont('bubble', 'colorbarTitle').wrap(this._getTextFont('bubble', 'colorbarTitle').text || 'FDR'), font: { size: this._getTextFont('bubble', 'colorbarTitle').size, family: this._getTextFont('bubble', 'colorbarTitle').family } },
+                    title: { text: cbTitleFont.visible !== false ? cbTitleFont.wrap(cbTitleFont.text || 'FDR') : '', font: { size: cbTitleFont.size, family: cbTitleFont.family } },
                     thickness: 20,
                     len: 0.35,
                     y: 0.8,
                     x: 1.02,
                     tickvals: [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr),
                     ticktext: ['1', '0.25', '0.1', '0.05', '0.01'].slice(0, [0, -Math.log10(0.25), -Math.log10(0.1), -Math.log10(0.05), -Math.log10(0.01)].filter(v => v <= maxLogFdr).length),
-                    tickfont: { size: 10, family: fontFam },
+                    tickfont: { size: cbTickFont.visible !== false ? cbTickFont.size : 0, family: cbTickFont.family || fontFam },
                     outlinewidth: 1,
                     outlinecolor: '#ccc'
                 },
@@ -1342,20 +1363,22 @@ class GSEAApp {
             showlegend: false
         };
 
+        const bubbleXFont = this._getTextFont('bubble', 'xAxisLabel');
+        const bubbleYTickFont = this._getTextFont('bubble', 'yTickFont');
+        const bubbleTitleFont = this._getTextFont('bubble', 'title');
         const layout = {
             xaxis: {
-                title: { text: this._getTextFont('bubble', 'xAxisLabel').wrap(this._getTextFont('bubble', 'xAxisLabel').text || 'Normalized Enrichment Score (NES)'), font: { size: this._getTextFont('bubble', 'xAxisLabel').size, family: this._getTextFont('bubble', 'xAxisLabel').family } },
                 zeroline: false,
                 gridcolor: '#f0f0f0',
                 side: 'bottom',
-                tickfont: { size: this._getTextFont('bubble', 'yTickFont').size, family: this._getTextFont('bubble', 'yTickFont').family },
+                tickfont: { size: bubbleYTickFont.visible !== false ? bubbleYTickFont.size : 0, family: bubbleYTickFont.family },
                 showline: false,
                 fixedrange: true
             },
             yaxis: {
                 tickvals: top.map((_, i) => i),
                 ticktext: top.map(r => this.cleanName(r.name)),
-                tickfont: { size: this._getTextFont('bubble', 'yTickFont').size, family: this._getTextFont('bubble', 'yTickFont').family },
+                tickfont: { size: bubbleYTickFont.visible !== false ? bubbleYTickFont.size : 0, family: bubbleYTickFont.family },
                 automargin: true,
                 gridwidth: 0,
                 showgrid: false,
@@ -1365,7 +1388,7 @@ class GSEAApp {
                 fixedrange: true
             },
             height: Math.max(440, top.length * 26 + 140),
-            margin: { l: 10, r: 160, t: 20, b: 40 },
+            margin: { l: 15, r: 160, t: 40, b: 50 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -1382,14 +1405,36 @@ class GSEAApp {
             ? `(${minActualSize} genes)`
             : `(${minActualSize} – ${maxActualSize})`;
         if (!layout.annotations) layout.annotations = [];
+        // Title annotation (draggable)
+        if (bubbleTitleFont.visible !== false) {
+            layout.annotations.push({
+                text: bubbleTitleFont.wrap(bubbleTitleFont.text || 'Enrichment Overview'),
+                xref: 'paper', yref: 'paper', x: 0.5, y: 1.08,
+                showarrow: false,
+                font: { size: bubbleTitleFont.size, family: bubbleTitleFont.family },
+                xanchor: 'center', yanchor: 'bottom'
+            });
+        }
+        // X-axis label as annotation (draggable)
+        if (bubbleXFont.visible !== false) {
+            layout.annotations.push({
+                text: bubbleXFont.wrap(bubbleXFont.text || 'Normalized Enrichment Score (NES)'),
+                xref: 'paper', yref: 'paper', x: 0.5, y: -0.06,
+                showarrow: false,
+                font: { size: bubbleXFont.size, family: bubbleXFont.family },
+                xanchor: 'center', yanchor: 'top'
+            });
+        }
+        const sizeAnnotFont = this._getTextFont('bubble', 'sizeAnnotation');
         layout.annotations.push({
             text: `<b>Bubble size</b><br>= gene set size<br>${sizeRangeText}`,
             xref: 'paper', yref: 'paper',
             x: 1.02, y: 0.45,
             xanchor: 'left', yanchor: 'top',
             showarrow: false,
-            font: { size: this._getTextFont('bubble', 'sizeAnnotation').size, family: this._getTextFont('bubble', 'sizeAnnotation').family, color: '#555' },
-            align: 'center'
+            font: { size: sizeAnnotFont.size, family: sizeAnnotFont.family, color: '#555' },
+            align: 'center',
+            visible: sizeAnnotFont.visible !== false
         });
 
         // Apply custom dimensions
@@ -1403,7 +1448,7 @@ class GSEAApp {
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
             scrollZoom: false,
             doubleClick: false,
-            edits: { annotationPosition: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true }
+            edits: { annotationPosition: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true, colorbarPosition: true }
         });
 
         // Click to show ES plot (dot or y-axis label)
@@ -1501,6 +1546,17 @@ class GSEAApp {
         }
 
         const annotations = [];
+        // Title annotation (draggable)
+        const rpTitleFont = this._getTextFont('ranked', 'title');
+        if (rpTitleFont.visible !== false) {
+            annotations.push({
+                text: rpTitleFont.wrap(rpTitleFont.text || 'Ranked List Metric'),
+                xref: 'paper', yref: 'paper', x: 0.5, y: 1.12,
+                showarrow: false,
+                font: { size: rpTitleFont.size, family: rpTitleFont.family },
+                xanchor: 'center', yanchor: 'bottom'
+            });
+        }
         if (zeroCross >= 0) {
             annotations.push({
                 text: 'Zero cross',
@@ -1517,7 +1573,7 @@ class GSEAApp {
         const rpNegLabel = rpDataType === 'crispr' ? 'Depleted in screen' : 'Negatively correlated';
         const rpPosFont = this._getTextFont('ranked', 'posLabel');
         const rpNegFont = this._getTextFont('ranked', 'negLabel');
-        if (rpPosFont.visible) {
+        if (rpPosFont.visible !== false) {
             annotations.push({
                 text: rpPosFont.wrap(rpPosFont.text || rpPosLabel),
                 xref: 'paper', yref: 'paper', x: 0.02, y: 1.02,
@@ -1525,7 +1581,7 @@ class GSEAApp {
                 xanchor: 'left', yanchor: 'bottom'
             });
         }
-        if (rpNegFont.visible) {
+        if (rpNegFont.visible !== false) {
             annotations.push({
                 text: rpNegFont.wrap(rpNegFont.text || rpNegLabel),
                 xref: 'paper', yref: 'paper', x: 0.98, y: 1.02,
@@ -1538,26 +1594,30 @@ class GSEAApp {
         const yPad = Math.max(Math.abs(metrics[0]), Math.abs(metrics[N - 1])) * 0.06;
         const xPad = N * 0.015;
 
+        const rpXFont = this._getTextFont('ranked', 'xAxisLabel');
+        const rpYFont = this._getTextFont('ranked', 'yAxisLabel');
+        const rpXTickFont = this._getTextFont('ranked', 'xTickFont');
+        const rpYTickFont = this._getTextFont('ranked', 'yTickFont');
         const layout = {
             xaxis: {
-                title: { text: this._getTextFont('ranked', 'xAxisLabel').wrap(this._getTextFont('ranked', 'xAxisLabel').text || 'Rank in Ordered Dataset'), font: { size: this._getTextFont('ranked', 'xAxisLabel').size, family: this._getTextFont('ranked', 'xAxisLabel').family } },
+                title: { text: rpXFont.visible !== false ? rpXFont.wrap(rpXFont.text || 'Rank in Ordered Dataset') : '', font: { size: rpXFont.size, family: rpXFont.family } },
                 showgrid: false,
-                tickfont: { size: this._getTextFont('ranked', 'xTickFont').size, family: this._getTextFont('ranked', 'xTickFont').family },
+                tickfont: { size: rpXTickFont.visible !== false ? rpXTickFont.size : 0, family: rpXTickFont.family },
                 range: [-xPad, N - 1 + xPad],
                 fixedrange: true
             },
             yaxis: {
-                title: { text: this._getTextFont('ranked', 'yAxisLabel').wrap(this._getTextFont('ranked', 'yAxisLabel').text || ('Ranked list metric (' + metricLabel + ')')), font: { size: this._getTextFont('ranked', 'yAxisLabel').size, family: this._getTextFont('ranked', 'yAxisLabel').family } },
+                title: { text: rpYFont.visible !== false ? rpYFont.wrap(rpYFont.text || ('Ranked list metric (' + metricLabel + ')')) : '', font: { size: rpYFont.size, family: rpYFont.family } },
                 zeroline: true,
                 zerolinewidth: 1.5,
                 zerolinecolor: '#333',
                 gridcolor: '#e5e5e5',
-                tickfont: { size: baseFontSize - 2, family: fontFam },
+                tickfont: { size: rpYTickFont.visible !== false ? rpYTickFont.size : 0, family: rpYTickFont.family },
                 range: [Math.min(0, metrics[N - 1]) - yPad, Math.max(0, metrics[0]) + yPad],
                 fixedrange: true
             },
             height: 250,
-            margin: { l: 65, r: 20, t: 25, b: 50 },
+            margin: { l: 65, r: 20, t: 35, b: 50 },
             font: { family: fontFam },
             paper_bgcolor: this.settings.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -1914,11 +1974,59 @@ class GSEAApp {
             }
         }
 
-        const tickFontSize = Math.max(8, baseFontSize - 3);
-
         // Compute y-range for metric panel — use actual min/max of the full ranked list
         const metYMin = Math.min(0, metrics[N - 1]) * 1.05;
         const metYMax = Math.max(0, metrics[0]) * 1.05;
+
+        // Text font references for ES plot
+        const esYLabelFont = this._getTextFont('es', 'esYLabel');
+        const esXFont = this._getTextFont('es', 'xAxisLabel');
+        const esMetricFont = this._getTextFont('es', 'metricYLabel');
+        const esTickFont = this._getTextFont('es', 'esTickFont');
+        const esMetTickFont = this._getTextFont('es', 'tickFont');
+        const esHitFont = this._getTextFont('es', 'hitMarkersLabel');
+
+        // Add axis labels as draggable annotations instead of axis titles
+        if (esYLabelFont.visible !== false) {
+            annotations.push({
+                text: esYLabelFont.wrap(esYLabelFont.text || 'Enrichment score (ES)'),
+                xref: 'paper', yref: 'paper',
+                x: -0.07, y: (esBot + esTop) / 2,
+                showarrow: false, textangle: -90,
+                font: { size: esYLabelFont.size, family: esYLabelFont.family },
+                xanchor: 'center', yanchor: 'middle'
+            });
+        }
+        if (esHitFont.visible !== false) {
+            annotations.push({
+                text: esHitFont.wrap(esHitFont.text || 'Gene hits'),
+                xref: 'paper', yref: 'paper',
+                x: -0.07, y: (hitBot + hitTop) / 2,
+                showarrow: false, textangle: -90,
+                font: { size: esHitFont.size, family: esHitFont.family },
+                xanchor: 'center', yanchor: 'middle'
+            });
+        }
+        if (esMetricFont.visible !== false) {
+            annotations.push({
+                text: esMetricFont.wrap(esMetricFont.text || metricLabel),
+                xref: 'paper', yref: 'paper',
+                x: -0.07, y: (metBot + metTop) / 2,
+                showarrow: false, textangle: -90,
+                font: { size: esMetricFont.size, family: esMetricFont.family },
+                xanchor: 'center', yanchor: 'middle'
+            });
+        }
+        if (esXFont.visible !== false) {
+            annotations.push({
+                text: esXFont.wrap(esXFont.text || 'Rank in Ordered Dataset'),
+                xref: 'paper', yref: 'paper',
+                x: 0.5, y: -0.07,
+                showarrow: false,
+                font: { size: esXFont.size, family: esXFont.family },
+                xanchor: 'center', yanchor: 'top'
+            });
+        }
 
         const layout = {
             // ES panel
@@ -1927,11 +2035,10 @@ class GSEAApp {
                 domain: [xLeft, xRight], anchor: 'y', showline: false, fixedrange: true
             },
             yaxis: {
-                title: { text: this._getTextFont('es', 'esYLabel').wrap(this._getTextFont('es', 'esYLabel').text || 'Enrichment score (ES)'), font: { size: this._getTextFont('es', 'esYLabel').size, family: this._getTextFont('es', 'esYLabel').family }, standoff: 8 },
                 domain: [esBot, esTop], anchor: 'x',
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: false,
-                tickfont: { size: tickFontSize, family: fontFam },
+                tickfont: { size: esTickFont.visible !== false ? esTickFont.size : 0, family: esTickFont.family || fontFam },
                 fixedrange: true
             },
             // Hit marker panel
@@ -1942,25 +2049,22 @@ class GSEAApp {
             yaxis2: {
                 domain: [hitBot, hitTop], anchor: 'x2',
                 range: [0, 1],
-                showticklabels: false, showgrid: false, zeroline: false, fixedrange: true,
-                title: ''
+                showticklabels: false, showgrid: false, zeroline: false, fixedrange: true
             },
             // Ranked metric panel
             xaxis3: {
                 range: [-xPad, N - 1 + xPad],
-                title: { text: this._getTextFont('es', 'xAxisLabel').wrap(this._getTextFont('es', 'xAxisLabel').text || 'Rank in Ordered Dataset'), font: { size: this._getTextFont('es', 'xAxisLabel').size, family: this._getTextFont('es', 'xAxisLabel').family }, standoff: 4 },
                 domain: [xLeft, xRight], anchor: 'y3',
                 showgrid: false,
-                tickfont: { size: this._getTextFont('es', 'tickFont').size, family: this._getTextFont('es', 'tickFont').family },
+                tickfont: { size: esMetTickFont.visible !== false ? esMetTickFont.size : 0, family: esMetTickFont.family || fontFam },
                 side: 'bottom',
                 fixedrange: true
             },
             yaxis3: {
-                title: { text: this._getTextFont('es', 'metricYLabel').wrap(this._getTextFont('es', 'metricYLabel').text || metricLabel), font: { size: this._getTextFont('es', 'metricYLabel').size, family: this._getTextFont('es', 'metricYLabel').family }, standoff: 5 },
                 domain: [metBot, metTop], anchor: 'x3',
                 gridcolor: '#eee', gridwidth: 1,
                 zeroline: true, zerolinecolor: '#333', zerolinewidth: 0.8,
-                tickfont: { size: this._getTextFont('es', 'tickFont').size, family: this._getTextFont('es', 'tickFont').family },
+                tickfont: { size: esMetTickFont.visible !== false ? esMetTickFont.size : 0, family: esMetTickFont.family || fontFam },
                 range: [metYMin, metYMax],
                 fixedrange: true
             },
@@ -2045,6 +2149,7 @@ class GSEAApp {
         else if (result.fdr < 0.25) fdrNote = '<span style="color:#d97706; font-weight:600;">Suggestive (FDR < 0.25)</span>';
         else fdrNote = '<span style="color:#6b7280;">Not significant (FDR ≥ 0.25)</span>';
 
+        const msigdbUrl = `https://www.gsea-msigdb.org/gsea/msigdb/human/geneset/${encodeURIComponent(geneSetName)}.html`;
         el.innerHTML = `
             <div style="font-weight: 600; margin-bottom: 6px; line-height: 1.3; word-break: break-word;">${displayName}</div>
             <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 0.95em;">
@@ -2060,6 +2165,9 @@ class GSEAApp {
                 <span>${result.size} genes in the gene set</span>
                 <span style="color: var(--gray-500);">Leading Edge:</span>
                 <span>${(result.leadingEdge || []).length} genes</span>
+            </div>
+            <div style="margin-top: 6px;">
+                <a href="${msigdbUrl}" target="_blank" rel="noopener" style="font-size: 0.85em; color: var(--green-600); text-decoration: none; font-weight: 600;">🔗 View on MSigDB</a>
             </div>
             <div style="margin-top: 8px; padding: 6px 8px; background: ${isUp ? '#fef2f2' : '#eff6ff'}; border-radius: 4px; border-left: 3px solid ${dirColor};">
                 <div style="font-weight: 600; color: ${dirColor}; margin-bottom: 2px;">${dirLabel}</div>
@@ -2344,15 +2452,17 @@ class GSEAApp {
         const collapseThresh = parseInt(document.getElementById('overlapCollapseThresh').value) || 50;
         const fontFam = this.settings.fontFamily + ', sans-serif';
 
-        // Get significant gene sets sorted by |NES|
+        // Get gene sets filtered by FDR threshold (user-configurable, default 0.25)
+        const overlapFdrVal = document.getElementById('overlapFdrFilter')?.value || '0.25';
+        const overlapFdrThresh = overlapFdrVal === 'all' ? Infinity : parseFloat(overlapFdrVal);
         let sigSets = this.results
-            .filter(r => r.fdr < 0.25)
+            .filter(r => overlapFdrThresh === Infinity ? true : r.fdr < overlapFdrThresh)
             .sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
 
         if (sigSets.length === 0) {
             Plotly.newPlot('overlapHeatmap', [], {
                 annotations: [{
-                    text: 'No significant gene sets (FDR < 0.25) to show',
+                    text: `No gene sets with FDR < ${overlapFdrVal === 'all' ? '∞' : overlapFdrVal} to show`,
                     xref: 'paper', yref: 'paper', x: 0.5, y: 0.5,
                     showarrow: false, font: { size: 14, color: '#666' }
                 }],
@@ -2463,23 +2573,37 @@ class GSEAApp {
             hovertemplate: '%{y} vs %{x}<br>%{text}<extra></extra>',
             showscale: true,
             colorbar: {
-                title: { text: this._getTextFont('overlap', 'colorbarTitle').wrap(this._getTextFont('overlap', 'colorbarTitle').text || 'Jaccard Index'), font: { size: this._getTextFont('overlap', 'colorbarTitle').size, family: this._getTextFont('overlap', 'colorbarTitle').family } },
+                title: { text: this._getTextFont('overlap', 'colorbarTitle').visible !== false ? this._getTextFont('overlap', 'colorbarTitle').wrap(this._getTextFont('overlap', 'colorbarTitle').text || 'Jaccard Index') : '', font: { size: this._getTextFont('overlap', 'colorbarTitle').size, family: this._getTextFont('overlap', 'colorbarTitle').family } },
                 thickness: 12, len: 0.5
             }
         };
 
         const overlapTickFont = this._getTextFont('overlap', 'tickFont');
+        const overlapTitleFont = this._getTextFont('overlap', 'title');
         const autoSize = Math.max(450, n * 28 + 150);
         const overlapW = parseInt(document.getElementById('overlapPlotWidth')?.value) || 0;
         const overlapH = parseInt(document.getElementById('overlapPlotHeight')?.value) || 0;
         const overlapHeight = overlapH > 0 ? overlapH : autoSize;
         const overlapWidth = overlapW > 0 ? overlapW : autoSize + 50;
+
+        const overlapAnnotations = [];
+        if (overlapTitleFont.visible !== false) {
+            overlapAnnotations.push({
+                text: overlapTitleFont.wrap(overlapTitleFont.text || 'Gene Set Overlap'),
+                xref: 'paper', yref: 'paper', x: 0.5, y: 1.02,
+                showarrow: false,
+                font: { size: overlapTitleFont.size, family: overlapTitleFont.family },
+                xanchor: 'center', yanchor: 'bottom'
+            });
+        }
+
         const layout = {
             height: overlapHeight,
             width: overlapWidth,
-            margin: { l: 10, r: 50, t: 20, b: 10 },
-            xaxis: { tickfont: { size: overlapTickFont.size, family: overlapTickFont.family }, tickangle: -45, automargin: true, showgrid: false, fixedrange: true },
-            yaxis: { tickfont: { size: overlapTickFont.size, family: overlapTickFont.family }, automargin: true, showgrid: false, autorange: 'reversed', fixedrange: true },
+            margin: { l: 10, r: 50, t: 40, b: 10 },
+            xaxis: { tickfont: { size: overlapTickFont.visible !== false ? overlapTickFont.size : 0, family: overlapTickFont.family }, tickangle: -45, automargin: true, showgrid: false, fixedrange: true },
+            yaxis: { tickfont: { size: overlapTickFont.visible !== false ? overlapTickFont.size : 0, family: overlapTickFont.family }, automargin: true, showgrid: false, autorange: 'reversed', fixedrange: true },
+            annotations: overlapAnnotations,
             font: { family: fontFam },
             paper_bgcolor: '#fff',
             plot_bgcolor: '#fff',
@@ -2490,7 +2614,8 @@ class GSEAApp {
             responsive: true, displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
             scrollZoom: false,
-            doubleClick: false
+            doubleClick: false,
+            edits: { annotationPosition: true, annotationText: true, colorbarPosition: true }
         });
 
         // Hide legacy condensed info panel if it exists
@@ -2751,6 +2876,13 @@ class GSEAApp {
             html += `<option value="${v}"${gsfClusterThresh === v ? ' selected' : ''}>${v === 0 ? 'No clusters' : `Overlap > ${(v * 100).toFixed(0)}%`}</option>`;
         }
         html += `</select>`;
+        const gsfMaxSim = this._gsfMaxSimilarity || 'all';
+        html += `<select class="form-control" id="gsfMaxSimilarity" style="width: auto; font-size: 0.85em;" title="Max Jaccard similarity — filter out gene sets too similar to checked ones">`;
+        html += `<option value="all"${gsfMaxSim === 'all' ? ' selected' : ''}>All similarity</option>`;
+        for (const v of [0.1, 0.2, 0.3, 0.5]) {
+            html += `<option value="${v}"${gsfMaxSim == v ? ' selected' : ''}>J < ${v} (${v === 0.1 ? 'very different' : v === 0.2 ? 'different' : v === 0.3 ? 'moderate' : 'broad'})</option>`;
+        }
+        html += `</select>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfAutoSelect" title="Auto-select best representative per overlap cluster">Auto-select</button>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfShowAll">Show all</button>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfHideAll">Hide all</button>`;
@@ -2833,6 +2965,32 @@ class GSEAApp {
             }
             if (e.target.id === 'gsfClusterThresh') {
                 self._gsfClusterThreshold = parseFloat(e.target.value);
+                self._renderGeneSetFilter();
+            }
+            if (e.target.id === 'gsfMaxSimilarity') {
+                self._gsfMaxSimilarity = e.target.value;
+                if (e.target.value !== 'all') {
+                    // Greedy diversity selection: iterate through results by |NES|,
+                    // keep only sets with Jaccard < threshold to all already-kept sets
+                    const maxJ = parseFloat(e.target.value);
+                    const byNes = self.results.slice().sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
+                    const kept = [];
+                    for (const r of byNes) {
+                        let tooSimilar = false;
+                        for (const k of kept) {
+                            if (self._getCachedJaccard(r.name, k.name) >= maxJ) {
+                                tooSimilar = true;
+                                break;
+                            }
+                        }
+                        if (!tooSimilar) {
+                            kept.push(r);
+                            self._hiddenSets.delete(r.name);
+                        } else {
+                            self._hiddenSets.add(r.name);
+                        }
+                    }
+                }
                 self._renderGeneSetFilter();
             }
         };
@@ -4067,6 +4225,7 @@ class GSEAApp {
         document.getElementById('gsbDetailTitle').textContent = this.cleanName(item.name);
 
         const genes = item.genes;
+        const msigdbUrl = `https://www.gsea-msigdb.org/gsea/msigdb/human/geneset/${encodeURIComponent(item.name)}.html`;
 
         let html = `
             <div class="gsb-detail-stat">
@@ -4082,6 +4241,9 @@ class GSEAApp {
             <div class="gsb-detail-stat">
                 <span class="gsb-detail-stat-label">Size</span>
                 <span class="gsb-detail-stat-value">${item.size} genes</span>
+            </div>
+            <div style="margin-top: 8px;">
+                <a href="${msigdbUrl}" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--green-600); text-decoration: none; font-weight: 600; padding: 4px 8px; background: var(--green-50); border: 1px solid var(--green-200); border-radius: 4px;">🔗 View on MSigDB</a>
             </div>
             <div style="margin-top: 12px;">
                 <strong style="font-size: 12px; color: #374151;">Genes (${genes.length}):</strong>
