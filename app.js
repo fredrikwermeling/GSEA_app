@@ -177,7 +177,7 @@ class GSEAApp {
         });
 
         // Gene set collection checkboxes
-        ['checkHallmark', 'checkC2', 'checkC3', 'checkC5', 'checkC6', 'checkC7', 'checkC8'].forEach(id => {
+        ['checkHallmark', 'checkC2kegg', 'checkC2reactome', 'checkC2wp', 'checkC2biocarta', 'checkC2pid', 'checkC2cgp', 'checkC3', 'checkC5bp', 'checkC5cc', 'checkC5mf', 'checkC5hpo', 'checkC6', 'checkC7', 'checkC8'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => this.onCollectionChange());
         });
 
@@ -530,9 +530,17 @@ class GSEAApp {
 
         const collections = {
             checkHallmark: { id: 'hallmark', file: 'h.all.v2023.2.Hs.json' },
-            checkC2: { id: 'c2', file: 'c2.all.v2023.2.Hs.json' },
+            checkC2kegg: { id: 'c2kegg', file: 'c2.cp.kegg.v2023.2.Hs.json' },
+            checkC2reactome: { id: 'c2reactome', file: 'c2.cp.reactome.v2023.2.Hs.json' },
+            checkC2wp: { id: 'c2wp', file: 'c2.cp.wikipathways.v2023.2.Hs.json' },
+            checkC2biocarta: { id: 'c2biocarta', file: 'c2.cp.biocarta.v2023.2.Hs.json' },
+            checkC2pid: { id: 'c2pid', file: 'c2.cp.pid.v2023.2.Hs.json' },
+            checkC2cgp: { id: 'c2cgp', file: 'c2.cgp.v2023.2.Hs.json' },
             checkC3: { id: 'c3', file: 'c3.all.v2023.2.Hs.json' },
-            checkC5: { id: 'c5', file: 'c5.all.v2023.2.Hs.json' },
+            checkC5bp: { id: 'c5bp', file: 'c5.go.bp.v2023.2.Hs.json' },
+            checkC5cc: { id: 'c5cc', file: 'c5.go.cc.v2023.2.Hs.json' },
+            checkC5mf: { id: 'c5mf', file: 'c5.go.mf.v2023.2.Hs.json' },
+            checkC5hpo: { id: 'c5hpo', file: 'c5.hpo.v2023.2.Hs.json' },
             checkC6: { id: 'c6', file: 'c6.all.v2023.2.Hs.json' },
             checkC7: { id: 'c7', file: 'c7.all.v2023.2.Hs.json' },
             checkC8: { id: 'c8', file: 'c8.all.v2023.2.Hs.json' }
@@ -572,9 +580,17 @@ class GSEAApp {
         let total = 0;
         const collections = {
             checkHallmark: { id: 'hallmark', label: 'Hallmark' },
-            checkC2: { id: 'c2', label: 'C2' },
+            checkC2kegg: { id: 'c2kegg', label: 'KEGG' },
+            checkC2reactome: { id: 'c2reactome', label: 'Reactome' },
+            checkC2wp: { id: 'c2wp', label: 'WikiPathways' },
+            checkC2biocarta: { id: 'c2biocarta', label: 'BioCarta' },
+            checkC2pid: { id: 'c2pid', label: 'PID' },
+            checkC2cgp: { id: 'c2cgp', label: 'CGP' },
             checkC3: { id: 'c3', label: 'C3' },
-            checkC5: { id: 'c5', label: 'C5' },
+            checkC5bp: { id: 'c5bp', label: 'GO:BP' },
+            checkC5cc: { id: 'c5cc', label: 'GO:CC' },
+            checkC5mf: { id: 'c5mf', label: 'GO:MF' },
+            checkC5hpo: { id: 'c5hpo', label: 'HPO' },
             checkC6: { id: 'c6', label: 'C6' },
             checkC7: { id: 'c7', label: 'C7' },
             checkC8: { id: 'c8', label: 'C8' }
@@ -755,7 +771,7 @@ class GSEAApp {
         // Custom per-set selection mode
         if (this.useCustomSelection && this.selectedGeneSets.size > 0) {
             const combined = {};
-            const allData = { hallmark: this.geneSets['hallmark'], c2: this.geneSets['c2'], c3: this.geneSets['c3'], c5: this.geneSets['c5'], c6: this.geneSets['c6'], c7: this.geneSets['c7'], c8: this.geneSets['c8'], custom: this.customGeneSets };
+            const allData = { hallmark: this.geneSets['hallmark'], c2kegg: this.geneSets['c2kegg'], c2reactome: this.geneSets['c2reactome'], c2wp: this.geneSets['c2wp'], c2biocarta: this.geneSets['c2biocarta'], c2pid: this.geneSets['c2pid'], c2cgp: this.geneSets['c2cgp'], c3: this.geneSets['c3'], c5bp: this.geneSets['c5bp'], c5cc: this.geneSets['c5cc'], c5mf: this.geneSets['c5mf'], c5hpo: this.geneSets['c5hpo'], c6: this.geneSets['c6'], c7: this.geneSets['c7'], c8: this.geneSets['c8'], custom: this.customGeneSets };
             for (const collData of Object.values(allData)) {
                 if (!collData) continue;
                 for (const [name, genes] of Object.entries(collData)) {
@@ -771,9 +787,17 @@ class GSEAApp {
         const all = {};
         const collections = {
             checkHallmark: 'hallmark',
-            checkC2: 'c2',
+            checkC2kegg: 'c2kegg',
+            checkC2reactome: 'c2reactome',
+            checkC2wp: 'c2wp',
+            checkC2biocarta: 'c2biocarta',
+            checkC2pid: 'c2pid',
+            checkC2cgp: 'c2cgp',
             checkC3: 'c3',
-            checkC5: 'c5',
+            checkC5bp: 'c5bp',
+            checkC5cc: 'c5cc',
+            checkC5mf: 'c5mf',
+            checkC5hpo: 'c5hpo',
             checkC6: 'c6',
             checkC7: 'c7',
             checkC8: 'c8'
@@ -1075,25 +1099,32 @@ class GSEAApp {
 
         // Determine which standard MSigDB collections are selected
         const msigdbMap = {
-            checkHallmark: { category: 'H', subcategory: null, label: 'Hallmark' },
-            checkC2: { category: 'C2', subcategory: null, label: 'C2 (Curated)' },
-            checkC3: { category: 'C3', subcategory: null, label: 'C3 (Regulatory)' },
-            checkC5: { category: 'C5', subcategory: null, label: 'C5 (GO)' },
-            checkC6: { category: 'C6', subcategory: null, label: 'C6 (Oncogenic)' },
-            checkC7: { category: 'C7', subcategory: null, label: 'C7 (Immunologic)' },
-            checkC8: { category: 'C8', subcategory: null, label: 'C8 (Cell Type)' }
+            checkHallmark: { category: 'H', subcategory: null, collId: 'hallmark', label: 'Hallmark' },
+            checkC2kegg: { category: 'C2', subcategory: 'CP:KEGG', collId: 'c2kegg', label: 'C2 KEGG' },
+            checkC2reactome: { category: 'C2', subcategory: 'CP:REACTOME', collId: 'c2reactome', label: 'C2 Reactome' },
+            checkC2wp: { category: 'C2', subcategory: 'CP:WIKIPATHWAYS', collId: 'c2wp', label: 'C2 WikiPathways' },
+            checkC2biocarta: { category: 'C2', subcategory: 'CP:BIOCARTA', collId: 'c2biocarta', label: 'C2 BioCarta' },
+            checkC2pid: { category: 'C2', subcategory: 'CP:PID', collId: 'c2pid', label: 'C2 PID' },
+            checkC2cgp: { category: 'C2', subcategory: 'CGP', collId: 'c2cgp', label: 'C2 CGP' },
+            checkC3: { category: 'C3', subcategory: null, collId: 'c3', label: 'C3 (Regulatory)' },
+            checkC5bp: { category: 'C5', subcategory: 'GO:BP', collId: 'c5bp', label: 'C5 GO:BP' },
+            checkC5cc: { category: 'C5', subcategory: 'GO:CC', collId: 'c5cc', label: 'C5 GO:CC' },
+            checkC5mf: { category: 'C5', subcategory: 'GO:MF', collId: 'c5mf', label: 'C5 GO:MF' },
+            checkC5hpo: { category: 'C5', subcategory: 'HPO', collId: 'c5hpo', label: 'C5 HPO' },
+            checkC6: { category: 'C6', subcategory: null, collId: 'c6', label: 'C6 (Oncogenic)' },
+            checkC7: { category: 'C7', subcategory: null, collId: 'c7', label: 'C7 (Immunologic)' },
+            checkC8: { category: 'C8', subcategory: null, collId: 'c8', label: 'C8 (Cell Type)' }
         };
 
         const msigdbCollections = [];
         const msigdbSetNames = new Set();
         for (const [checkId, info] of Object.entries(msigdbMap)) {
             const cb = document.getElementById(checkId);
-            if (cb && cb.checked && this.geneSets[info.category.toLowerCase() === 'h' ? 'hallmark' : info.category.toLowerCase()]) {
+            if (cb && cb.checked && this.geneSets[info.collId]) {
                 msigdbCollections.push(info);
                 // Track which gene set names come from standard collections
-                const collId = info.category.toLowerCase() === 'h' ? 'hallmark' : info.category.toLowerCase();
-                if (this.geneSets[collId]) {
-                    for (const name of Object.keys(this.geneSets[collId])) {
+                if (this.geneSets[info.collId]) {
+                    for (const name of Object.keys(this.geneSets[info.collId])) {
                         msigdbSetNames.add(name);
                     }
                 }
@@ -1150,7 +1181,7 @@ ranked_stats <- c(
             for (const coll of msigdbCollections) {
                 script += `{\n`;
                 script += `    cat("  Loading ${coll.label}...\\n")\n`;
-                script += `    m <- msigdbr(species = "Homo sapiens", collection = "${coll.category}")\n`;
+                script += `    m <- msigdbr(species = "Homo sapiens", collection = "${coll.category}"${coll.subcategory ? `, subcollection = "${coll.subcategory}"` : ''})\n`;
                 script += `    sets <- split(m$gene_symbol, m$gs_name)\n`;
                 script += `    gene_sets <- c(gene_sets, sets)\n`;
                 script += `}\n`;
@@ -3478,8 +3509,12 @@ cat("Upload this file to Enrich to visualize the results.\\n")
     /** Get the tier (priority) of a gene set: 1=Hallmark, 2=C2/C5, 3=C3/C6, 4=C7/C8, 5=custom */
     _getSetTier(name) {
         if (this.geneSets['hallmark'] && this.geneSets['hallmark'][name]) return 1;
-        if (this.geneSets['c2'] && this.geneSets['c2'][name]) return 2;
-        if (this.geneSets['c5'] && this.geneSets['c5'][name]) return 2;
+        for (const id of ['c2kegg', 'c2reactome', 'c2wp', 'c2biocarta', 'c2pid', 'c2cgp']) {
+            if (this.geneSets[id] && this.geneSets[id][name]) return 2;
+        }
+        for (const id of ['c5bp', 'c5cc', 'c5mf', 'c5hpo']) {
+            if (this.geneSets[id] && this.geneSets[id][name]) return 2;
+        }
         if (this.geneSets['c3'] && this.geneSets['c3'][name]) return 3;
         if (this.geneSets['c6'] && this.geneSets['c6'][name]) return 3;
         if (this.geneSets['c7'] && this.geneSets['c7'][name]) return 4;
@@ -3489,7 +3524,10 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
     _getSetCollection(name) {
         const colls = [
-            ['hallmark', 'H'], ['c2', 'C2'], ['c5', 'C5'],
+            ['hallmark', 'H'],
+            ['c2kegg', 'KEGG'], ['c2reactome', 'Reactome'], ['c2wp', 'WikiPathways'],
+            ['c2biocarta', 'BioCarta'], ['c2pid', 'PID'], ['c2cgp', 'CGP'],
+            ['c5bp', 'GO:BP'], ['c5cc', 'GO:CC'], ['c5mf', 'GO:MF'], ['c5hpo', 'HPO'],
             ['c3', 'C3'], ['c6', 'C6'], ['c7', 'C7'], ['c8', 'C8']
         ];
         for (const [id, label] of colls) {
@@ -4014,8 +4052,16 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const metricCol = document.getElementById('metricColumn').value;
         const collections = [];
         if (document.getElementById('checkHallmark').checked) collections.push('Hallmark (H)');
-        if (document.getElementById('checkC2').checked) collections.push('Curated (C2)');
-        if (document.getElementById('checkC5').checked) collections.push('GO (C5)');
+        if (document.getElementById('checkC2kegg').checked) collections.push('KEGG (C2)');
+        if (document.getElementById('checkC2reactome').checked) collections.push('Reactome (C2)');
+        if (document.getElementById('checkC2wp').checked) collections.push('WikiPathways (C2)');
+        if (document.getElementById('checkC2biocarta').checked) collections.push('BioCarta (C2)');
+        if (document.getElementById('checkC2pid').checked) collections.push('PID (C2)');
+        if (document.getElementById('checkC2cgp').checked) collections.push('CGP (C2)');
+        if (document.getElementById('checkC5bp').checked) collections.push('GO:BP (C5)');
+        if (document.getElementById('checkC5cc').checked) collections.push('GO:CC (C5)');
+        if (document.getElementById('checkC5mf').checked) collections.push('GO:MF (C5)');
+        if (document.getElementById('checkC5hpo').checked) collections.push('HPO (C5)');
         if (Object.keys(this.customGeneSets).length > 0) collections.push('Custom');
 
         const nSets = this.results.length;
@@ -4712,8 +4758,10 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         // Reset checkboxes
         document.getElementById('checkHallmark').checked = true;
-        document.getElementById('checkC2').checked = false;
-        document.getElementById('checkC5').checked = false;
+        ['checkC2kegg', 'checkC2reactome', 'checkC2wp', 'checkC2biocarta', 'checkC2pid', 'checkC2cgp',
+         'checkC5bp', 'checkC5cc', 'checkC5mf', 'checkC5hpo'].forEach(id => {
+            document.getElementById(id).checked = false;
+        });
         document.getElementById('checkCustomSelection').checked = false;
         document.getElementById('customSelectionCount').textContent = '';
 
@@ -4738,9 +4786,17 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // Auto-load ALL collections (not just checked ones)
         const collections = [
             { id: 'hallmark', file: 'h.all.v2023.2.Hs.json' },
-            { id: 'c2', file: 'c2.all.v2023.2.Hs.json' },
+            { id: 'c2kegg', file: 'c2.cp.kegg.v2023.2.Hs.json' },
+            { id: 'c2reactome', file: 'c2.cp.reactome.v2023.2.Hs.json' },
+            { id: 'c2wp', file: 'c2.cp.wikipathways.v2023.2.Hs.json' },
+            { id: 'c2biocarta', file: 'c2.cp.biocarta.v2023.2.Hs.json' },
+            { id: 'c2pid', file: 'c2.cp.pid.v2023.2.Hs.json' },
+            { id: 'c2cgp', file: 'c2.cgp.v2023.2.Hs.json' },
             { id: 'c3', file: 'c3.all.v2023.2.Hs.json' },
-            { id: 'c5', file: 'c5.all.v2023.2.Hs.json' },
+            { id: 'c5bp', file: 'c5.go.bp.v2023.2.Hs.json' },
+            { id: 'c5cc', file: 'c5.go.cc.v2023.2.Hs.json' },
+            { id: 'c5mf', file: 'c5.go.mf.v2023.2.Hs.json' },
+            { id: 'c5hpo', file: 'c5.hpo.v2023.2.Hs.json' },
             { id: 'c6', file: 'c6.all.v2023.2.Hs.json' },
             { id: 'c7', file: 'c7.all.v2023.2.Hs.json' },
             { id: 'c8', file: 'c8.all.v2023.2.Hs.json' }
@@ -4781,9 +4837,17 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             }
         };
         addCollection('hallmark', 'Hallmark', this.geneSets['hallmark']);
-        addCollection('c2', 'C2: Curated', this.geneSets['c2']);
+        addCollection('c2kegg', 'C2: KEGG', this.geneSets['c2kegg']);
+        addCollection('c2reactome', 'C2: Reactome', this.geneSets['c2reactome']);
+        addCollection('c2wp', 'C2: WikiPathways', this.geneSets['c2wp']);
+        addCollection('c2biocarta', 'C2: BioCarta', this.geneSets['c2biocarta']);
+        addCollection('c2pid', 'C2: PID', this.geneSets['c2pid']);
+        addCollection('c2cgp', 'C2: CGP', this.geneSets['c2cgp']);
         addCollection('c3', 'C3: Regulatory', this.geneSets['c3']);
-        addCollection('c5', 'C5: GO', this.geneSets['c5']);
+        addCollection('c5bp', 'C5: GO:BP', this.geneSets['c5bp']);
+        addCollection('c5cc', 'C5: GO:CC', this.geneSets['c5cc']);
+        addCollection('c5mf', 'C5: GO:MF', this.geneSets['c5mf']);
+        addCollection('c5hpo', 'C5: HPO', this.geneSets['c5hpo']);
         addCollection('c6', 'C6: Oncogenic', this.geneSets['c6']);
         addCollection('c7', 'C7: Immunologic', this.geneSets['c7']);
         addCollection('c8', 'C8: Cell Type', this.geneSets['c8']);
@@ -4792,7 +4856,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         }
 
         // Sort: by collection order, then alphabetically within each
-        const collOrder = { hallmark: 0, c2: 1, c3: 2, c5: 3, c6: 4, c7: 5, c8: 6, custom: 7 };
+        const collOrder = { hallmark: 0, c2kegg: 1, c2reactome: 2, c2wp: 3, c2biocarta: 4, c2pid: 5, c2cgp: 6, c3: 7, c5bp: 8, c5cc: 9, c5mf: 10, c5hpo: 11, c6: 12, c7: 13, c8: 14, custom: 15 };
         this._gsbAllItems.sort((a, b) => {
             if (collOrder[a.collection] !== collOrder[b.collection]) {
                 return collOrder[a.collection] - collOrder[b.collection];
@@ -4901,16 +4965,24 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const tierCollections = {
             'all': null,
             '1': ['hallmark'],
-            '2': ['c2', 'c5'],
+            '2': ['c2kegg', 'c2reactome', 'c2wp', 'c2biocarta', 'c2pid', 'c2cgp', 'c5bp', 'c5cc', 'c5mf', 'c5hpo'],
             '3': ['c3', 'c6'],
             '4': ['c7', 'c8']
         };
         const allOptions = [
             { value: 'all', label: 'All collections' },
             { value: 'hallmark', label: 'H: Hallmark' },
-            { value: 'c2', label: 'C2: Curated' },
+            { value: 'c2kegg', label: 'C2: KEGG' },
+            { value: 'c2reactome', label: 'C2: Reactome' },
+            { value: 'c2wp', label: 'C2: WikiPathways' },
+            { value: 'c2biocarta', label: 'C2: BioCarta' },
+            { value: 'c2pid', label: 'C2: PID' },
+            { value: 'c2cgp', label: 'C2: CGP' },
             { value: 'c3', label: 'C3: Regulatory' },
-            { value: 'c5', label: 'C5: GO' },
+            { value: 'c5bp', label: 'C5: GO:BP' },
+            { value: 'c5cc', label: 'C5: GO:CC' },
+            { value: 'c5mf', label: 'C5: GO:MF' },
+            { value: 'c5hpo', label: 'C5: HPO' },
             { value: 'c6', label: 'C6: Oncogenic' },
             { value: 'c7', label: 'C7: Immunologic' },
             { value: 'c8', label: 'C8: Cell Type' },
@@ -4937,7 +5009,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // Filter items
         let filtered = this._gsbAllItems;
         if (tierFilter !== 'all') {
-            const tierCollections = { '1': ['hallmark'], '2': ['c2', 'c5'], '3': ['c3', 'c6'], '4': ['c7', 'c8'] };
+            const tierCollections = { '1': ['hallmark'], '2': ['c2kegg', 'c2reactome', 'c2wp', 'c2biocarta', 'c2pid', 'c2cgp', 'c5bp', 'c5cc', 'c5mf', 'c5hpo'], '3': ['c3', 'c6'], '4': ['c7', 'c8'] };
             const allowed = new Set(tierCollections[tierFilter] || []);
             filtered = filtered.filter(item => allowed.has(item.collection));
         }
@@ -5197,7 +5269,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         this.useCustomSelection = true;
 
         // Uncheck collection checkboxes — the browser selection takes over
-        ['checkHallmark', 'checkC2', 'checkC3', 'checkC5', 'checkC6', 'checkC7', 'checkC8'].forEach(id => {
+        ['checkHallmark', 'checkC2kegg', 'checkC2reactome', 'checkC2wp', 'checkC2biocarta', 'checkC2pid', 'checkC2cgp', 'checkC3', 'checkC5bp', 'checkC5cc', 'checkC5mf', 'checkC5hpo', 'checkC6', 'checkC7', 'checkC8'].forEach(id => {
             document.getElementById(id).checked = false;
         });
 
