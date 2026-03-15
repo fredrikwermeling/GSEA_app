@@ -150,9 +150,9 @@ class GSEAApp {
             if (e.target.files[0]) this.handleFileUpload(e.target.files[0]);
         });
 
-        // Example data
-        document.getElementById('loadExampleBtn').addEventListener('click', () => {
-            this.loadExampleData();
+        // R results upload
+        document.getElementById('rResultsInput').addEventListener('change', (e) => {
+            if (e.target.files[0]) this.loadRResults(e.target.files[0]);
         });
 
         // Column selection
@@ -855,7 +855,7 @@ class GSEAApp {
     // --------------------------------------------------------
     // GSEA Execution
     // --------------------------------------------------------
-    runGSEA() {
+    async runGSEA() {
         this.buildRankedList();
 
         if (this.rankedList.genes.length === 0) {
@@ -884,22 +884,14 @@ class GSEAApp {
         // Warn about large jobs
         const nSets = Object.keys(geneSets).length;
         if (nSets > 5000) {
-            const estMinutes = Math.max(1, Math.round(nSets * this.settings.permutations / 500000));
-            const permTip = this.settings.permutations <= 200
-                ? `• You're using ${this.settings.permutations} permutations (good for screening). After results, use "Re-run filtered" with ≥1000 for publication-quality statistics.`
-                : `• Lower permutations (e.g. 100–200) for faster screening, then use "Re-run filtered" with ≥1000 permutations for publication-quality p-values.`;
-            const proceed = confirm(
-                `You are about to analyze ${nSets.toLocaleString()} gene sets with ${this.settings.permutations.toLocaleString()} permutations.\n\n` +
-                `Estimated time: ~${estMinutes} minute${estMinutes > 1 ? 's' : ''}.\n\n` +
-                `Tips:\n` +
-                `• Start with Hallmark (50 sets) for a quick, interpretable overview.\n` +
-                `${permTip}\n` +
-                `• Consider using "Smart Run" for iterative analysis of large collections.\n\nContinue?`
-            );
-            if (!proceed) {
-                document.getElementById('progressContainer').classList.add('hidden');
+            const action = await this._showRunWarningDialog(nSets, geneSets);
+            if (action === 'cancel' || action === 'rscript') {
+                container.classList.remove('active');
+                document.getElementById('runBtn').style.display = '';
+                document.getElementById('cancelBtn').style.display = 'none';
                 return;
             }
+            // action === 'run' — continue with (possibly updated) permutations
             document.getElementById('progressText').textContent =
                 `Processing ${nSets.toLocaleString()} gene sets — this may take several minutes...`;
         }
@@ -928,6 +920,195 @@ class GSEAApp {
         document.getElementById('cancelBtn').style.display = 'none';
         document.getElementById('progressContainer').classList.remove('active');
         this.showStatus('runStatus', 'warning', 'Analysis cancelled.');
+    }
+
+    // --------------------------------------------------------
+    // Run Warning Dialog (replaces native confirm)
+    // --------------------------------------------------------
+    _showRunWarningDialog(nSets, geneSets) {
+        return new Promise((resolve) => {
+            const dialog = document.getElementById('runWarningDialog');
+            const backdrop = document.getElementById('runWarningBackdrop');
+            const permInput = document.getElementById('runWarningPermInput');
+
+            permInput.value = this.settings.permutations;
+
+            document.getElementById('runWarningInfo').textContent =
+                `You are about to analyze ${nSets.toLocaleString()} gene sets with ${this.settings.permutations.toLocaleString()} permutations.`;
+
+            const permTip = this.settings.permutations <= 200
+                ? `You're using ${this.settings.permutations} permutations (good for screening). After results, use "Re-run filtered" with \u22651000 for publication-quality statistics.`
+                : `Lower permutations (e.g. 100\u2013200) for faster screening, then use "Re-run filtered" with \u22651000 permutations.`;
+
+            document.getElementById('runWarningTips').innerHTML =
+                `<li>Start with Hallmark (50 sets) for a quick, interpretable overview.</li>
+                 <li>${permTip}</li>
+                 <li>Consider "Smart Run" for iterative analysis of large collections.</li>
+                 <li>Or download an <b>R script</b> to run fgsea locally \u2014 handles any size without browser limits.</li>`;
+
+            const updateEstimate = () => {
+                const p = parseInt(permInput.value) || 1000;
+                const est = Math.max(1, Math.round(nSets * p / 500000));
+                document.getElementById('runWarningEstimate').textContent =
+                    `Estimated time: ~${est} minute${est > 1 ? 's' : ''}`;
+            };
+            updateEstimate();
+            permInput.oninput = updateEstimate;
+
+            dialog.style.display = 'block';
+            backdrop.style.display = 'block';
+
+            const close = (action) => {
+                dialog.style.display = 'none';
+                backdrop.style.display = 'none';
+                permInput.oninput = null;
+                resolve(action);
+            };
+
+            const wireBtn = (id, action) => {
+                const btn = document.getElementById(id);
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.addEventListener('click', () => {
+                    if (action === 'run') {
+                        this.settings.permutations = parseInt(permInput.value) || 1000;
+                        document.getElementById('permutations').value = this.settings.permutations;
+                    }
+                    if (action === 'rscript') {
+                        this.downloadFgseaScript(geneSets);
+                    }
+                    close(action);
+                });
+            };
+            wireBtn('runWarningCancelBtn', 'cancel');
+            wireBtn('runWarningClose', 'cancel');
+            wireBtn('runWarningRunBtn', 'run');
+            wireBtn('runWarningRScriptBtn', 'rscript');
+
+            backdrop.onclick = () => close('cancel');
+        });
+    }
+
+    // --------------------------------------------------------
+    // fgsea R Script Generation
+    // --------------------------------------------------------
+    downloadFgseaScript(geneSets) {
+        this.readSettings();
+        const genes = this.rankedList.genes;
+        const metrics = this.rankedList.metrics;
+        const { permutations, minSize, maxSize } = this.settings;
+
+        let script = `# ============================================================
+# fgsea Analysis Script — Generated by Enrich
+# ${new Date().toISOString().split('T')[0]}
+# https://fredrikwermeling.github.io/GSEA/
+# ============================================================
+#
+# This script runs GSEA using the fgsea R package on your data.
+# Results are saved as JSON for re-import into Enrich.
+#
+# Install dependencies (run once):
+#   install.packages("BiocManager")
+#   BiocManager::install("fgsea")
+#   install.packages("jsonlite")
+# ============================================================
+
+library(fgsea)
+library(jsonlite)
+
+# --- Ranked gene list (${genes.length} genes) ---
+ranked_stats <- c(\n`;
+
+        const entries = [];
+        for (let i = 0; i < genes.length; i++) {
+            entries.push(`    "${this._rEscape(genes[i])}" = ${metrics[i]}`);
+        }
+        script += entries.join(',\n') + '\n)\n\n';
+
+        script += `# --- Gene sets (${Object.keys(geneSets).length} sets) ---\ngene_sets <- list(\n`;
+        const setEntries = [];
+        for (const [name, setGenes] of Object.entries(geneSets)) {
+            const geneStr = setGenes.map(g => `"${this._rEscape(g)}"`).join(', ');
+            setEntries.push(`    "${this._rEscape(name)}" = c(${geneStr})`);
+        }
+        script += setEntries.join(',\n') + '\n)\n\n';
+
+        script += `# --- Run fgsea ---
+cat("Running fgsea with ${Object.keys(geneSets).length} gene sets and ${permutations} permutations...\\n")
+results <- fgsea(
+    pathways = gene_sets,
+    stats = ranked_stats,
+    minSize = ${minSize},
+    maxSize = ${maxSize},
+    nPermSimple = ${permutations}
+)
+cat("Done! Found", sum(results$padj < 0.25), "significant sets (FDR < 0.25)\\n")
+
+# --- Format for Enrich import ---
+enrich_results <- lapply(seq_len(nrow(results)), function(i) {
+    row <- results[i, ]
+    list(
+        name = row$pathway,
+        es = row$ES,
+        nes = row$NES,
+        pvalue = row$pval,
+        fdr = row$padj,
+        size = row$size,
+        leadingEdge = row$leadingEdge[[1]],
+        source = "fgsea"
+    )
+})
+
+# --- Save as JSON ---
+output_file <- "enrich_fgsea_results.json"
+writeLines(toJSON(enrich_results, auto_unbox = TRUE, pretty = TRUE), output_file)
+cat("Results saved to:", output_file, "\\n")
+cat("Upload this file to Enrich to visualize the results.\\n")
+`;
+
+        const blob = new Blob([script], { type: 'text/plain' });
+        this.downloadBlob(blob, 'enrich_fgsea_analysis.R');
+        this.showStatus('runStatus', 'success',
+            `R script downloaded (${genes.length} genes, ${Object.keys(geneSets).length} gene sets). Run in R, then upload the JSON output here.`);
+    }
+
+    // --------------------------------------------------------
+    // R Results Upload
+    // --------------------------------------------------------
+    async loadRResults(file) {
+        if (!file) return;
+        this.showStatus('uploadStatus', 'info', 'Loading fgsea results...');
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            if (!Array.isArray(data) || !data[0]?.name || data[0]?.nes === undefined) {
+                throw new Error('Invalid format. Expected JSON array with name, nes, pvalue, fdr fields.');
+            }
+
+            this.results = data.map(r => ({
+                name: r.name,
+                es: r.es || 0,
+                nes: r.nes,
+                pvalue: r.pvalue || r.pval || 0,
+                fdr: r.fdr || r.padj || 1,
+                size: r.size || 0,
+                leadingEdge: r.leadingEdge || [],
+                runningES: [],
+                hits: [],
+                source: 'fgsea'
+            }));
+
+            this.analysisDate = new Date();
+            this._pinnedBubbleSets = new Set();
+
+            const nSig = this.results.filter(r => r.fdr < 0.25).length;
+            const doneMsg = `Loaded ${this.results.length} fgsea results \u2014 ${nSig} significant (FDR < 0.25)`;
+            this.showStatus('uploadStatus', 'success', doneMsg);
+            await this._renderResultsAsync(doneMsg);
+        } catch (err) {
+            this.showStatus('uploadStatus', 'error', `Failed to load R results: ${err.message}`);
+        }
     }
 
     // --------------------------------------------------------
@@ -2015,6 +2196,17 @@ class GSEAApp {
     renderESPlot(geneSetName) {
         const result = this.results.find(r => r.name === geneSetName);
         if (!result) return;
+
+        // R-imported results don't have running ES data
+        if (result.source === 'fgsea' && (!result.runningES || result.runningES.length === 0)) {
+            const container = document.getElementById('esPlot');
+            container.innerHTML = `<div style="text-align:center; padding: 40px 20px; color: var(--gray-500); font-size: 0.9em;">
+                <div style="font-weight: 500; margin-bottom: 6px;">ES curve not available for R-imported results</div>
+                <div style="font-size: 0.85em;">To see the enrichment plot, re-run this gene set in the browser using "Re-run filtered".</div>
+            </div>`;
+            return;
+        }
+
         this.readSettings();
 
         const N = this.rankedList.genes.length;
@@ -4143,26 +4335,27 @@ class GSEAApp {
     // --------------------------------------------------------
     // Example Data
     // --------------------------------------------------------
-    async loadExampleData() {
-        const select = document.getElementById('exampleDataSelect');
-        const dataType = select.value; // 'expression' or 'crispr'
-        const fileMap = {
-            expression: 'web_data/depmap_expression_A375_vs_A549.json',
-            crispr: 'web_data/depmap_crispr_A375_vs_A549.json'
+    async loadExampleData(cellLine, dataType) {
+        const cellLineInfo = {
+            A375: 'Skin cancer (Melanoma)',
+            A549: 'Lung cancer (Adenocarcinoma)',
+            HT29: 'Colon cancer (Colorectal)',
+            Raji: 'Blood cancer (B-cell Lymphoma)',
+            U251: 'Brain cancer (Glioblastoma)'
         };
         const metricMap = {
-            expression: 'log2FC_Expression',
-            crispr: 'GeneEffect_CRISPR'
+            expression: 'Expression_zscore',
+            crispr: 'Chronos_score'
         };
         const labelMap = {
-            expression: 'Expression (log₂ TPM difference)',
-            crispr: 'CRISPR KO (Chronos gene effect difference)'
+            expression: 'Expression (z-score)',
+            crispr: 'CRISPR (Chronos gene effect)'
         };
 
-        this.showStatus('uploadStatus', 'info', 'Loading DepMap example data...');
+        this.showStatus('uploadStatus', 'info', `Loading ${cellLine} ${dataType} data from DepMap...`);
 
         try {
-            const resp = await fetch(fileMap[dataType]);
+            const resp = await fetch(`web_data/depmap_${dataType}_${cellLine}.json`);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
 
@@ -4171,8 +4364,13 @@ class GSEAApp {
             this.populateColumnDropdowns(['Gene', metricCol]);
             document.getElementById('geneColumn').value = 'Gene';
             document.getElementById('metricColumn').value = metricCol;
+
+            // Auto-set data type
+            document.getElementById('dataType').value = dataType === 'crispr' ? 'crispr' : 'expression';
+            this.settings.dataType = dataType === 'crispr' ? 'crispr' : 'expression';
+
             this.showStatus('uploadStatus', 'success',
-                `Loaded DepMap ${labelMap[dataType]}: ${data.length} genes — A375 (melanoma) vs A549 (lung adenocarcinoma)`);
+                `Loaded ${cellLine} \u2014 ${cellLineInfo[cellLine]} \u2014 ${labelMap[dataType]}: ${data.length.toLocaleString()} genes (DepMap)`);
             this.checkReady();
         } catch (err) {
             this.showStatus('uploadStatus', 'error', `Failed to load example data: ${err.message}`);

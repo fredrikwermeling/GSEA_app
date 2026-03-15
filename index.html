@@ -101,7 +101,7 @@
         .logo-header {
             text-align: center;
             padding: 0 20px;
-            max-height: 230px;
+            max-height: 250px;
             overflow: hidden;
             margin-bottom: -4px;
         }
@@ -111,6 +111,25 @@
             display: inline-block;
             margin-top: -30px;
         }
+        .logo-subtitle {
+            font-size: 13px;
+            color: var(--gray-500);
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            margin-top: -8px;
+            margin-bottom: 4px;
+        }
+        .example-data-grid { display: flex; flex-direction: column; gap: 3px; }
+        .example-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 4px 8px; background: var(--gray-100); border-radius: var(--radius-sm);
+            font-size: 0.82em;
+        }
+        .example-cell-info { display: flex; align-items: center; gap: 6px; min-width: 0; }
+        .example-cell-name { font-weight: 600; font-family: 'Roboto Mono', monospace; font-size: 0.92em; }
+        .example-cancer-type { color: var(--gray-500); font-size: 0.88em; white-space: nowrap; }
+        .example-buttons { display: flex; gap: 3px; flex-shrink: 0; }
+        .btn-xs { padding: 2px 7px; font-size: 0.78em; border-radius: 3px; }
         .nav-bar {
             display: flex;
             flex-wrap: wrap;
@@ -1490,6 +1509,7 @@
 <!-- Header -->
 <div class="logo-header">
     <img src="enrich logo v3.png" alt="Enrich - a Gene Set Enrichment Analysis (GSEA) tool">
+    <div class="logo-subtitle">a gene set enrichment analysis (GSEA) tool</div>
 </div>
 
 <!-- Navigation -->
@@ -1554,7 +1574,11 @@
         <li><strong>Use the Gene Set Browser</strong> &mdash; search for specific pathways or genes of interest across all collections</li>
         <li><strong>Iterative permutation strategy</strong> &mdash; for large analyses, you can run with lower permutations (e.g. 200) for faster screening, then filter the results table and use &ldquo;Re-run filtered&rdquo; with &ge;1000 permutations. Note: low permutations give coarser p-values, so borderline hits (FDR ~0.2&ndash;0.3) may be missed in the initial screen</li>
         <li><strong>Use the Data Type selector</strong> &mdash; set to "CRISPR / Perturbation" if your data is from a genetic screen or perturbation experiment, for correct interpretation</li>
+        <li><strong>For large analyses</strong> &mdash; if your computer struggles with many gene sets, use the &ldquo;Download R Script&rdquo; option in the run dialog. This generates a self-contained fgsea script you can run in R &mdash; then upload the results back here for visualization</li>
     </ol>
+
+    <h4 style="margin-top: 18px;">Note on naming</h4>
+    <p><strong>Enrich</strong> is not the same tool as <a href="https://maayanlab.cloud/Enrichr/" target="_blank" rel="noopener">Enrichr</a> (Ma&rsquo;ayan Lab). Enrichr performs over-representation analysis (ORA) on gene lists. Enrich performs Gene Set Enrichment Analysis (GSEA) on pre-ranked gene lists, which considers all genes in the ranking &mdash; not just a cutoff-based subset.</p>
 </div>
 
 <!-- How to Interpret Guide -->
@@ -1681,15 +1705,34 @@
                     <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.tab" class="form-control">
                     <div class="form-hint">File should have a gene name column and one or more numeric columns</div>
                 </div>
-                <div class="form-group" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                    <button class="btn btn-outline btn-sm" id="loadExampleBtn">Load Example</button>
-                    <select class="form-control" id="exampleDataSelect" style="font-size:0.82em; padding:3px 6px; width:auto; min-width:220px;">
-                        <option value="expression">Expression: A375 vs A549</option>
-                        <option value="crispr">CRISPR KO: A375 vs A549</option>
-                    </select>
-                    <span class="info-icon" tabindex="0">?
-                        <span class="info-tooltip" style="width:280px;">Real data from DepMap (Broad Institute).<br><b>Expression:</b> log₂ TPM difference between A375 (melanoma) and A549 (lung adenocarcinoma).<br><b>CRISPR KO:</b> Chronos gene effect score difference — measures differential dependency.</span>
-                    </span>
+                <div class="form-group" style="margin-top: 4px;">
+                    <label class="form-label" style="margin-bottom: 6px; font-size: 0.88em;">Example datasets
+                        <span class="info-icon" tabindex="0" style="margin-left: 2px;">?
+                            <span class="info-tooltip" style="width:300px;">Real data from <b>DepMap</b> (Broad Institute).<br><b>Expression:</b> gene expression z-score vs median across all DepMap cell lines &mdash; positive = overexpressed in this cancer.<br><b>CRISPR:</b> Chronos gene effect score &mdash; negative = the cancer depends on this gene.</span>
+                        </span>
+                    </label>
+                    <div class="example-data-grid">
+                        <div class="example-row">
+                            <div class="example-cell-info"><span class="example-cell-name">A375</span><span class="example-cancer-type">Skin (Melanoma)</span></div>
+                            <div class="example-buttons"><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('A375','expression')">Expression</button><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('A375','crispr')">CRISPR</button></div>
+                        </div>
+                        <div class="example-row">
+                            <div class="example-cell-info"><span class="example-cell-name">A549</span><span class="example-cancer-type">Lung (Adenocarcinoma)</span></div>
+                            <div class="example-buttons"><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('A549','expression')">Expression</button><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('A549','crispr')">CRISPR</button></div>
+                        </div>
+                        <div class="example-row">
+                            <div class="example-cell-info"><span class="example-cell-name">HT29</span><span class="example-cancer-type">Colon (Colorectal)</span></div>
+                            <div class="example-buttons"><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('HT29','expression')">Expression</button><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('HT29','crispr')">CRISPR</button></div>
+                        </div>
+                        <div class="example-row">
+                            <div class="example-cell-info"><span class="example-cell-name">Raji</span><span class="example-cancer-type">Blood (B-cell Lymphoma)</span></div>
+                            <div class="example-buttons"><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('Raji','expression')">Expression</button><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('Raji','crispr')">CRISPR</button></div>
+                        </div>
+                        <div class="example-row">
+                            <div class="example-cell-info"><span class="example-cell-name">U251</span><span class="example-cancer-type">Brain (Glioblastoma)</span></div>
+                            <div class="example-buttons"><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('U251','expression')">Expression</button><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('U251','crispr')">CRISPR</button></div>
+                        </div>
+                    </div>
                 </div>
                 <div id="uploadStatus" class="status-box hidden"></div>
 
@@ -1718,6 +1761,15 @@
                         <option value="expression" selected>Expression</option>
                         <option value="crispr">CRISPR / Perturbation</option>
                     </select>
+                </div>
+                <div class="form-group" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--gray-200);">
+                    <label class="form-label" style="font-size: 0.82em; color: var(--gray-500);">
+                        Or upload fgsea results (from R script)
+                        <span class="info-icon" tabindex="0" style="margin-left: 2px;">?
+                            <span class="info-tooltip" style="width:260px;">Upload the JSON output from the R script generated by Enrich. This lets you visualize results from large analyses that were run in R.</span>
+                        </span>
+                    </label>
+                    <input type="file" id="rResultsInput" accept=".json" class="form-control" style="font-size: 0.82em;">
                 </div>
             </div>
         </div>
@@ -1979,11 +2031,14 @@
             <div id="overviewEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center;">
                 <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
                 <div style="margin-bottom: 6px;">
-                    Click <span style="color: var(--green-600); font-weight: 600;">Load Example Data</span> and then <span style="color: var(--green-600); font-weight: 600;">Run GSEA</span>
+                    Load test data for <span style="color: var(--green-600); font-weight: 600;">skin, lung, colon, brain</span> or <span style="color: var(--green-600); font-weight: 600;">blood cancer</span> and click <span style="color: var(--green-600); font-weight: 600;">Run GSEA</span>
                 </div>
                 <div style="font-size: 0.88em; color: var(--gray-500);">(both in the sidebar on the left)</div>
-                <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.6; max-width: 420px; color: var(--gray-500); text-align: center;">
-                    Then explore the enrichment overview, click gene sets for detailed enrichment plots, and check the overlap heatmap to find redundant pathways. Use the <span style="color: var(--green-600); font-weight: 500;">Aa</span> and <span style="color: var(--green-600); font-weight: 500;">&#9881;</span> buttons to customize each plot for publication.
+                <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.7; max-width: 480px; color: var(--gray-500); text-align: center;">
+                    Explore the enrichment overview, click gene sets for detailed plots, and check the overlap heatmap to find redundant pathways. Use <span style="color: var(--green-600); font-weight: 500;">Aa</span> and <span style="color: var(--green-600); font-weight: 500;">&#9881;</span> to customize plots for publication.
+                </div>
+                <div style="margin-top: 14px; font-size: 0.82em; line-height: 1.6; max-width: 480px; color: var(--gray-400); text-align: center;">
+                    <strong style="color: var(--gray-500);">Performance note:</strong> Over 33,000 gene sets are available from MSigDB, but large analyses may be slow or crash depending on your computer. For heavy analyses, Enrich can generate an <strong>R script</strong> (fgsea) &mdash; run it locally and upload results back here for full visualization.
                 </div>
             </div>
             <div id="overviewResults" style="display: none;">
@@ -2474,6 +2529,32 @@
     </div>
 </div>
 
+<!-- Run Warning Dialog (replaces native confirm for large analyses) -->
+<div id="runWarningBackdrop" class="how-to-use-backdrop" style="display: none;"></div>
+<div id="runWarningDialog" class="how-to-use-popup" style="display: none; max-width: 500px;">
+    <button class="close-btn" id="runWarningClose">&times;</button>
+    <h3 style="margin-top: 0;">Large Analysis</h3>
+    <div id="runWarningInfo" style="font-size: 0.9em; color: var(--gray-600); margin-bottom: 12px;"></div>
+
+    <div class="form-group" style="margin-bottom: 10px;">
+        <label class="form-label">Permutations</label>
+        <input type="number" class="form-control" id="runWarningPermInput" value="1000" min="100" max="10000" step="100" style="width: 120px;">
+        <div class="form-hint" id="runWarningPermHint"></div>
+    </div>
+    <div id="runWarningEstimate" style="font-size: 0.85em; color: var(--gray-500); margin-bottom: 10px;"></div>
+
+    <div style="background: var(--green-50); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px; font-size: 0.84em; line-height: 1.6; color: var(--text-secondary);">
+        <strong>Tips:</strong>
+        <ul style="margin: 4px 0 0 16px; padding: 0;" id="runWarningTips"></ul>
+    </div>
+
+    <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+        <button class="btn btn-outline btn-sm" id="runWarningCancelBtn">Cancel</button>
+        <button class="btn btn-outline btn-sm" id="runWarningRScriptBtn" style="color: var(--green-700); border-color: var(--green-600);">Download R Script</button>
+        <button class="btn btn-sm" id="runWarningRunBtn" style="background: var(--green-600); color: white;">Run in Browser</button>
+    </div>
+</div>
+
 <!-- Footer -->
 <div class="site-footer">
     GSEA Web Tool &mdash; <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>, Karolinska Institutet
@@ -2702,6 +2783,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=34"></script>
+<script src="app.js?v=35"></script>
 </body>
 </html>
