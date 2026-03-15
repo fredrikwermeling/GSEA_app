@@ -113,8 +113,8 @@ class GSEAApp {
         this._overlapFilterThreshold = 0; // 0 = off, 50/70/80 = % Jaccard overlap
 
         // Table sort state
-        this.sortCol = 'nes';
-        this.sortAsc = false;
+        this.sortCol = 'fdr';
+        this.sortAsc = true;
 
         // Gene detail table sort state
         this.detailSortCol = 'rank';
