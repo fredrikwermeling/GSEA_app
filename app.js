@@ -3803,10 +3803,22 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // Auto-select best per cluster on first open
         if (this._gsfAutoSelectOnOpen) return; // already done
         this._gsfAutoSelectOnOpen = true;
-        // Trigger auto-select after render
+
+        // First: apply FDR filter to _hiddenSets — hide sets that don't pass
+        const fdrT = this._gsfFdrFilter && this._gsfFdrFilter !== 'all'
+            ? parseFloat(this._gsfFdrFilter) : Infinity;
+        for (const r of this.results) {
+            if (fdrT < Infinity && r.fdr >= fdrT) {
+                this._hiddenSets.add(r.name);
+            } else {
+                this._hiddenSets.delete(r.name);
+            }
+        }
+
+        // Then: among passing sets, auto-select best per overlap cluster
         const thresh = this._gsfClusterThreshold || 0.3;
         if (thresh > 0) {
-            const clusterInput = this.results.filter(r => r.fdr < 0.25);
+            const clusterInput = this.results.filter(r => r.fdr < fdrT);
             const cappedInput = clusterInput.length > 500
                 ? clusterInput.slice().sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes)).slice(0, 500)
                 : clusterInput;
