@@ -330,7 +330,10 @@ class GSEAApp {
             overlapDebounce = setTimeout(() => { if (this.results) this.renderOverlapHeatmap(); }, 300);
         };
         document.getElementById('overlapMaxSets').addEventListener('input', overlapLiveUpdate);
-        document.getElementById('overlapCollapseThresh').addEventListener('input', overlapLiveUpdate);
+        ['overlapFdrFilter', 'overlapPvalFilter', 'overlapDirectionFilter', 'overlapRedundancyFilter'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', overlapLiveUpdate);
+        });
 
         // Overlap → Results Table: show only the sets visible in the overlap heatmap
         document.getElementById('overlapToTableBtn').addEventListener('click', () => {
@@ -3003,7 +3006,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         let debounceTimer = null;
 
         const showDropdown = (filter) => {
-            // Use filtered results directly for better search
+            // Read filters
             const esFdrEl = document.getElementById('esFdrFilter');
             const esPvalEl = document.getElementById('esPvalFilter');
             const esDirEl = document.getElementById('esDirectionFilter');
@@ -3011,18 +3014,33 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             const pvalT = esPvalEl ? parseFloat(esPvalEl.value) : 1;
             const dirF = esDirEl ? esDirEl.value : 'all';
 
-            let filteredResults = this.results ? this.results.filter(r => {
+            const passesFilter = (r) => {
                 if (fdrT < 1 && r.fdr >= fdrT) return false;
                 if (pvalT < 1 && r.pvalue >= pvalT) return false;
                 if (dirF === 'up' && r.nes <= 0) return false;
                 if (dirF === 'down' && r.nes > 0) return false;
                 return true;
-            }) : [];
+            };
 
             const query = (filter || '').toLowerCase();
-            const matches = query
-                ? filteredResults.filter(r => r.name.toLowerCase().includes(query))
-                : filteredResults;
+            const allResults = this.results || [];
+
+            // When searching, show ALL matching results (filtered first, then others dimmed)
+            // When browsing (no query), only show filtered results
+            let matches;
+            if (query) {
+                matches = allResults.filter(r => r.name.toLowerCase().includes(query));
+                // Sort: filtered first, then by |NES|
+                matches.sort((a, b) => {
+                    const aPass = passesFilter(a) ? 0 : 1;
+                    const bPass = passesFilter(b) ? 0 : 1;
+                    if (aPass !== bPass) return aPass - bPass;
+                    return Math.abs(b.nes) - Math.abs(a.nes);
+                });
+            } else {
+                matches = allResults.filter(passesFilter);
+                matches.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
+            }
 
             if (matches.length === 0) {
                 dropdown.innerHTML = '<div style="padding: 8px 12px; color: #999; font-size: 0.85em;">No matching gene sets</div>';
@@ -3030,15 +3048,14 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 return;
             }
 
-            // Sort by |NES| descending
-            matches.sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
-
             // Limit to 100 for performance
             const shown = matches.slice(0, 100);
             dropdown.innerHTML = shown.map(r => {
+                const passes = passesFilter(r);
                 const info = `<span style="color: #888; font-size: 0.8em; margin-left: 6px;">NES: ${r.nes.toFixed(2)} FDR: ${this.formatPval(r.fdr)}</span>`;
                 const isSelected = r.name === sel.value;
-                return `<div class="gs-search-item" data-value="${r.name}" style="padding: 5px 10px; cursor: pointer; font-size: 0.85em; border-bottom: 1px solid #f3f4f6; ${isSelected ? 'background: var(--green-50);' : ''}" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='${isSelected ? 'var(--green-50)' : ''}'">
+                const dimStyle = !passes ? 'opacity: 0.5;' : '';
+                return `<div class="gs-search-item" data-value="${r.name}" style="padding: 5px 10px; cursor: pointer; font-size: 0.85em; border-bottom: 1px solid #f3f4f6; ${dimStyle}${isSelected ? 'background: var(--green-50);' : ''}" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='${isSelected ? 'var(--green-50)' : ''}'">
                     <span style="font-weight: 500;">${this.cleanName(r.name)}</span>${info}
                 </div>`;
             }).join('');
@@ -3419,14 +3436,25 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         this.readSettings();
 
         const maxSets = parseInt(document.getElementById('overlapMaxSets').value) || 20;
-        const collapseThresh = parseInt(document.getElementById('overlapCollapseThresh').value) || 50;
+        const collapseThresh = parseInt(document.getElementById('overlapRedundancyFilter')?.value) || 0;
         const fontFam = this.settings.fontFamily + ', sans-serif';
 
-        // Get gene sets filtered by FDR threshold (user-configurable, default 0.25)
+        // Get gene sets filtered by FDR/pval/direction
         const overlapFdrVal = document.getElementById('overlapFdrFilter')?.value || '0.25';
+        const overlapPvalVal = document.getElementById('overlapPvalFilter')?.value || '1';
+        const overlapDirVal = document.getElementById('overlapDirectionFilter')?.value || 'all';
         const overlapFdrThresh = overlapFdrVal === 'all' ? Infinity : parseFloat(overlapFdrVal);
+        const overlapPvalThresh = parseFloat(overlapPvalVal);
         let sigSets = this.results
-            .filter(r => overlapFdrThresh === Infinity ? true : r.fdr < overlapFdrThresh)
+            .filter(r => {
+                if (overlapFdrThresh !== Infinity && r.fdr >= overlapFdrThresh) return false;
+                if (overlapPvalThresh < 1 && r.pvalue >= overlapPvalThresh) return false;
+                if (overlapDirVal === 'up' && r.nes <= 0) return false;
+                if (overlapDirVal === 'down' && r.nes > 0) return false;
+                // Respect hidden sets from Select Sets
+                if (this._hiddenSets.has(r.name)) return false;
+                return true;
+            })
             .sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
 
         if (sigSets.length === 0) {
@@ -3462,7 +3490,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             for (const r of sigSets) {
                 if (!setGenes[r.name]) continue;
                 let shouldCollapse = false;
-                for (const keptSet of kept) {
+                if (collapseThresh > 0) for (const keptSet of kept) {
                     const overlap = this._computeOverlap(setGenes[r.name], setGenes[keptSet.name]);
                     const smaller = Math.min(setGenes[r.name].length, setGenes[keptSet.name].length);
                     if (smaller > 0 && (overlap / smaller) * 100 >= collapseThresh) {
@@ -4022,20 +4050,10 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (e.target.id === 'gsfApply') {
                 popup.style.display = 'none';
                 document.getElementById('geneSetFilterBackdrop').style.display = 'none';
-                // Propagate Select Sets FDR/pval filters to the results table filters
-                if (self._gsfContext === 'table') {
-                    const fdrSel = document.getElementById('fdrFilter');
-                    const pvalSel = document.getElementById('pvalueFilter');
-                    if (fdrSel && self._gsfFdrFilter && self._gsfFdrFilter !== 'all') {
-                        // Set to matching value or closest available
-                        fdrSel.value = self._gsfFdrFilter;
-                    }
-                    if (pvalSel && self._gsfPvalFilter && self._gsfPvalFilter !== 'all') {
-                        pvalSel.value = self._gsfPvalFilter;
-                    }
-                }
+                // Apply to all tabs — hidden sets are shared
                 self.renderBubblePlot();
                 self.filterAndRenderTable();
+                if (self.results) self.renderOverlapHeatmap();
             } else if (e.target.id === 'gsfCancel') {
                 popup.style.display = 'none';
                 document.getElementById('geneSetFilterBackdrop').style.display = 'none';
@@ -4855,6 +4873,56 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             this.checkReady();
         } catch (err) {
             this.showStatus('uploadStatus', 'error', `Failed to load example data: ${err.message}`);
+        }
+    }
+
+    // --------------------------------------------------------
+    // Reset Tab Filters
+    // --------------------------------------------------------
+    resetTabFilters(tab) {
+        // Reset hidden sets
+        this._hiddenSets.clear();
+        this._pinnedBubbleSets.clear();
+        this._gsfInitialized = false;
+        this._gsfAutoSelectOnOpen = false;
+
+        if (tab === 'overview' || tab === 'all') {
+            const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
+            el('overviewFdrFilter', '0.25');
+            el('overviewPvalFilter', '1');
+            el('overviewDirectionFilter', 'all');
+            el('overviewTopN', '20');
+            el('overviewOverlapFilter', '0');
+            el('fdrDisplayThreshold', '0.25');
+            el('pvalDisplayThreshold', '1');
+            this._overlapFilterThreshold = 0;
+            this.renderBubblePlot();
+        }
+        if (tab === 'enrichment' || tab === 'all') {
+            const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
+            el('esFdrFilter', '0.25');
+            el('esPvalFilter', '1');
+            el('esDirectionFilter', 'all');
+            this.populateGeneSetSelector();
+            this._initGeneSetSearch();
+        }
+        if (tab === 'table' || tab === 'all') {
+            const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
+            el('fdrFilter', '0.25');
+            el('pvalueFilter', 'all');
+            el('directionFilter', 'all');
+            el('tableOverlapFilter', '0');
+            el('tableFilter', '');
+            this.filterAndRenderTable();
+        }
+        if (tab === 'overlap' || tab === 'all') {
+            const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
+            el('overlapFdrFilter', '0.25');
+            el('overlapPvalFilter', '1');
+            el('overlapDirectionFilter', 'all');
+            el('overlapRedundancyFilter', '50');
+            el('overlapMaxSets', '20');
+            this.renderOverlapHeatmap();
         }
     }
 
