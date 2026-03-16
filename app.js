@@ -4098,9 +4098,38 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             }
         }
 
-        // Skip pairwise computation — too expensive for large sets
-        // renderOverlapHeatmap uses pre-created Sets for fast O(n²) on the displayed subset
-        this._overlapCache = { pairwise: new Map(), setGenes };
+        // Compute pairwise Jaccard for clustering (cap at 300 sets for safety)
+        const pairwise = new Map();
+        const names = Object.keys(setGenes);
+        const pairCap = Math.min(names.length, 300);
+        const pairNames = names.slice(0, pairCap);
+
+        // Pre-create Sets once for fast intersection
+        const geneSetsLookup = new Map();
+        for (const n of pairNames) {
+            geneSetsLookup.set(n, new Set(setGenes[n]));
+        }
+
+        for (let i = 0; i < pairNames.length; i++) {
+            const a = pairNames[i];
+            const setA = geneSetsLookup.get(a);
+            for (let j = i + 1; j < pairNames.length; j++) {
+                const b = pairNames[j];
+                const setB = geneSetsLookup.get(b);
+                // Iterate smaller set for speed
+                const [smaller, larger] = setA.size <= setB.size ? [setA, setB] : [setB, setA];
+                let inter = 0;
+                for (const g of smaller) { if (larger.has(g)) inter++; }
+                const union = setA.size + setB.size - inter;
+                const jaccard = union > 0 ? inter / union : 0;
+                if (jaccard > 0.05) {
+                    const key = a < b ? `${a}|||${b}` : `${b}|||${a}`;
+                    pairwise.set(key, jaccard);
+                }
+            }
+        }
+
+        this._overlapCache = { pairwise, setGenes };
     }
 
     /** Get Jaccard overlap between two gene sets from cache */
