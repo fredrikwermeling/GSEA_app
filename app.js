@@ -2750,10 +2750,28 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         // Annotations
         const esTitleFont = this._getTextFont('es', 'title');
+        // Wrap long gene set names to multiple lines (~60 chars per line)
+        let esTitleText = esTitleFont.text || this.cleanName(geneSetName);
+        const maxTitleLineLen = 65;
+        if (esTitleText.length > maxTitleLineLen) {
+            const words = esTitleText.split(' ');
+            const lines = [];
+            let currentLine = '';
+            for (const word of words) {
+                if (currentLine && (currentLine + ' ' + word).length > maxTitleLineLen) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = currentLine ? currentLine + ' ' + word : word;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+            esTitleText = lines.join('<br>');
+        }
         const annotations = [
             // Title
             {
-                text: esTitleFont.wrap(esTitleFont.text || geneSetName.replace(/_/g, ' ')),
+                text: esTitleFont.wrap(esTitleText),
                 xref: 'paper', yref: 'paper', x: 0.5, y: 1.06,
                 showarrow: false,
                 font: { size: esTitleFont.size, family: esTitleFont.family },
@@ -2984,7 +3002,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 fixedrange: true
             },
             height: s.esPlotHeight || 580,
-            margin: { l: 75, r: 15, t: 45, b: 80 },
+            margin: { l: 75, r: 15, t: esTitleText.includes('<br>') ? 70 : 45, b: 80 },
             font: { family: fontFam },
             paper_bgcolor: s.transparentBg ? 'rgba(0,0,0,0)' : '#fff',
             plot_bgcolor: '#fff',
@@ -3107,6 +3125,14 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         else fdrNote = '<span style="color:#6b7280;">Not significant (FDR ≥ 0.25)</span>';
 
         const msigdbUrl = `https://www.gsea-msigdb.org/gsea/msigdb/human/geneset/${encodeURIComponent(geneSetName)}.html`;
+
+        // Get all genes in the gene set
+        const allGeneSets = this.getActiveGeneSets() || {};
+        const geneSetGenes = allGeneSets[geneSetName] || [];
+        const geneCount = geneSetGenes.length;
+        const previewGenes = geneSetGenes.slice(0, 10).join(', ');
+        const hasMore = geneCount > 10;
+
         el.innerHTML = `
             <div style="font-weight: 600; margin-bottom: 6px; line-height: 1.3; word-break: break-word;">${displayName}</div>
             <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 0.95em;">
@@ -3119,12 +3145,15 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 <span style="color: var(--gray-500);">ES:</span>
                 <span>${result.es.toFixed(4)}</span>
                 <span style="color: var(--gray-500);">Size:</span>
-                <span>${result.size} genes in the gene set</span>
-                <span style="color: var(--gray-500);">Leading Edge:</span>
-                <span>${(result.leadingEdge || []).length} genes</span>
+                <span><a href="#" onclick="app._toggleGeneList(); return false;" style="color: var(--green-600); text-decoration: none; font-weight: 500;">${result.size} genes</a> in set (${(result.leadingEdge || []).length} leading edge)</span>
             </div>
-            <div style="margin-top: 6px;">
-                <a href="${msigdbUrl}" target="_blank" rel="noopener" style="font-size: 0.85em; color: var(--green-600); text-decoration: none; font-weight: 600;">🔗 View on MSigDB</a>
+            <div id="gsiGeneList" style="display: none; margin-top: 6px; padding: 6px 8px; background: #f9fafb; border-radius: 4px; font-size: 0.82em; max-height: 200px; overflow-y: auto;">
+                <div style="font-weight: 600; margin-bottom: 3px; color: var(--gray-600);">All genes in set (${geneCount}):</div>
+                <div style="font-family: 'Roboto Mono', monospace; word-break: break-all; line-height: 1.6;">${geneSetGenes.join(', ')}</div>
+            </div>
+            <div style="margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="${msigdbUrl}" target="_blank" rel="noopener" style="font-size: 0.85em; color: var(--green-600); text-decoration: none; font-weight: 600;">🔗 MSigDB</a>
+                <a href="#" onclick="app._openBrowserForSet('${this._escapeAttr(geneSetName)}'); return false;" style="font-size: 0.85em; color: var(--green-600); text-decoration: none; font-weight: 600;">🔍 Find in Browser</a>
             </div>
             <div style="margin-top: 8px; padding: 6px 8px; background: ${isUp ? '#fef2f2' : '#eff6ff'}; border-radius: 4px; border-left: 3px solid ${dirColor};">
                 <div style="font-weight: 600; color: ${dirColor}; margin-bottom: 2px;">${dirLabel}</div>
@@ -3132,6 +3161,23 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 <div style="font-size: 0.88em; margin-top: 3px;">${fdrNote}</div>
             </div>
         `;
+    }
+
+    _toggleGeneList() {
+        const el = document.getElementById('gsiGeneList');
+        if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+    }
+
+    _openBrowserForSet(geneSetName) {
+        this.openGeneSetBrowser().then(() => {
+            const searchEl = document.getElementById('gsbSearch');
+            if (searchEl) {
+                // Extract a searchable portion of the name
+                const clean = this.cleanName(geneSetName).substring(0, 40);
+                searchEl.value = clean;
+                this.filterGeneSetBrowser();
+            }
+        });
     }
 
     // --------------------------------------------------------
@@ -5001,19 +5047,19 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         if (tab === 'overview' || tab === 'all') {
             const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
-            el('overviewFdrFilter', '0.25');
+            el('overviewFdrFilter', '1');
             el('overviewPvalFilter', '1');
             el('overviewDirectionFilter', 'all');
             el('overviewTopN', '20');
             el('overviewOverlapFilter', '0');
-            el('fdrDisplayThreshold', '0.25');
+            el('fdrDisplayThreshold', '1');
             el('pvalDisplayThreshold', '1');
             this._overlapFilterThreshold = 0;
             this.renderBubblePlot();
         }
         if (tab === 'enrichment' || tab === 'all') {
             const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
-            el('esFdrFilter', '0.25');
+            el('esFdrFilter', '1');
             el('esPvalFilter', '1');
             el('esDirectionFilter', 'all');
             el('esRedundancyFilter', '0');
@@ -5022,7 +5068,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         }
         if (tab === 'table' || tab === 'all') {
             const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
-            el('fdrFilter', '0.25');
+            el('fdrFilter', 'all');
             el('pvalueFilter', 'all');
             el('directionFilter', 'all');
             el('tableOverlapFilter', '0');
@@ -5031,7 +5077,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         }
         if (tab === 'overlap' || tab === 'all') {
             const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
-            el('overlapFdrFilter', '0.25');
+            el('overlapFdrFilter', '1');
             el('overlapPvalFilter', '1');
             el('overlapDirectionFilter', 'all');
             el('overlapRedundancyFilter', '50');
