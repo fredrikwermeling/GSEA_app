@@ -1148,10 +1148,12 @@ class GSEAApp {
 
         const msigdbCollections = [];
         const msigdbSetNames = new Set();
+        const checkedCollections = []; // Track which checkboxes were checked for metadata
         for (const [checkId, info] of Object.entries(msigdbMap)) {
             const cb = document.getElementById(checkId);
             if (cb && cb.checked && this.geneSets[info.collId]) {
                 msigdbCollections.push(info);
+                checkedCollections.push(checkId);
                 // Track which gene set names come from standard collections
                 if (this.geneSets[info.collId]) {
                     for (const name of Object.keys(this.geneSets[info.collId])) {
@@ -1313,6 +1315,7 @@ output_data <- list(
         source = "fgsea",
         date = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
         sourceFile = "${this._rEscape(sourceFileName)}",
+        collections = list(${checkedCollections.map(c => `"${c}"`).join(', ')}),
         nGenes = length(ranked_stats),
         nGeneSets = nSets,
         nSignificant = sum(results$padj < 0.25, na.rm = TRUE),
@@ -1399,6 +1402,25 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             this._pinnedBubbleSets = new Set();
             this._fgseaMetadata = metadata;
 
+            // Auto-load gene set collections if specified in metadata
+            let collectionsLoaded = false;
+            if (metadata && metadata.collections && Array.isArray(metadata.collections) && metadata.collections.length > 0) {
+                try {
+                    this.showStatus('uploadStatus', 'info', 'Loading gene set collections...');
+                    for (const checkId of metadata.collections) {
+                        const cb = document.getElementById(checkId);
+                        if (cb) {
+                            cb.checked = true;
+                        }
+                    }
+                    await this.onCollectionChange();
+                    collectionsLoaded = true;
+                    console.log(`Auto-loaded collections: ${metadata.collections.join(', ')}`);
+                } catch (err) {
+                    console.warn('Failed to auto-load some gene set collections:', err);
+                }
+            }
+
             const nSig = this.results.filter(r => r.fdr < 0.25).length;
             let doneMsg = `Loaded ${this.results.length} fgsea results \u2014 ${nSig} significant (FDR < 0.25)`;
             if (metadata) {
@@ -1409,10 +1431,12 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 if (metadata.permutations) parts.push(`${metadata.permutations.toLocaleString()} perms`);
                 if (parts.length > 0) doneMsg += ` (${parts.join(', ')})`;
             }
-            if (this.rankedList) {
-                doneMsg += `. Ranked data auto-loaded \u2014 ready for re-run and overlap analysis.`;
+            if (this.rankedList && collectionsLoaded) {
+                doneMsg += `. Ranked data + gene sets auto-loaded \u2014 ready for re-run.`;
+            } else if (this.rankedList) {
+                doneMsg += `. Ranked data loaded. Select gene set collections to enable re-run.`;
             } else {
-                doneMsg += `. Load ranked data to enable re-run and overlap.`;
+                doneMsg += `. Load ranked data and gene sets to enable re-run.`;
             }
             this.showStatus('uploadStatus', 'success', doneMsg);
             await this._renderResultsAsync(doneMsg);
