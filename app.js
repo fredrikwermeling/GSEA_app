@@ -918,13 +918,6 @@ class GSEAApp {
     async runGSEA() {
         this.buildRankedList();
 
-        // Show ranked list plot immediately
-        if (this.rankedList && this.rankedList.genes.length > 0) {
-            document.getElementById('rankedEmpty').style.display = 'none';
-            document.getElementById('rankedResults').style.display = '';
-            this.renderRankedPlot();
-        }
-
         if (this.rankedList.genes.length === 0) {
             this.showStatus('runStatus', 'error', 'No valid gene-metric pairs found. Check column selection.');
             return;
@@ -1921,8 +1914,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         try {
             // Show result panels
-            document.getElementById('rankedEmpty').style.display = 'none';
-            document.getElementById('rankedResults').style.display = '';
             document.getElementById('overviewEmpty').style.display = 'none';
             document.getElementById('overviewResults').style.display = '';
             document.getElementById('enrichmentEmpty').style.display = 'none';
@@ -1966,6 +1957,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             this._renderStepLabel = null;
             document.getElementById('progressContainer').classList.remove('active');
             this.showStatus('runStatus', 'success', doneMsg);
+            // Show Results Table first after analysis completes
+            this.showTab('table');
         }
     }
 
@@ -1974,8 +1967,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
     // --------------------------------------------------------
     displayResults() {
         // Show results panels, hide empty states
-        document.getElementById('rankedEmpty').style.display = 'none';
-        document.getElementById('rankedResults').style.display = '';
         document.getElementById('overviewEmpty').style.display = 'none';
         document.getElementById('overviewResults').style.display = '';
         document.getElementById('enrichmentEmpty').style.display = 'none';
@@ -3817,6 +3808,46 @@ cat("Upload this file to Enrich to visualize the results.\\n")
     }
 
     /** Open the gene set selector popup for choosing which sets to show/hide */
+    _updateSelectSetsIndicator() {
+        const active = this._selectSetsActive && this._hiddenSets.size > 0;
+        const selectedCount = this.results ? this.results.length - this._hiddenSets.size : 0;
+        const totalCount = this.results ? this.results.length : 0;
+
+        // Results Table toolbar indicator
+        const tableToolbar = document.querySelector('#tableResults .table-toolbar');
+        if (tableToolbar) {
+            let ind = document.getElementById('selectSetsIndicatorTable');
+            if (active) {
+                if (!ind) {
+                    ind = document.createElement('div');
+                    ind.id = 'selectSetsIndicatorTable';
+                    ind.style.cssText = 'width: 100%; padding: 4px 8px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; font-size: 0.82em; color: #92400e; margin-bottom: 4px;';
+                    tableToolbar.insertBefore(ind, tableToolbar.firstChild);
+                }
+                ind.innerHTML = `⚠️ <b>Select Sets</b> filter active: ${selectedCount} of ${totalCount} gene sets selected. Toolbar filters apply on top of this selection. <a href="#" onclick="app.openGeneSetFilter('table'); return false;" style="color: #92400e;">Edit selection</a>`;
+            } else if (ind) {
+                ind.remove();
+            }
+        }
+
+        // Overview toolbar indicator
+        const overviewToolbar = document.getElementById('overviewToolbar');
+        if (overviewToolbar) {
+            let ind = document.getElementById('selectSetsIndicatorOverview');
+            if (active) {
+                if (!ind) {
+                    ind = document.createElement('div');
+                    ind.id = 'selectSetsIndicatorOverview';
+                    ind.style.cssText = 'width: 100%; padding: 4px 8px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; font-size: 0.82em; color: #92400e; margin-bottom: 4px;';
+                    overviewToolbar.insertBefore(ind, overviewToolbar.firstChild);
+                }
+                ind.innerHTML = `⚠️ <b>Select Sets</b> filter active: ${selectedCount} of ${totalCount} gene sets selected. <a href="#" onclick="app.openGeneSetFilter('bubble'); return false;" style="color: #92400e;">Edit selection</a>`;
+            } else if (ind) {
+                ind.remove();
+            }
+        }
+    }
+
     openGeneSetFilter(context) {
         // context: 'bubble' or 'table'
         if (!this.results) return;
@@ -4138,6 +4169,9 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                     setVal('overviewOverlapFilter', '0');
                     self._overlapFilterThreshold = 0;
                 }
+                // Mark that Select Sets is active
+                self._selectSetsActive = self._hiddenSets.size > 0;
+                self._updateSelectSetsIndicator();
                 // Apply to ALL tabs — hidden sets are shared
                 self.renderBubblePlot();
                 self.filterAndRenderTable();
@@ -4981,6 +5015,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         this._pinnedBubbleSets.clear();
         this._gsfInitialized = false;
         this._gsfAutoSelectOnOpen = false;
+        this._selectSetsActive = false;
+        this._updateSelectSetsIndicator();
 
         if (tab === 'overview' || tab === 'all') {
             const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
@@ -5070,8 +5106,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         this.hideStatus('runStatus');
 
         // Hide results
-        document.getElementById('rankedEmpty').style.display = '';
-        document.getElementById('rankedResults').style.display = 'none';
         document.getElementById('overviewEmpty').style.display = '';
         document.getElementById('overviewResults').style.display = 'none';
         document.getElementById('enrichmentEmpty').style.display = '';
@@ -5106,7 +5140,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         });
 
         // Show default tab
-        this.showTab('ranked');
+        this.showTab('table');
 
         // Re-create worker
         this.createWorker();
