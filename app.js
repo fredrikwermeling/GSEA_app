@@ -1305,10 +1305,23 @@ enrich_results <- lapply(seq_len(nrow(results)), function(i) {
     )
 })
 
-# --- Save as JSON ---
+# --- Save as JSON (with metadata) ---
+output_data <- list(
+    metadata = list(
+        source = "fgsea",
+        date = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+        nGenes = length(ranked_stats),
+        nGeneSets = nSets,
+        nSignificant = sum(results$padj < 0.25, na.rm = TRUE),
+        permutations = max(${permutations}, 10000),
+        minSize = ${minSize},
+        maxSize = ${maxSize}
+    ),
+    results = enrich_results
+)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output_file <- file.path(path.expand("~/Downloads"), paste0("enrich_fgsea_results_", timestamp, ".json"))
-writeLines(toJSON(enrich_results, auto_unbox = TRUE, pretty = TRUE), output_file)
+writeLines(toJSON(output_data, auto_unbox = TRUE, pretty = TRUE), output_file)
 cat("\\n=== Done! ===\\n")
 cat("Results saved to:", output_file, "\\n")
 cat("Upload this JSON file back into Enrich to visualize the results.\\n")
@@ -1332,10 +1345,22 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         this.showStatus('uploadStatus', 'info', 'Loading fgsea results...');
         try {
             const text = await file.text();
-            const data = JSON.parse(text);
+            const parsed = JSON.parse(text);
+
+            // Support both new format (object with metadata + results) and old format (plain array)
+            let data, metadata;
+            if (parsed.metadata && parsed.results) {
+                metadata = parsed.metadata;
+                data = parsed.results;
+            } else if (Array.isArray(parsed)) {
+                data = parsed;
+                metadata = null;
+            } else {
+                throw new Error('Invalid format. Expected JSON from Enrich R script.');
+            }
 
             if (!Array.isArray(data) || !data[0]?.name || data[0]?.nes === undefined) {
-                throw new Error('Invalid format. Expected JSON array with name, nes, pvalue, fdr fields.');
+                throw new Error('Invalid format. Expected results with name, nes, pvalue, fdr fields.');
             }
 
             this.results = data.map(r => ({
@@ -1353,9 +1378,18 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
             this.analysisDate = new Date();
             this._pinnedBubbleSets = new Set();
+            this._fgseaMetadata = metadata;
 
             const nSig = this.results.filter(r => r.fdr < 0.25).length;
-            const doneMsg = `Loaded ${this.results.length} fgsea results \u2014 ${nSig} significant (FDR < 0.25)`;
+            let doneMsg = `Loaded ${this.results.length} fgsea results \u2014 ${nSig} significant (FDR < 0.25)`;
+            if (metadata) {
+                const parts = [];
+                if (metadata.date) parts.push(`run ${metadata.date}`);
+                if (metadata.nGenes) parts.push(`${metadata.nGenes.toLocaleString()} genes`);
+                if (metadata.permutations) parts.push(`${metadata.permutations.toLocaleString()} perms`);
+                if (parts.length > 0) doneMsg += ` (${parts.join(', ')})`;
+            }
+            doneMsg += `. File: ${file.name}`;
             this.showStatus('uploadStatus', 'success', doneMsg);
             await this._renderResultsAsync(doneMsg);
         } catch (err) {
@@ -1687,8 +1721,12 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
     }
 
     rerunFiltered() {
-        if (!this.results || !this.rankedList) {
+        if (!this.results) {
             alert('No results to re-run. Run GSEA first.');
+            return;
+        }
+        if (!this.rankedList) {
+            alert('Ranked gene list not loaded. Upload your ranked data first (Card 1), then re-run.');
             return;
         }
 
@@ -1786,6 +1824,54 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             'Re-run Significant Hits',
             `${hits.length} gene sets with FDR < ${fdrThresh}. Re-run with higher permutations for publication-quality p-values.`,
             hits
+        );
+    }
+
+    /** Re-run a single fgsea gene set in the browser to generate ES plot */
+    _rerunSingleFgsea(geneSetName) {
+        if (!this.rankedList) {
+            alert('Load your ranked gene list first.');
+            return;
+        }
+        const activeGeneSets = this.getActiveGeneSets();
+        if (!activeGeneSets || !activeGeneSets[geneSetName]) {
+            alert('Gene set not found. Make sure the same gene set collections are selected.');
+            return;
+        }
+        const fakeResult = { name: geneSetName };
+        this._showRerunDialog(
+            'Re-run for Enrichment Plot',
+            `Re-run "${this.cleanName(geneSetName)}" in the browser to generate the enrichment score plot.`,
+            [fakeResult],
+            1000
+        );
+    }
+
+    /** Re-run top fgsea hits in browser to generate ES plots for all significant sets */
+    rerunFgseaHits() {
+        if (!this.results || !this.rankedList) {
+            alert('Load your ranked gene list and fgsea results first.');
+            return;
+        }
+        const activeGeneSets = this.getActiveGeneSets();
+        if (!activeGeneSets) {
+            alert('Select and load the same gene set collections used in the R analysis.');
+            return;
+        }
+
+        const fdrThresh = 0.05;
+        const hits = this.results.filter(r => r.fdr < fdrThresh && activeGeneSets[r.name]);
+
+        if (hits.length === 0) {
+            alert(`No gene sets with FDR < ${fdrThresh} found in the loaded collections. Make sure you selected the same gene set collections as the R analysis.`);
+            return;
+        }
+
+        this._showRerunDialog(
+            'Re-run fgsea Hits in Browser',
+            `${hits.length} gene sets with FDR < ${fdrThresh} will be re-run in the browser to generate enrichment score plots. Make sure your ranked data and gene set collections are loaded above.`,
+            hits,
+            1000
         );
     }
 
@@ -2509,9 +2595,15 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         // R-imported results don't have running ES data
         if (result.source === 'fgsea' && (!result.runningES || result.runningES.length === 0)) {
             const container = document.getElementById('esPlot');
+            const hasRanked = this.rankedList && this.rankedList.genes.length > 0;
+            const hasGeneSets = this.getActiveGeneSets() && this.getActiveGeneSets()[geneSetName];
+            const canRerun = hasRanked && hasGeneSets;
             container.innerHTML = `<div style="text-align:center; padding: 40px 20px; color: var(--gray-500); font-size: 0.9em;">
-                <div style="font-weight: 500; margin-bottom: 6px;">ES curve not available for R-imported results</div>
-                <div style="font-size: 0.85em;">To see the enrichment plot, re-run this gene set in the browser using "Re-run filtered".</div>
+                <div style="font-weight: 500; margin-bottom: 6px;">Enrichment plot not available for R-imported results</div>
+                <div style="font-size: 0.85em; margin-bottom: 12px;">${canRerun
+                    ? 'Load your ranked data and gene sets, then re-run this set in the browser to generate the plot.'
+                    : 'To see enrichment plots: <b>1)</b> load your ranked gene list above, <b>2)</b> select the same gene set collections, then <b>3)</b> click the button below to re-run significant hits in the browser.'}</div>
+                ${canRerun ? `<button class="btn btn-sm" style="background: var(--green-600); color: white;" onclick="app._rerunSingleFgsea('${geneSetName.replace(/'/g, "\\'")}')">▶ Re-run this gene set</button>` : ''}
             </div>`;
             return;
         }
@@ -3438,6 +3530,12 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             })
             .sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
 
+        // Safety cap: only compute overlap for top 500 sets (by |NES|) to prevent browser crash
+        const OVERLAP_SAFETY_CAP = 500;
+        if (sigSets.length > OVERLAP_SAFETY_CAP) {
+            sigSets = sigSets.slice(0, OVERLAP_SAFETY_CAP);
+        }
+
         if (sigSets.length === 0) {
             Plotly.newPlot('overlapHeatmap', [], {
                 annotations: [{
@@ -3455,9 +3553,9 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
         // Build gene lists for significant results
         const setGenes = {};
+        const rankedGenesUpper = this.rankedList ? new Set(this.rankedList.genes.map(g => g.toUpperCase())) : new Set();
         for (const r of sigSets) {
             if (activeGeneSets[r.name]) {
-                const rankedGenesUpper = new Set(this.rankedList.genes.map(g => g.toUpperCase()));
                 setGenes[r.name] = activeGeneSets[r.name]
                     .map(g => g.toUpperCase())
                     .filter(g => rankedGenesUpper.has(g));
@@ -3665,8 +3763,8 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         const rankedGenesUpper = new Set(this.rankedList.genes.map(g => g.toUpperCase()));
         const setGenes = {};
 
-        // For large result sets, only compute overlap for top results by FDR
-        const MAX_OVERLAP_SETS = 200;
+        // Safety: only compute overlap for top results (by FDR), cap at 500, skip FDR > 0.25
+        const MAX_OVERLAP_SETS = 500;
         let overlapResults = this.results;
         this._overlapCapped = false;
         if (overlapResults.length > MAX_OVERLAP_SETS) {
