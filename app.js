@@ -1181,7 +1181,7 @@ class GSEAApp {
 #
 # HOW TO USE:
 #   1. This script was saved to your Downloads folder.
-#   2. Open it in RStudio and click "Source" (or run source("~/Downloads/enrich_fgsea_analysis.R"))
+#   2. Run it in R: source("~/Downloads/enrich_fgsea_analysis.R")
 #   3. The output file (enrich_fgsea_results.json) will also be
 #      saved in your Downloads folder.
 #   4. Upload the JSON file back into Enrich (drag & drop or
@@ -1320,7 +1320,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         const sizeStr = blob.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
         this.downloadBlob(blob, 'enrich_fgsea_analysis.R');
         this.showStatus('runStatus', 'success',
-            `R script saved to Downloads (${sizeStr}, ${genes.length} genes, ${Object.keys(geneSets).length} gene sets${useMsigdbr ? ' via msigdbr' : ''}). Run in RStudio, then upload the output JSON (also saved to Downloads) back here.`);
+            `R script saved to Downloads (${sizeStr}, ${genes.length} genes, ${Object.keys(geneSets).length} gene sets${useMsigdbr ? ' via msigdbr' : ''}). Run in R, then upload the output JSON (also in Downloads) back into Enrich.`);
     }
 
     // --------------------------------------------------------
