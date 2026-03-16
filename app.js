@@ -3588,6 +3588,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             colorscale: overlapCS,
             text: textMatrix,
             hovertemplate: '%{y} vs %{x}<br>%{text}<extra></extra>',
+            hoverlabel: { bgcolor: 'rgba(255,255,255,0.95)', bordercolor: '#ccc', font: { color: '#333', size: 12 } },
             showscale: true,
             colorbar: {
                 title: { text: this._getTextFont('overlap', 'colorbarTitle').visible !== false ? this._getTextFont('overlap', 'colorbarTitle').wrap(this._getTextFont('overlap', 'colorbarTitle').text || 'Jaccard Index') : '', font: { size: this._getTextFont('overlap', 'colorbarTitle').size, family: this._getTextFont('overlap', 'colorbarTitle').family } },
@@ -5077,10 +5078,10 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         }
         if (tab === 'overlap' || tab === 'all') {
             const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
-            el('overlapFdrFilter', '1');
+            el('overlapFdrFilter', 'all');
             el('overlapPvalFilter', '1');
             el('overlapDirectionFilter', 'all');
-            el('overlapRedundancyFilter', '50');
+            el('overlapRedundancyFilter', '0');
             el('overlapMaxSets', '20');
             this.renderOverlapHeatmap();
         }
