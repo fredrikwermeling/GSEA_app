@@ -1004,7 +1004,8 @@ class GSEAApp {
                 : `Lower permutations (e.g. 100\u2013200) for faster screening, then use "Re-run filtered" with \u22651000 permutations.`;
 
             document.getElementById('runWarningTips').innerHTML =
-                `<li>Start with Hallmark (50 sets) for a quick, interpretable overview.</li>
+                `<li><b>\u26a0 Your browser may struggle with this.</b> Large analyses can freeze or crash the tab. Consider reducing gene sets or using the R script option below.</li>
+                 <li>Start with Hallmark (50 sets) for a quick, interpretable overview.</li>
                  <li>${permTip}</li>
                  <li>Consider "Smart Run" for iterative analysis of large collections.</li>
                  <li>Or download an <b>R script</b> to run fgsea locally \u2014 handles any size without browser limits.</li>`;
@@ -1127,7 +1128,7 @@ class GSEAApp {
         // Determine which standard MSigDB collections are selected
         const msigdbMap = {
             checkHallmark: { category: 'H', subcategory: null, collId: 'hallmark', label: 'Hallmark' },
-            checkC2kegg: { category: 'C2', subcategory: 'CP:KEGG', collId: 'c2kegg', label: 'C2 KEGG' },
+            checkC2kegg: { category: 'C2', subcategory: ['CP:KEGG_LEGACY', 'CP:KEGG_MEDICUS'], collId: 'c2kegg', label: 'C2 KEGG' },
             checkC2reactome: { category: 'C2', subcategory: 'CP:REACTOME', collId: 'c2reactome', label: 'C2 Reactome' },
             checkC2wp: { category: 'C2', subcategory: 'CP:WIKIPATHWAYS', collId: 'c2wp', label: 'C2 WikiPathways' },
             checkC2biocarta: { category: 'C2', subcategory: 'CP:BIOCARTA', collId: 'c2biocarta', label: 'C2 BioCarta' },
@@ -1177,6 +1178,14 @@ class GSEAApp {
 #
 # This script runs GSEA using the fgsea R package on your data.
 # Results are saved as JSON for re-import into Enrich.
+#
+# HOW TO USE:
+#   1. This script was saved to your Downloads folder.
+#   2. Open it in RStudio and click "Source" (or run source("~/Downloads/enrich_fgsea_analysis.R"))
+#   3. The output file (enrich_fgsea_results.json) will also be
+#      saved in your Downloads folder.
+#   4. Upload the JSON file back into Enrich (drag & drop or
+#      use the "Upload R results" button) to visualize the results.
 #${useMsigdbr ? `
 # Gene sets are fetched from MSigDB via the msigdbr package,
 # keeping this script small and reproducible.` : `
@@ -1206,12 +1215,17 @@ ranked_stats <- c(
             script += `cat("Fetching gene sets from MSigDB...\\n")\n`;
             script += `gene_sets <- list()\n`;
             for (const coll of msigdbCollections) {
-                script += `{\n`;
-                script += `    cat("  Loading ${coll.label}...\\n")\n`;
-                script += `    m <- msigdbr(species = "Homo sapiens", collection = "${coll.category}"${coll.subcategory ? `, subcollection = "${coll.subcategory}"` : ''})\n`;
-                script += `    sets <- split(m$gene_symbol, m$gs_name)\n`;
-                script += `    gene_sets <- c(gene_sets, sets)\n`;
-                script += `}\n`;
+                // Handle array subcategories (e.g. KEGG has LEGACY + MEDICUS)
+                const subcats = Array.isArray(coll.subcategory) ? coll.subcategory : [coll.subcategory];
+                for (const subcat of subcats) {
+                    const subcatLabel = subcat || coll.label;
+                    script += `{\n`;
+                    script += `    cat("  Loading ${subcatLabel}...\\n")\n`;
+                    script += `    m <- msigdbr(species = "Homo sapiens", collection = "${coll.category}"${subcat ? `, subcollection = "${subcat}"` : ''})\n`;
+                    script += `    sets <- split(m$gene_symbol, m$gs_name)\n`;
+                    script += `    gene_sets <- c(gene_sets, sets)\n`;
+                    script += `}\n`;
+                }
             }
             script += `cat("Loaded", length(gene_sets), "gene sets from MSigDB\\n")\n\n`;
         }
@@ -1292,10 +1306,12 @@ enrich_results <- lapply(seq_len(nrow(results)), function(i) {
 })
 
 # --- Save as JSON ---
-output_file <- "enrich_fgsea_results.json"
+output_file <- file.path(path.expand("~/Downloads"), "enrich_fgsea_results.json")
 writeLines(toJSON(enrich_results, auto_unbox = TRUE, pretty = TRUE), output_file)
+cat("\\n=== Done! ===\\n")
 cat("Results saved to:", output_file, "\\n")
-cat("Upload this file to Enrich to visualize the results.\\n")
+cat("Upload this JSON file back into Enrich to visualize the results.\\n")
+cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n")
 `;
 
         const blob = new Blob([script], { type: 'text/plain' });
@@ -1304,7 +1320,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const sizeStr = blob.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
         this.downloadBlob(blob, 'enrich_fgsea_analysis.R');
         this.showStatus('runStatus', 'success',
-            `R script downloaded (${sizeStr}, ${genes.length} genes, ${Object.keys(geneSets).length} gene sets${useMsigdbr ? ' via msigdbr' : ''}). Run in R, then upload the JSON output here.`);
+            `R script saved to Downloads (${sizeStr}, ${genes.length} genes, ${Object.keys(geneSets).length} gene sets${useMsigdbr ? ' via msigdbr' : ''}). Run in RStudio, then upload the output JSON (also saved to Downloads) back here.`);
     }
 
     // --------------------------------------------------------
@@ -2828,19 +2844,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const metYMin = metActualMin * 1.05;
         const metYMax = metActualMax * 1.05;
 
-        // Zero cross annotation — positioned below the metric panel to avoid overlapping bars
-        if (zeroCross >= 0 && s.showZeroCross) {
-            // Place the annotation below the zero line with arrow pointing up
-            annotations.push({
-                text: `Zero cross at ${zeroCross.toLocaleString()}`,
-                x: zeroCross, y: metYMin * 0.85,
-                xref: 'x3', yref: 'y3',
-                showarrow: true, arrowhead: 0, arrowsize: 0.8, arrowwidth: 1,
-                ax: 0, ay: 18,
-                arrowcolor: '#999',
-                font: { size: Math.max(8, baseFontSize - 4), color: '#666', family: fontFam }
-            });
-        }
+        // Zero cross annotation removed — was cluttering the metric panel
 
         // Correlation labels — position below the x-axis title (data-type-aware)
         if (s.showCorrelationLabels && zeroCross >= 0) {
@@ -3483,11 +3487,18 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             sigSets = kept;
         }
 
-        // Cap at maxSets
+        // Cap at maxSets (but if fewer pass filters, show fewer)
+        const totalAfterFilter = sigSets.length;
         sigSets = sigSets.slice(0, maxSets);
 
         // Sort alphabetically by default
         sigSets.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Update count display
+        const overlapCountEl = document.getElementById('overlapResultCount');
+        if (overlapCountEl) {
+            overlapCountEl.textContent = `${sigSets.length} of ${this.results.length} gene sets`;
+        }
 
         // Track which sets are visible in the heatmap (for "Send to Results Table")
         this._overlapVisibleSets = new Set(sigSets.map(r => r.name));
@@ -3548,7 +3559,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             colorscale: overlapCS,
             text: textMatrix,
             hovertemplate: '%{y} vs %{x}<br>%{text}<extra></extra>',
-            hoverlabel: { bgcolor: 'rgba(255,255,255,0.95)', bordercolor: '#ccc', font: { color: '#333', size: 12 } },
+            hoverlabel: { bgcolor: 'rgba(255,255,255,0.75)', bordercolor: 'rgba(200,200,200,0.5)', font: { color: '#555', size: 11 } },
             showscale: true,
             colorbar: {
                 title: { text: this._getTextFont('overlap', 'colorbarTitle').visible !== false ? this._getTextFont('overlap', 'colorbarTitle').wrap(this._getTextFont('overlap', 'colorbarTitle').text || 'Jaccard Index') : '', font: { size: this._getTextFont('overlap', 'colorbarTitle').size, family: this._getTextFont('overlap', 'colorbarTitle').family } },

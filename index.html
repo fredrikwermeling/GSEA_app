@@ -1518,7 +1518,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.38.3</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.39</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2294,7 +2294,6 @@
                                     </div>
                                     <div class="checkbox-group" style="margin-top: 4px; font-size: 0.82em;">
                                         <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showStatsBox" checked> Stats box</label>
-                                        <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showZeroCross" checked> Zero-cross</label>
                                         <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showESIndicator" checked> ES peak indicator</label>
                                         <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showCorrelationLabels" checked> Correlation labels</label>
                                         <label class="checkbox-label"><input type="checkbox" class="settings-live" id="showPanelBorders" checked> Panel borders</label>
@@ -2552,6 +2551,7 @@
                             <button class="btn btn-outline btn-sm" onclick="app.openGeneSetFilter('overlap')" title="Select which gene sets to show">&#9998; Select sets</button>
                             <button class="btn btn-outline btn-sm" id="overlapToTableBtn" title="Show only these gene sets in the Results Table">Send to Table</button>
                             <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('overlap')" title="Reset filters to defaults">↺ Reset</button>
+                            <span class="result-count" id="overlapResultCount" style="font-size: 0.82em; color: var(--gray-500);"></span>
                         </div>
                         <div id="overlapHeatmap"></div>
                     </div>
@@ -2706,7 +2706,7 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
-            <p><strong>v.38.3</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <p><strong>v.39</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>Select Sets: FDR filter now properly applied on first open — sets with FDR ≥ threshold are deselected before auto-select runs</li>
                 <li>Select Sets: Apply now syncs FDR and p-value filters to all tabs (Overview, Enrichment Plot, Results Table)</li>
@@ -3059,6 +3059,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=70"></script>
+<script src="app.js?v=71"></script>
 </body>
 </html>
