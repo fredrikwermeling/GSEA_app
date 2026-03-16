@@ -4359,6 +4359,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             tr.addEventListener('click', () => {
                 document.getElementById('geneSetSelector').value = r.name;
                 this.renderESPlot(r.name);
+                this.renderGeneSetInfo(r.name);
+                this.renderGeneDetailTable(r.name);
                 this.showTab('enrichment');
             });
             tbody.appendChild(tr);
@@ -6086,27 +6088,84 @@ cat("Upload this file to Enrich to visualize the results.\\n")
     }
 
     initSettingsDrag() {
-        const panel = document.getElementById('settingsPanel');
-        const header = document.getElementById('settingsPanelHeader');
-        let isDragging = false, startX, startY, startLeft, startTop;
+        // Settings panel
+        this._initPanelDrag('settingsPanel', 'settingsPanelHeader');
 
-        header.addEventListener('mousedown', (e) => {
-            if (e.target.tagName === 'BUTTON') return;
+        // Text settings panel (only if not already bound via openTextSettings)
+        if (!this._tsEventsBound) {
+            this._initPanelDrag('textSettingsPanel', 'textSettingsDragHandle');
+        }
+
+        // Graph settings popups (drag by h4 title)
+        ['bubbleSettings', 'rankedSettings', 'esSettings', 'overlapSettings'].forEach(id => {
+            const panel = document.getElementById(id);
+            if (!panel) return;
+            const h4 = panel.querySelector('h4');
+            if (!h4) return;
+            this._initPopupDrag(panel, h4);
+        });
+
+        // How-to-use popups (drag by h3)
+        ['howToUsePopup', 'interpretGuidePopup', 'rerunDialog', 'runWarningDialog'].forEach(id => {
+            const panel = document.getElementById(id);
+            if (!panel) return;
+            const h3 = panel.querySelector('h3');
+            if (!h3) return;
+            this._initPopupDrag(panel, h3);
+        });
+
+        // Gene set filter popup (drag by header div)
+        const gsfPopup = document.getElementById('geneSetFilterPopup');
+        if (gsfPopup) {
+            const header = gsfPopup.querySelector('.draggable-header');
+            if (header) this._initPopupDrag(gsfPopup, header);
+        }
+
+        // Gene set browser modal (drag by header)
+        const gsbModal = document.getElementById('gsbModal');
+        if (gsbModal) {
+            const gsbHeader = gsbModal.querySelector('.gsb-header');
+            if (gsbHeader) this._initPopupDrag(gsbModal, gsbHeader);
+        }
+
+        // Changelog modal inner div (drag by header)
+        const clModal = document.getElementById('changelogModal');
+        if (clModal) {
+            const inner = clModal.querySelector('div > div');
+            if (inner) {
+                const h3 = inner.querySelector('h3');
+                if (h3) this._initPopupDrag(inner, h3);
+            }
+        }
+    }
+
+    _initPopupDrag(panel, handle) {
+        let isDragging = false, startX, startY, startLeft, startTop;
+        handle.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
             isDragging = true;
             const rect = panel.getBoundingClientRect();
-            startX = e.clientX;
-            startY = e.clientY;
-            startLeft = rect.left;
-            startTop = rect.top;
+            startX = e.clientX; startY = e.clientY;
+            startLeft = rect.left; startTop = rect.top;
+            // Switch to fixed positioning so panel can move freely
+            const cs = getComputedStyle(panel);
+            if (cs.position === 'absolute') {
+                panel.style.position = 'fixed';
+                panel.style.margin = '0';
+            }
+            panel.style.transform = 'none';
+            panel.style.left = startLeft + 'px';
+            panel.style.top = startTop + 'px';
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
             e.preventDefault();
         });
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            panel.style.left = (startLeft + dx) + 'px';
-            panel.style.top = (startTop + dy) + 'px';
+            panel.style.left = (startLeft + (e.clientX - startX)) + 'px';
+            panel.style.top = (startTop + (e.clientY - startY)) + 'px';
             panel.style.right = 'auto';
+            panel.style.transform = 'none';
         });
         document.addEventListener('mouseup', () => { isDragging = false; });
     }
