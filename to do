@@ -1,4 +1,5 @@
 - the gene expression data sets seems to not well mapp to gene sets. Is there a problem with the design? I also start wonder if I should compare gen expression of two cell lines instead of only the expression of one cell line. 
+- the results table should defien which type of gene set it is eg Hallmark or Kegg.
 
 - the heatmap overlap calculation should enable change to the results table and the lolipop graph. i suggest that the results table has a potential to filter by eg less than X% overlap, and also to allow for selecting which gene sets to be shown. by deafult the most hi tiere gene set should be shown if there are overlapps above the set threshold, but the user should be able to select which gene sets to include in the list. this isa also tru for the lolipo. I guess both of these should have a popout where the user can select which gene sets to show 
 -
