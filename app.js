@@ -373,6 +373,9 @@ class GSEAApp {
         document.getElementById('expandHitsBtn').addEventListener('click', () => this.expandAroundHits());
         document.getElementById('rerunFdrThreshold').addEventListener('change', () => this.updateRerunHitCount());
 
+        // Re-run dialog Run button — single permanent listener (no cloneNode needed)
+        document.getElementById('rerunDialogRunBtn').addEventListener('click', () => this._handleRerunDialogRun());
+
         // Methods card buttons
         document.getElementById('copyMethodsBtn').addEventListener('click', () => this.copyMethods());
         document.getElementById('downloadMethodsBtn').addEventListener('click', () => this.downloadMethods());
@@ -1599,35 +1602,71 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             return;
         }
 
-        this.readSettings();
-        const perms = this.settings.permutations;
-        const proceed = confirm(
-            `Found ${nRelated} gene sets similar to your ${hits.length} significant hits (Jaccard > 0.1).\n\n` +
-            `Run with ${perms} permutations?\n\n` +
-            `This helps discover the most specific pathway driving the enrichment.`
+        // Build pseudo-results for the related sets so _executeRerun can find them
+        const relatedResults = Object.keys(related).map(name => ({ name }));
+
+        this._showRerunDialog(
+            'Expand Around Hits',
+            `Found ${nRelated} gene sets similar to your ${hits.length} significant hits (Jaccard > 0.1). This helps discover the most specific pathway driving the enrichment.`,
+            relatedResults
         );
-        if (!proceed) return;
+    }
 
-        // Use the re-run mechanism to merge results
-        this._rerunSetNames = new Set(Object.keys(related));
-        document.getElementById('runBtn').style.display = 'none';
-        document.getElementById('cancelBtn').style.display = '';
-        document.getElementById('progressContainer').classList.add('active');
-        document.getElementById('progressBar').style.width = '0%';
-        document.getElementById('progressText').textContent = `Expanding: testing ${nRelated} related gene sets...`;
-
-        this.worker.postMessage({
-            type: 'run',
-            rankedGenes: this.rankedList.genes,
-            rankedMetrics: this.rankedList.metrics,
-            geneSets: related,
-            settings: {
-                permutations: perms,
-                minSize: this.settings.minSize,
-                maxSize: this.settings.maxSize,
-                weightP: this.settings.weightP
+    // Shared re-run dialog: shows permutation picker and calls callback on Run
+    _showRerunDialog(title, info, filtered, suggestedPerms) {
+        this.readSettings();
+        const prevPerms = this.settings.permutations;
+        if (!suggestedPerms) {
+            suggestedPerms = prevPerms <= 500 ? 1000 : prevPerms;
+            if (filtered.length > 100 && suggestedPerms > 500) {
+                suggestedPerms = Math.min(suggestedPerms, 1000);
             }
-        });
+        }
+
+        const dialog = document.getElementById('rerunDialog');
+        const backdrop = document.getElementById('rerunDialogBackdrop');
+        document.getElementById('rerunDialogTitle').textContent = title;
+        document.getElementById('rerunDialogInfo').textContent = info;
+        const permInput = document.getElementById('rerunPermInput');
+        permInput.value = suggestedPerms;
+        document.getElementById('rerunPermHint').textContent =
+            prevPerms <= 500
+                ? `Previous run used ${prevPerms} permutations — suggest increasing to ≥1000 for accurate p-values.`
+                : `Previous run used ${prevPerms.toLocaleString()} permutations.`;
+
+        const updateEstimate = () => {
+            const p = parseInt(permInput.value) || 1000;
+            const est = Math.max(1, Math.round(filtered.length * p / 500000));
+            document.getElementById('rerunEstimate').textContent =
+                `Estimated time: ~${est} minute${est > 1 ? 's' : ''}`;
+        };
+        updateEstimate();
+        permInput.oninput = updateEstimate;
+
+        // Reset dialog position to center (in case it was previously dragged)
+        dialog.style.left = '50%';
+        dialog.style.top = '50%';
+        dialog.style.transform = 'translate(-50%, -50%)';
+        dialog.style.right = 'auto';
+
+        // Store callback — the single permanent listener on Run button will use this
+        this._pendingRerunFiltered = filtered;
+
+        dialog.style.display = 'block';
+        backdrop.style.display = 'block';
+    }
+
+    _handleRerunDialogRun() {
+        const dialog = document.getElementById('rerunDialog');
+        const backdrop = document.getElementById('rerunDialogBackdrop');
+        dialog.style.display = 'none';
+        backdrop.style.display = 'none';
+        const perms = parseInt(document.getElementById('rerunPermInput').value) || 1000;
+        if (this._pendingRerunFiltered) {
+            const filtered = this._pendingRerunFiltered;
+            this._pendingRerunFiltered = null;
+            this._executeRerun(filtered, perms);
+        }
     }
 
     rerunFiltered() {
@@ -1643,7 +1682,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         const dirVal = document.getElementById('directionFilter').value;
 
         let filtered = this.results.slice();
-        // Apply hidden sets filter
         if (this._hiddenSets.size > 0) {
             filtered = filtered.filter(r => !this._hiddenSets.has(r.name));
         }
@@ -1664,51 +1702,11 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             return;
         }
 
-        // Suggest permutations based on previous run and gene set count
-        const prevPerms = this.settings.permutations;
-        let suggestedPerms;
-        if (prevPerms <= 500) {
-            suggestedPerms = 1000;
-        } else {
-            suggestedPerms = prevPerms;
-        }
-        if (filtered.length > 100 && suggestedPerms > 500) {
-            suggestedPerms = Math.min(suggestedPerms, 1000);
-        }
-
-        // Show custom dialog
-        const dialog = document.getElementById('rerunDialog');
-        const backdrop = document.getElementById('rerunDialogBackdrop');
-        document.getElementById('rerunDialogInfo').textContent =
-            `${filtered.length} gene sets match the current filters.`;
-        const permInput = document.getElementById('rerunPermInput');
-        permInput.value = suggestedPerms;
-        document.getElementById('rerunPermHint').textContent =
-            prevPerms <= 500
-                ? `Previous run used ${prevPerms} permutations — suggest increasing to ≥1000 for accurate p-values.`
-                : `Previous run used ${prevPerms.toLocaleString()} permutations.`;
-
-        const updateEstimate = () => {
-            const p = parseInt(permInput.value) || 1000;
-            const est = Math.max(1, Math.round(filtered.length * p / 500000));
-            document.getElementById('rerunEstimate').textContent =
-                `Estimated time: ~${est} minute${est > 1 ? 's' : ''}`;
-        };
-        updateEstimate();
-        permInput.oninput = updateEstimate;
-
-        dialog.style.display = 'block';
-        backdrop.style.display = 'block';
-
-        // Wire up run button (replace handler to avoid stacking)
-        const runBtn = document.getElementById('rerunDialogRunBtn');
-        const newRunBtn = runBtn.cloneNode(true);
-        runBtn.parentNode.replaceChild(newRunBtn, runBtn);
-        newRunBtn.addEventListener('click', () => {
-            dialog.style.display = 'none';
-            backdrop.style.display = 'none';
-            this._executeRerun(filtered, parseInt(permInput.value) || 1000);
-        });
+        this._showRerunDialog(
+            'Re-run Filtered Gene Sets',
+            `${filtered.length} gene sets match the current filters.`,
+            filtered
+        );
     }
 
     _executeRerun(filtered, permutations) {
@@ -1767,49 +1765,11 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             return;
         }
 
-        this.readSettings();
-        const perms = this.settings.permutations;
-
-        const proceed = confirm(
-            `Re-run ${hits.length} gene sets (FDR < ${fdrThresh}) with ${perms.toLocaleString()} permutations?\n\n` +
-            `This refines p-values and FDR for your hits. Use ≥1000 permutations for publication-quality statistics.\n\nContinue?`
+        this._showRerunDialog(
+            'Re-run Significant Hits',
+            `${hits.length} gene sets with FDR < ${fdrThresh}. Re-run with higher permutations for publication-quality p-values.`,
+            hits
         );
-        if (!proceed) return;
-
-        // Build gene set dict from only the significant results
-        const activeGeneSets = this.getActiveGeneSets();
-        const rerunSets = {};
-        for (const r of hits) {
-            if (activeGeneSets[r.name]) {
-                rerunSets[r.name] = activeGeneSets[r.name];
-            }
-        }
-
-        if (Object.keys(rerunSets).length === 0) {
-            alert('Could not find gene set data for the hits. The collections may have changed since the last run.');
-            return;
-        }
-
-        const s = this.settings;
-        document.getElementById('runBtn').style.display = 'none';
-        document.getElementById('rerunSection').style.display = 'none';
-        document.getElementById('cancelBtn').style.display = '';
-        document.getElementById('progressContainer').classList.add('active');
-        document.getElementById('progressBar').style.width = '0%';
-        document.getElementById('progressText').textContent = `Re-running ${Object.keys(rerunSets).length} gene sets...`;
-
-        this.worker.postMessage({
-            type: 'run',
-            rankedGenes: this.rankedList.genes,
-            rankedMetrics: this.rankedList.metrics,
-            geneSets: rerunSets,
-            settings: {
-                permutations: s.permutations,
-                minSize: s.minSize,
-                maxSize: s.maxSize,
-                weightP: s.weightP
-            }
-        });
     }
 
     updateRerunHitCount() {

@@ -1518,7 +1518,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.38.2</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.38.3</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2651,8 +2651,8 @@
 <!-- Re-run Permutation Dialog -->
 <div id="rerunDialogBackdrop" class="how-to-use-backdrop" style="display: none;"></div>
 <div id="rerunDialog" class="how-to-use-popup" style="display: none; max-width: 420px;">
-    <button class="close-btn" onclick="document.getElementById('rerunDialog').style.display='none';document.getElementById('rerunDialogBackdrop').style.display='none';">&times;</button>
-    <h3 style="margin-top: 0;">Re-run Filtered Gene Sets</h3>
+    <button class="close-btn" onclick="document.getElementById('rerunDialog').style.display='none';document.getElementById('rerunDialogBackdrop').style.display='none';app._pendingRerunFiltered=null;">&times;</button>
+    <h3 id="rerunDialogTitle" style="margin-top: 0;">Re-run Gene Sets</h3>
     <div id="rerunDialogInfo" style="font-size: 0.9em; color: var(--gray-600); margin-bottom: 12px;"></div>
     <div class="form-group">
         <label class="form-label">Permutations</label>
@@ -2661,7 +2661,7 @@
     </div>
     <div id="rerunEstimate" style="font-size: 0.85em; color: var(--gray-500); margin-bottom: 12px;"></div>
     <div style="display: flex; gap: 8px; justify-content: flex-end;">
-        <button class="btn btn-outline btn-sm" onclick="document.getElementById('rerunDialog').style.display='none';document.getElementById('rerunDialogBackdrop').style.display='none';">Cancel</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('rerunDialog').style.display='none';document.getElementById('rerunDialogBackdrop').style.display='none';app._pendingRerunFiltered=null;">Cancel</button>
         <button class="btn btn-sm" id="rerunDialogRunBtn" style="background: var(--green-600); color: white;">Run</button>
     </div>
 </div>
@@ -2706,7 +2706,7 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
-            <p><strong>v.38.2</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <p><strong>v.38.3</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>Select Sets: FDR filter now properly applied on first open — sets with FDR ≥ threshold are deselected before auto-select runs</li>
                 <li>Select Sets: Apply now syncs FDR and p-value filters to all tabs (Overview, Enrichment Plot, Results Table)</li>
@@ -3059,6 +3059,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=69"></script>
+<script src="app.js?v=70"></script>
 </body>
 </html>
