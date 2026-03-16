@@ -2422,15 +2422,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         const metricLabel = document.getElementById('metricColumn').value || 'Ranking Metric';
 
-        // Find zero-crossing for annotation
-        let zeroCross = -1;
-        for (let i = 0; i < N - 1; i++) {
-            if ((metrics[i] >= 0 && metrics[i + 1] < 0)) {
-                zeroCross = i;
-                break;
-            }
-        }
-
         const annotations = [];
         // Title annotation (draggable)
         const rpTitleFont = this._getTextFont('ranked', 'title');
@@ -2441,16 +2432,6 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 showarrow: false,
                 font: { size: rpTitleFont.size, family: rpTitleFont.family },
                 xanchor: 'center', yanchor: 'bottom'
-            });
-        }
-        if (zeroCross >= 0) {
-            annotations.push({
-                text: 'Zero cross',
-                x: zeroCross, y: 0,
-                xref: 'x', yref: 'y',
-                showarrow: true, arrowhead: 0, arrowsize: 0.8, arrowwidth: 1,
-                ax: 0, ay: -20,
-                font: { size: 9, color: '#666' }
             });
         }
         // Positive / Negative labels (data-type-aware)
@@ -2482,10 +2463,10 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // Custom Y-axis range from settings
         const rankedYMinEl = document.getElementById('rankedYMin');
         const rankedYMaxEl = document.getElementById('rankedYMax');
-        const customYMin = rankedYMinEl && rankedYMinEl.value !== '' ? parseFloat(rankedYMinEl.value) : null;
-        const customYMax = rankedYMaxEl && rankedYMaxEl.value !== '' ? parseFloat(rankedYMaxEl.value) : null;
-        const yRangeMin = customYMin !== null ? customYMin : (Math.min(0, metrics[N - 1]) - yPad);
-        const yRangeMax = customYMax !== null ? customYMax : (Math.max(0, metrics[0]) + yPad);
+        const parsedYMin = rankedYMinEl && rankedYMinEl.value.trim() !== '' ? parseFloat(rankedYMinEl.value) : NaN;
+        const parsedYMax = rankedYMaxEl && rankedYMaxEl.value.trim() !== '' ? parseFloat(rankedYMaxEl.value) : NaN;
+        const yRangeMin = !isNaN(parsedYMin) ? parsedYMin : (Math.min(0, metrics[N - 1]) - yPad);
+        const yRangeMax = !isNaN(parsedYMax) ? parsedYMax : (Math.max(0, metrics[0]) + yPad);
 
         const rpXFont = this._getTextFont('ranked', 'xAxisLabel');
         const rpYFont = this._getTextFont('ranked', 'yAxisLabel');
@@ -5175,7 +5156,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         document.getElementById('gsbBackdrop').classList.add('open');
         document.getElementById('gsbRows').innerHTML = '<div style="padding: 40px 20px; text-align: center; color: #888; font-size: 14px;">Loading all gene set collections...</div>';
 
-        for (const coll of collections) {
+        // Load all collections in parallel for speed
+        await Promise.all(collections.map(async (coll) => {
             if (!this.geneSets[coll.id]) {
                 try {
                     const resp = await fetch('web_data/' + coll.file);
@@ -5184,7 +5166,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                     console.warn(`Failed to load ${coll.id}:`, e);
                 }
             }
-        }
+        }));
 
         // Build master list
         this._gsbAllItems = [];
@@ -5238,19 +5220,12 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             this._gsbItemMap.set(item.name, item);
         }
 
-        // Build gene → set names index for gene-based search
-        this._gsbGeneIndex = new Map();
-        for (const item of this._gsbAllItems) {
-            for (const gene of item.genes) {
-                const g = gene.toUpperCase();
-                if (!this._gsbGeneIndex.has(g)) this._gsbGeneIndex.set(g, []);
-                this._gsbGeneIndex.get(g).push(item.name);
-            }
-        }
+        // Gene index built lazily on first search that needs it
+        this._gsbGeneIndex = null;
 
-        // Pre-compute gene Sets and diversity caches for instant Jaccard filtering
-        // (runs synchronously — typically <500ms even for 30k+ sets)
-        this._gsbPrecomputeDiversity();
+        // Diversity cache computed lazily when user selects a Jaccard filter
+        this._gsbDiversityCache = {};
+        this._gsbDiversityComputed = false;
 
         // If first time opening (no prior custom selection), start with nothing selected
         if (!this.useCustomSelection) {
@@ -5279,9 +5254,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         document.getElementById('gsbBackdrop').classList.remove('open');
     }
 
-    _gsbPrecomputeDiversity() {
-        const thresholds = [0.1, 0.2, 0.3, 0.5];
-        // Build uppercase gene Sets for all items
+    _gsbPrecomputeDiversitySingle(threshold) {
+        // Build uppercase gene Sets for all items (once)
         for (const item of this._gsbAllItems) {
             if (!item._geneSet) item._geneSet = new Set(item.genes.map(g => g.toUpperCase()));
         }
@@ -5291,40 +5265,36 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             if (!byCollection[item.collection]) byCollection[item.collection] = [];
             byCollection[item.collection].push(item);
         }
-        // For each collection, run greedy diversity selection at each threshold
-        // Cache: _gsbDiversityCache[threshold] = Set of item names that pass
-        this._gsbDiversityCache = {};
-        for (const t of thresholds) {
-            const passNames = new Set();
-            for (const items of Object.values(byCollection)) {
-                const keptGeneSets = [];
-                for (const item of items) {
-                    const itemGenes = item._geneSet;
-                    let tooSimilar = false;
-                    for (const keptGenes of keptGeneSets) {
-                        const sA = itemGenes.size, sB = keptGenes.size;
-                        const minSize = Math.min(sA, sB), maxSize = Math.max(sA, sB);
-                        if (minSize / maxSize < t) continue;
-                        let intersection = 0;
-                        const smaller = sA <= sB ? itemGenes : keptGenes;
-                        const larger = sA <= sB ? keptGenes : itemGenes;
-                        for (const g of smaller) {
-                            if (larger.has(g)) intersection++;
-                        }
-                        const union = sA + sB - intersection;
-                        if (union > 0 && intersection / union >= t) {
-                            tooSimilar = true;
-                            break;
-                        }
+        // Greedy diversity selection for this threshold
+        const passNames = new Set();
+        for (const items of Object.values(byCollection)) {
+            const keptGeneSets = [];
+            for (const item of items) {
+                const itemGenes = item._geneSet;
+                let tooSimilar = false;
+                for (const keptGenes of keptGeneSets) {
+                    const sA = itemGenes.size, sB = keptGenes.size;
+                    const minSize = Math.min(sA, sB), maxSize = Math.max(sA, sB);
+                    if (minSize / maxSize < threshold) continue;
+                    let intersection = 0;
+                    const smaller = sA <= sB ? itemGenes : keptGenes;
+                    const larger = sA <= sB ? keptGenes : itemGenes;
+                    for (const g of smaller) {
+                        if (larger.has(g)) intersection++;
                     }
-                    if (!tooSimilar) {
-                        passNames.add(item.name);
-                        keptGeneSets.push(itemGenes);
+                    const union = sA + sB - intersection;
+                    if (union > 0 && intersection / union >= threshold) {
+                        tooSimilar = true;
+                        break;
                     }
                 }
+                if (!tooSimilar) {
+                    passNames.add(item.name);
+                    keptGeneSets.push(itemGenes);
+                }
             }
-            this._gsbDiversityCache[t] = passNames;
         }
+        this._gsbDiversityCache[threshold] = passNames;
     }
 
     _updateCollectionFilterForTier() {
@@ -5395,9 +5365,22 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             //    find all gene sets containing any of those genes
             const geneMatchSet = new Set();
             const tokens = query.split(/[\s,]+/).map(t => t.trim().toUpperCase()).filter(t => t.length >= 2);
-            for (const token of tokens) {
-                const sets = this._gsbGeneIndex.get(token);
-                if (sets) for (const name of sets) geneMatchSet.add(name);
+            if (tokens.length > 0) {
+                // Build gene index lazily on first gene search
+                if (!this._gsbGeneIndex) {
+                    this._gsbGeneIndex = new Map();
+                    for (const item of this._gsbAllItems) {
+                        for (const gene of item.genes) {
+                            const g = gene.toUpperCase();
+                            if (!this._gsbGeneIndex.has(g)) this._gsbGeneIndex.set(g, []);
+                            this._gsbGeneIndex.get(g).push(item.name);
+                        }
+                    }
+                }
+                for (const token of tokens) {
+                    const sets = this._gsbGeneIndex.get(token);
+                    if (sets) for (const name of sets) geneMatchSet.add(name);
+                }
             }
 
             // Union both result sets
@@ -5406,16 +5389,20 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             );
 
             // Store for display hint
-            this._gsbLastGeneHits = geneMatchSet.size > 0 ? tokens.filter(t => this._gsbGeneIndex.has(t)) : [];
+            this._gsbLastGeneHits = geneMatchSet.size > 0 && this._gsbGeneIndex ? tokens.filter(t => this._gsbGeneIndex.has(t)) : [];
         } else {
             this._gsbLastGeneHits = [];
         }
 
-        // Jaccard diversity filter: use pre-computed cache for instant filtering
+        // Jaccard diversity filter: computed lazily on first use
         const jaccardThreshold = document.getElementById('gsbJaccardFilter').value;
         let jaccardFiltered = 0;
-        if (jaccardThreshold !== 'off' && this._gsbDiversityCache) {
+        if (jaccardThreshold !== 'off') {
             const maxJ = parseFloat(jaccardThreshold);
+            // Compute diversity cache on demand for this threshold
+            if (!this._gsbDiversityCache[maxJ]) {
+                this._gsbPrecomputeDiversitySingle(maxJ);
+            }
             const passNames = this._gsbDiversityCache[maxJ];
             if (passNames) {
                 const before = filtered.length;
