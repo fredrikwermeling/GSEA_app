@@ -2272,7 +2272,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             },
             yaxis: {
                 tickvals: top.map((_, i) => i),
-                ticktext: top.map(r => this.cleanName(r.name)),
+                ticktext: top.map(r => this.plotLabel(r.name)),
                 tickfont: { size: bubbleYTickFont.visible !== false ? bubbleYTickFont.size : 0, family: bubbleYTickFont.family },
                 automargin: true,
                 gridwidth: 0,
@@ -2364,7 +2364,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             const yTick = e.target.closest('.ytick text, .yaxislayer-above text');
             if (yTick) {
                 const label = yTick.textContent.trim();
-                const match = top.find(r => this.cleanName(r.name) === label);
+                const match = top.find(r => this.plotLabel(r.name) === label || this.cleanName(r.name) === label);
                 if (match) {
                     document.getElementById('geneSetSelector').value = match.name;
                     this.renderESPlot(match.name);
@@ -3528,7 +3528,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         // Compute overlap matrix (Jaccard similarity)
         const n = sigSets.length;
-        const labels = sigSets.map(r => this.cleanName(r.name));
+        const labels = sigSets.map(r => this.plotLabel(r.name));
         const matrix = [];
         const textMatrix = [];
 
@@ -6134,7 +6134,17 @@ cat("Upload this file to Enrich to visualize the results.\\n")
             .replace(/^REACTOME_/, '')
             .replace(/^WP_/, '')
             .replace(/^BIOCARTA_/, '')
+            .replace(/^MEDICUS_/, '')
+            .replace(/^PID_/, '')
             .replace(/_/g, ' ');
+    }
+
+    /** Clean + truncate name for plot axis labels */
+    plotLabel(name) {
+        const maxLen = parseInt(document.getElementById('maxLabelLength')?.value) || 60;
+        const clean = this.cleanName(name);
+        if (clean.length <= maxLen) return clean;
+        return clean.substring(0, maxLen - 1).trimEnd() + '…';
     }
 
     formatPval(val) {
