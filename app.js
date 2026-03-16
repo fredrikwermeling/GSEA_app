@@ -3755,6 +3755,21 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             edits: { annotationPosition: true, annotationText: true, colorbarPosition: true }
         });
 
+        // Click on heatmap cell → open Gene Membership Explorer for those sets
+        const overlapEl = document.getElementById('overlapHeatmap');
+        overlapEl.removeAllListeners?.('plotly_click');
+        overlapEl.on('plotly_click', (data) => {
+            if (data.points && data.points.length > 0) {
+                const pt = data.points[0];
+                const xSet = sigSets.find(r => this.plotLabel(r.name) === pt.x);
+                const ySet = sigSets.find(r => this.plotLabel(r.name) === pt.y);
+                if (xSet && ySet) {
+                    const selected = xSet.name === ySet.name ? [xSet.name] : [xSet.name, ySet.name];
+                    this.openMembershipExplorer(selected);
+                }
+            }
+        });
+
         // Hide legacy condensed info panel if it exists
         const condensedEl = document.getElementById('condensedInfo');
         if (condensedEl) condensedEl.style.display = 'none';
@@ -3767,6 +3782,233 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             if (setB.has(g)) count++;
         }
         return count;
+    }
+
+    // --------------------------------------------------------
+    // Gene Membership Explorer
+    // --------------------------------------------------------
+
+    openMembershipExplorer(selectedSets) {
+        if (!this.results) return;
+
+        // Default to visible sets in heatmap
+        let setNames = selectedSets;
+        if (!setNames || setNames.length === 0) {
+            setNames = this._overlapVisibleSets ? [...this._overlapVisibleSets] : [];
+        }
+        if (setNames.length === 0) {
+            alert('No gene sets to explore. Run GSEA and switch to the Overlap tab first.');
+            return;
+        }
+
+        // Gather gene lists — prefer cache, then activeGeneSets, then leading edge
+        const cached = this._overlapCache?.setGenes;
+        const active = this.getActiveGeneSets();
+        const geneSetsMap = new Map();
+
+        for (const name of setNames) {
+            let genes = null;
+            if (cached && cached[name]) {
+                genes = cached[name];
+            } else if (active && active[name]) {
+                genes = active[name].map(g => g.toUpperCase());
+            } else {
+                const r = this.results.find(r => r.name === name);
+                if (r && r.leadingEdge && r.leadingEdge.length > 0) {
+                    genes = r.leadingEdge.map(g => g.toUpperCase());
+                }
+            }
+            if (genes && genes.length > 0) {
+                geneSetsMap.set(name, new Set(genes));
+            }
+        }
+
+        if (geneSetsMap.size === 0) {
+            alert('No gene data available for the selected sets.');
+            return;
+        }
+
+        // Build union of all genes
+        const allGenesSet = new Set();
+        for (const geneSet of geneSetsMap.values()) {
+            for (const g of geneSet) allGenesSet.add(g);
+        }
+
+        this._membershipData = {
+            setNames: [...geneSetsMap.keys()],
+            geneSetsMap,
+            allGenes: [...allGenesSet]
+        };
+        this._membershipSortCol = 'count';
+        this._membershipSortAsc = false;
+        this._membershipShowAll = false;
+
+        // Update title
+        const titleEl = document.getElementById('membershipTitle');
+        if (titleEl) {
+            titleEl.textContent = geneSetsMap.size <= 3
+                ? `Gene Membership: ${[...geneSetsMap.keys()].map(n => this.cleanName(n)).join(' \u2229 ')}`
+                : `Gene Membership Explorer (${geneSetsMap.size} sets)`;
+        }
+
+        // Reset filters
+        document.getElementById('membershipFilter').value = 'all';
+        document.getElementById('membershipSearch').value = '';
+
+        this._renderMembershipTable();
+
+        document.getElementById('membershipExplorerPopup').style.display = 'block';
+        document.getElementById('membershipExplorerBackdrop').style.display = 'block';
+    }
+
+    _renderMembershipTable() {
+        const data = this._membershipData;
+        if (!data) return;
+
+        const filterVal = document.getElementById('membershipFilter')?.value || 'all';
+        const searchQuery = (document.getElementById('membershipSearch')?.value || '').toUpperCase().trim();
+
+        // Build rows with membership info
+        const rows = [];
+        for (const gene of data.allGenes) {
+            let count = 0;
+            const membership = [];
+            for (const name of data.setNames) {
+                const isMember = data.geneSetsMap.get(name).has(gene);
+                membership.push(isMember);
+                if (isMember) count++;
+            }
+            rows.push({ gene, membership, count });
+        }
+
+        // Filter
+        let filtered = rows;
+        if (filterVal === 'shared') filtered = filtered.filter(r => r.count >= 2);
+        else if (filterVal === 'unique') filtered = filtered.filter(r => r.count === 1);
+        if (searchQuery) filtered = filtered.filter(r => r.gene.includes(searchQuery));
+
+        // Sort
+        const col = this._membershipSortCol;
+        const asc = this._membershipSortAsc;
+        if (col === 'gene') {
+            filtered.sort((a, b) => asc ? a.gene.localeCompare(b.gene) : b.gene.localeCompare(a.gene));
+        } else if (col === 'count') {
+            filtered.sort((a, b) => asc ? a.count - b.count : b.count - a.count);
+        } else if (typeof col === 'number') {
+            // Sort by specific set column
+            filtered.sort((a, b) => {
+                const diff = (b.membership[col] ? 1 : 0) - (a.membership[col] ? 1 : 0);
+                return asc ? -diff : diff || (b.count - a.count);
+            });
+        }
+
+        // Stats
+        const nShared = rows.filter(r => r.count >= 2).length;
+        const nUnique = rows.filter(r => r.count === 1).length;
+        const countEl = document.getElementById('membershipGeneCount');
+        if (countEl) {
+            countEl.textContent = `${filtered.length} genes (${nShared} shared, ${nUnique} unique)`;
+        }
+
+        // Performance cap
+        const MAX_ROWS = 500;
+        const capped = !this._membershipShowAll && filtered.length > MAX_ROWS;
+        const displayRows = capped ? filtered.slice(0, MAX_ROWS) : filtered;
+
+        // Build table HTML
+        const setNames = data.setNames;
+        const nSets = setNames.length;
+        const arrow = (colId) => {
+            if (this._membershipSortCol === colId) return this._membershipSortAsc ? ' \u25b2' : ' \u25bc';
+            return '';
+        };
+
+        let html = '<table class="membership-table"><thead><tr>';
+        html += `<th data-sort="gene" class="${col === 'gene' ? 'sorted' : ''}" style="text-align: left; min-width: 80px;">Gene${arrow('gene')}</th>`;
+        for (let i = 0; i < nSets; i++) {
+            const cleanName = this.cleanName(setNames[i]);
+            const shortName = cleanName.length > 35 ? cleanName.substring(0, 34) + '\u2026' : cleanName;
+            html += `<th data-sort="${i}" class="vertical-header ${col === i ? 'sorted' : ''}" title="${cleanName}">${shortName}${arrow(i)}</th>`;
+        }
+        html += `<th data-sort="count" class="${col === 'count' ? 'sorted' : ''}" style="min-width: 50px;">In #${arrow('count')}</th>`;
+        html += '</tr></thead><tbody>';
+
+        for (const row of displayRows) {
+            html += '<tr>';
+            html += `<td class="gene-name">${row.gene}</td>`;
+            for (let i = 0; i < nSets; i++) {
+                html += row.membership[i]
+                    ? '<td><span class="membership-dot">\u25cf</span></td>'
+                    : '<td></td>';
+            }
+            html += `<td class="count-cell">${row.count}</td>`;
+            html += '</tr>';
+        }
+
+        html += '</tbody>';
+
+        // Footer with per-set gene counts
+        html += '<tfoot><tr>';
+        html += '<td style="text-align: left; font-size: 0.85em;">Total</td>';
+        for (let i = 0; i < nSets; i++) {
+            const setSize = data.geneSetsMap.get(setNames[i]).size;
+            html += `<td style="font-size: 0.85em;">${setSize}</td>`;
+        }
+        html += `<td style="font-size: 0.85em;">${data.allGenes.length}</td>`;
+        html += '</tr></tfoot>';
+        html += '</table>';
+
+        if (capped) {
+            html += `<div style="text-align: center; padding: 8px; font-size: 0.82em; color: var(--gray-500);">Showing ${MAX_ROWS} of ${filtered.length} genes. <a href="#" onclick="app._membershipShowAll=true; app._renderMembershipTable(); return false;" style="color: var(--green-600);">Show all</a></div>`;
+        }
+
+        document.getElementById('membershipTableContainer').innerHTML = html;
+
+        // Attach sort handlers
+        const ths = document.getElementById('membershipTableContainer').querySelectorAll('th[data-sort]');
+        for (const th of ths) {
+            th.addEventListener('click', () => {
+                let sortVal = th.dataset.sort;
+                if (sortVal !== 'gene' && sortVal !== 'count') sortVal = parseInt(sortVal);
+                if (this._membershipSortCol === sortVal) {
+                    this._membershipSortAsc = !this._membershipSortAsc;
+                } else {
+                    this._membershipSortCol = sortVal;
+                    this._membershipSortAsc = false;
+                }
+                this._renderMembershipTable();
+            });
+        }
+    }
+
+    _closeMembershipExplorer() {
+        document.getElementById('membershipExplorerPopup').style.display = 'none';
+        document.getElementById('membershipExplorerBackdrop').style.display = 'none';
+        this._membershipData = null;
+    }
+
+    _downloadMembershipCSV() {
+        const data = this._membershipData;
+        if (!data) return;
+
+        const lines = [];
+        const header = ['Gene', ...data.setNames.map(n => this.cleanName(n)), 'Count'];
+        lines.push(header.join(','));
+
+        for (const gene of data.allGenes) {
+            const row = [gene];
+            let count = 0;
+            for (const name of data.setNames) {
+                const isMember = data.geneSetsMap.get(name).has(gene) ? 1 : 0;
+                row.push(isMember);
+                count += isMember;
+            }
+            row.push(count);
+            lines.push(row.join(','));
+        }
+
+        const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+        this.downloadBlob(blob, 'gene_membership.csv');
     }
 
     // --------------------------------------------------------
@@ -6230,6 +6472,13 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         if (gsbModal) {
             const gsbHeader = gsbModal.querySelector('.gsb-header');
             if (gsbHeader) this._initPopupDrag(gsbModal, gsbHeader);
+        }
+
+        // Gene Membership Explorer (drag by header)
+        const memPopup = document.getElementById('membershipExplorerPopup');
+        if (memPopup) {
+            const memHeader = memPopup.querySelector('.draggable-header');
+            if (memHeader) this._initPopupDrag(memPopup, memHeader);
         }
 
         // Changelog modal inner div (drag by header)

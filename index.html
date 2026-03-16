@@ -185,6 +185,39 @@
             line-height: 1;
         }
         .how-to-use-popup .close-btn:hover { color: var(--text-primary); }
+        /* Gene Membership Explorer table */
+        .membership-table { border-collapse: collapse; font-size: 0.82em; width: 100%; }
+        .membership-table thead th {
+            position: sticky; top: 0; background: white; z-index: 1;
+            padding: 4px 3px; border-bottom: 2px solid var(--gray-300);
+            font-weight: 600; font-size: 0.85em; color: var(--gray-700);
+            cursor: pointer; white-space: nowrap; text-align: center;
+        }
+        .membership-table thead th:hover { background: var(--green-50); }
+        .membership-table thead th.sorted { background: var(--green-50); color: var(--green-800); }
+        .membership-table thead th.vertical-header {
+            writing-mode: vertical-rl; transform: rotate(180deg);
+            max-width: 32px; height: 160px; overflow: hidden; text-overflow: ellipsis;
+            padding: 6px 2px; font-size: 0.78em; line-height: 1.1;
+        }
+        .membership-table td {
+            text-align: center; padding: 2px 3px; border-bottom: 1px solid #f0f0f0;
+            font-size: 0.92em;
+        }
+        .membership-table tr:hover td { background: #fafff8; }
+        .membership-table .gene-name {
+            font-family: 'Roboto Mono', monospace; font-size: 0.9em;
+            text-align: left; white-space: nowrap; padding-left: 6px;
+        }
+        .membership-dot { color: var(--green-600); font-size: 1.1em; }
+        .membership-table .count-cell {
+            font-family: 'Roboto Mono', monospace; font-weight: 600;
+            text-align: center; color: var(--gray-700);
+        }
+        .membership-table tfoot td {
+            border-top: 2px solid var(--gray-300); font-weight: 600;
+            background: var(--gray-50); padding: 4px 3px;
+        }
         /* Info icon for cards */
         .info-icon {
             display: inline-flex;
@@ -1518,7 +1551,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.41</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.42</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2551,6 +2584,7 @@
                             <input type="number" class="form-control settings-live" id="overlapMaxSets" value="20" min="5" max="50" style="max-width: 55px; font-size: 0.85em;">
                             <button class="btn btn-outline btn-sm" onclick="app.openGeneSetFilter('overlap')" title="Select which gene sets to show">&#9998; Select sets</button>
                             <button class="btn btn-outline btn-sm" id="overlapToTableBtn" title="Show only these gene sets in the Results Table">Send to Table</button>
+                            <button class="btn btn-outline btn-sm" onclick="app.openMembershipExplorer()" title="Explore gene membership across displayed sets">&#128269; Genes</button>
                             <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('overlap')" title="Reset filters to defaults">↺ Reset</button>
                             <span class="result-count" id="overlapResultCount" style="font-size: 0.82em; color: var(--gray-500);"></span>
                         </div>
@@ -2707,7 +2741,7 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
-            <p><strong>v.41</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <p><strong>v.42</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>Select Sets: FDR filter now properly applied on first open — sets with FDR ≥ threshold are deselected before auto-select runs</li>
                 <li>Select Sets: Apply now syncs FDR and p-value filters to all tabs (Overview, Enrichment Plot, Results Table)</li>
@@ -3052,6 +3086,26 @@
 </div>
 <div id="geneSetFilterBackdrop" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 1999;"></div>
 
+<!-- Gene Membership Explorer Popup -->
+<div id="membershipExplorerBackdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 4999;" onclick="app._closeMembershipExplorer()"></div>
+<div id="membershipExplorerPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); border: 1px solid var(--gray-200); width: 90vw; max-width: 1100px; max-height: 85vh; z-index: 5000; padding: 16px; display: none;">
+    <div class="draggable-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: move;">
+        <h3 style="margin: 0; font-size: 1em; color: var(--green-700);" id="membershipTitle">Gene Membership Explorer</h3>
+        <button class="close-btn" style="position: static; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--gray-500); line-height: 1;" onclick="app._closeMembershipExplorer()">&times;</button>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;">
+        <select class="form-control" id="membershipFilter" style="width: auto; font-size: 0.82em;" onchange="app._renderMembershipTable()">
+            <option value="all">All genes</option>
+            <option value="shared">Shared (in 2+ sets)</option>
+            <option value="unique">Unique (in 1 set)</option>
+        </select>
+        <input type="text" class="form-control" id="membershipSearch" placeholder="Search genes..." style="width: 160px; font-size: 0.82em;" oninput="app._renderMembershipTable()">
+        <span id="membershipGeneCount" style="font-size: 0.82em; color: var(--gray-500);"></span>
+        <button class="btn btn-outline btn-sm" onclick="app._downloadMembershipCSV()" style="margin-left: auto; font-size: 0.78em;">.csv</button>
+    </div>
+    <div id="membershipTableContainer" style="overflow: auto; max-height: calc(85vh - 140px);"></div>
+</div>
+
 <div class="text-settings-panel" id="textSettingsPanel" style="display: none;">
     <div class="text-settings-header" id="textSettingsDragHandle">
         <span>Aa Text Settings</span>
@@ -3060,6 +3114,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=75"></script>
+<script src="app.js?v=76"></script>
 </body>
 </html>
