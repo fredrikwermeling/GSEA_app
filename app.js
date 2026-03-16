@@ -1123,6 +1123,8 @@ class GSEAApp {
         this.readSettings();
         const genes = this.rankedList.genes;
         const metrics = this.rankedList.metrics;
+        const fileInput = document.getElementById('fileInput');
+        const sourceFileName = fileInput?.files?.[0]?.name || 'unknown';
         const { permutations, minSize, maxSize } = this.settings;
 
         // Determine which standard MSigDB collections are selected
@@ -1305,17 +1307,22 @@ enrich_results <- lapply(seq_len(nrow(results)), function(i) {
     )
 })
 
-# --- Save as JSON (with metadata) ---
+# --- Save as JSON (with metadata + ranked data for re-import) ---
 output_data <- list(
     metadata = list(
         source = "fgsea",
         date = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+        sourceFile = "${this._rEscape(sourceFileName)}",
         nGenes = length(ranked_stats),
         nGeneSets = nSets,
         nSignificant = sum(results$padj < 0.25, na.rm = TRUE),
         permutations = max(${permutations}, 10000),
         minSize = ${minSize},
         maxSize = ${maxSize}
+    ),
+    rankedList = list(
+        genes = names(ranked_stats),
+        metrics = as.numeric(ranked_stats)
     ),
     results = enrich_results
 )
@@ -1376,6 +1383,18 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 source: 'fgsea'
             }));
 
+            // Auto-load ranked data if embedded in the JSON (enables re-run + overlap)
+            if (parsed.rankedList && parsed.rankedList.genes && parsed.rankedList.metrics) {
+                const rl = parsed.rankedList;
+                if (rl.genes.length === rl.metrics.length && rl.genes.length > 0) {
+                    this.rankedList = {
+                        genes: rl.genes,
+                        metrics: rl.metrics.map(Number)
+                    };
+                    console.log(`Auto-loaded ranked list: ${rl.genes.length} genes from fgsea JSON`);
+                }
+            }
+
             this.analysisDate = new Date();
             this._pinnedBubbleSets = new Set();
             this._fgseaMetadata = metadata;
@@ -1384,12 +1403,17 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             let doneMsg = `Loaded ${this.results.length} fgsea results \u2014 ${nSig} significant (FDR < 0.25)`;
             if (metadata) {
                 const parts = [];
+                if (metadata.sourceFile && metadata.sourceFile !== 'unknown') parts.push(`data: ${metadata.sourceFile}`);
                 if (metadata.date) parts.push(`run ${metadata.date}`);
                 if (metadata.nGenes) parts.push(`${metadata.nGenes.toLocaleString()} genes`);
                 if (metadata.permutations) parts.push(`${metadata.permutations.toLocaleString()} perms`);
                 if (parts.length > 0) doneMsg += ` (${parts.join(', ')})`;
             }
-            doneMsg += `. File: ${file.name}`;
+            if (this.rankedList) {
+                doneMsg += `. Ranked data auto-loaded \u2014 ready for re-run and overlap analysis.`;
+            } else {
+                doneMsg += `. Load ranked data to enable re-run and overlap.`;
+            }
             this.showStatus('uploadStatus', 'success', doneMsg);
             await this._renderResultsAsync(doneMsg);
         } catch (err) {
@@ -3524,22 +3548,17 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 if (overlapPvalThresh < 1 && r.pvalue >= overlapPvalThresh) return false;
                 if (overlapDirVal === 'up' && r.nes <= 0) return false;
                 if (overlapDirVal === 'down' && r.nes > 0) return false;
-                // Respect hidden sets from Select Sets
                 if (this._hiddenSets.has(r.name)) return false;
                 return true;
             })
             .sort((a, b) => Math.abs(b.nes) - Math.abs(a.nes));
 
-        // Safety cap: only compute overlap for top 500 sets (by |NES|) to prevent browser crash
-        const OVERLAP_SAFETY_CAP = 500;
-        if (sigSets.length > OVERLAP_SAFETY_CAP) {
-            sigSets = sigSets.slice(0, OVERLAP_SAFETY_CAP);
-        }
-
         if (sigSets.length === 0) {
+            const overlapCountEl = document.getElementById('overlapResultCount');
+            if (overlapCountEl) overlapCountEl.textContent = `0 of ${this.results.length} gene sets`;
             Plotly.newPlot('overlapHeatmap', [], {
                 annotations: [{
-                    text: `No gene sets with FDR < ${overlapFdrVal === 'all' ? '∞' : overlapFdrVal} to show`,
+                    text: `No gene sets with FDR < ${overlapFdrVal === 'all' ? '\u221e' : overlapFdrVal} to show`,
                     xref: 'paper', yref: 'paper', x: 0.5, y: 0.5,
                     showarrow: false, font: { size: 14, color: '#666' }
                 }],
@@ -3548,29 +3567,61 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             return;
         }
 
-        // Get the active gene sets for gene lists
-        const activeGeneSets = this.getActiveGeneSets();
+        // Use precomputed overlap cache if available, otherwise build gene lists
+        const cached = this._overlapCache;
+        let setGenes, geneSets_local;
 
-        // Build gene lists for significant results
-        const setGenes = {};
-        const rankedGenesUpper = this.rankedList ? new Set(this.rankedList.genes.map(g => g.toUpperCase())) : new Set();
-        for (const r of sigSets) {
-            if (activeGeneSets[r.name]) {
-                setGenes[r.name] = activeGeneSets[r.name]
-                    .map(g => g.toUpperCase())
-                    .filter(g => rankedGenesUpper.has(g));
+        if (cached && cached.setGenes && Object.keys(cached.setGenes).length > 0) {
+            // Use cached gene lists — already filtered to ranked genes
+            setGenes = cached.setGenes;
+        } else {
+            // Build gene lists from active gene sets (fallback)
+            setGenes = {};
+            const activeGeneSets = this.getActiveGeneSets();
+            if (activeGeneSets) {
+                const rankedGenesUpper = this.rankedList ? new Set(this.rankedList.genes.map(g => g.toUpperCase())) : null;
+                for (const r of sigSets) {
+                    if (activeGeneSets[r.name]) {
+                        const genes = activeGeneSets[r.name].map(g => g.toUpperCase());
+                        setGenes[r.name] = rankedGenesUpper ? genes.filter(g => rankedGenesUpper.has(g)) : genes;
+                    }
+                }
             }
         }
 
+        // Filter sigSets to only those with gene data, cap for safety
+        sigSets = sigSets.filter(r => setGenes[r.name] && setGenes[r.name].length > 0);
+        const OVERLAP_SAFETY_CAP = 200; // cap before O(n²) computations
+        if (sigSets.length > OVERLAP_SAFETY_CAP) {
+            sigSets = sigSets.slice(0, OVERLAP_SAFETY_CAP);
+        }
+
+        // Pre-create Set objects once for fast intersection (avoids creating Sets in O(n²) loops)
+        const geneSetsMap = new Map();
+        for (const r of sigSets) {
+            geneSetsMap.set(r.name, new Set(setGenes[r.name]));
+        }
+
+        // Fast overlap using pre-created Sets
+        const fastOverlap = (nameA, nameB) => {
+            const setA = geneSetsMap.get(nameA);
+            const setB = geneSetsMap.get(nameB);
+            if (!setA || !setB) return 0;
+            let count = 0;
+            // Iterate over the smaller set for speed
+            const [smaller, larger] = setA.size <= setB.size ? [setA, setB] : [setB, setA];
+            for (const g of smaller) { if (larger.has(g)) count++; }
+            return count;
+        };
+
         // Collapse highly overlapping sets (greedy: keep higher-|NES| representative)
-        {
+        if (collapseThresh > 0) {
             const kept = [];
             const collapsed = {};
             for (const r of sigSets) {
-                if (!setGenes[r.name]) continue;
                 let shouldCollapse = false;
-                if (collapseThresh > 0) for (const keptSet of kept) {
-                    const overlap = this._computeOverlap(setGenes[r.name], setGenes[keptSet.name]);
+                for (const keptSet of kept) {
+                    const overlap = fastOverlap(r.name, keptSet.name);
                     const smaller = Math.min(setGenes[r.name].length, setGenes[keptSet.name].length);
                     if (smaller > 0 && (overlap / smaller) * 100 >= collapseThresh) {
                         if (!collapsed[keptSet.name]) collapsed[keptSet.name] = [];
@@ -3579,18 +3630,15 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                         break;
                     }
                 }
-                if (!shouldCollapse) {
-                    kept.push(r);
-                }
+                if (!shouldCollapse) kept.push(r);
             }
             sigSets = kept;
         }
 
-        // Cap at maxSets (but if fewer pass filters, show fewer)
-        const totalAfterFilter = sigSets.length;
+        // Cap at maxSets
         sigSets = sigSets.slice(0, maxSets);
 
-        // Sort alphabetically by default
+        // Sort alphabetically
         sigSets.sort((a, b) => a.name.localeCompare(b.name));
 
         // Update count display
@@ -3599,7 +3647,6 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             overlapCountEl.textContent = `${sigSets.length} of ${this.results.length} gene sets`;
         }
 
-        // Track which sets are visible in the heatmap (for "Send to Results Table")
         this._overlapVisibleSets = new Set(sigSets.map(r => r.name));
 
         if (sigSets.length < 2) {
@@ -3614,7 +3661,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             return;
         }
 
-        // Compute overlap matrix (Jaccard similarity)
+        // Compute overlap matrix (Jaccard similarity) using pre-created Sets
         const n = sigSets.length;
         const labels = sigSets.map(r => this.plotLabel(r.name));
         const matrix = [];
@@ -3623,15 +3670,17 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         for (let i = 0; i < n; i++) {
             const row = [];
             const textRow = [];
-            const genesI = setGenes[sigSets[i].name] || [];
+            const nameI = sigSets[i].name;
+            const sizeI = setGenes[nameI]?.length || 0;
             for (let j = 0; j < n; j++) {
-                const genesJ = setGenes[sigSets[j].name] || [];
                 if (i === j) {
                     row.push(1);
-                    textRow.push(`${genesI.length} genes`);
+                    textRow.push(`${sizeI} genes`);
                 } else {
-                    const overlap = this._computeOverlap(genesI, genesJ);
-                    const union = genesI.length + genesJ.length - overlap;
+                    const nameJ = sigSets[j].name;
+                    const sizeJ = setGenes[nameJ]?.length || 0;
+                    const overlap = fastOverlap(nameI, nameJ);
+                    const union = sizeI + sizeJ - overlap;
                     const jaccard = union > 0 ? overlap / union : 0;
                     row.push(jaccard);
                     textRow.push(`${overlap} shared<br>J=${jaccard.toFixed(2)}`);
@@ -3756,14 +3805,12 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
     /** Build pairwise overlap cache for all results. Called after GSEA completes. */
     _buildOverlapCache() {
-        if (!this.results || !this.rankedList) return;
+        if (!this.results) return;
         const activeGeneSets = this.getActiveGeneSets();
-        if (!activeGeneSets) return;
-
-        const rankedGenesUpper = new Set(this.rankedList.genes.map(g => g.toUpperCase()));
+        const rankedGenesUpper = this.rankedList ? new Set(this.rankedList.genes.map(g => g.toUpperCase())) : null;
         const setGenes = {};
 
-        // Safety: only compute overlap for top results (by FDR), cap at 500, skip FDR > 0.25
+        // Safety: only compute overlap for top results (by FDR), cap at 500
         const MAX_OVERLAP_SETS = 500;
         let overlapResults = this.results;
         this._overlapCapped = false;
@@ -3775,32 +3822,19 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         }
 
         for (const r of overlapResults) {
-            if (activeGeneSets[r.name]) {
-                setGenes[r.name] = activeGeneSets[r.name]
-                    .map(g => g.toUpperCase())
-                    .filter(g => rankedGenesUpper.has(g));
+            // Prefer active gene set data; fallback to leading edge for fgsea imports
+            if (activeGeneSets && activeGeneSets[r.name]) {
+                const genes = activeGeneSets[r.name].map(g => g.toUpperCase());
+                setGenes[r.name] = rankedGenesUpper ? genes.filter(g => rankedGenesUpper.has(g)) : genes;
+            } else if (r.leadingEdge && r.leadingEdge.length > 0) {
+                // For fgsea imports without gene set collections loaded, use leading edge
+                setGenes[r.name] = r.leadingEdge.map(g => g.toUpperCase());
             }
         }
 
-        // Build pairwise Jaccard map: key = "nameA|||nameB" (sorted), value = jaccard
-        const pairwise = new Map();
-        const names = overlapResults.map(r => r.name).filter(n => setGenes[n]);
-        for (let i = 0; i < names.length; i++) {
-            for (let j = i + 1; j < names.length; j++) {
-                const a = names[i], b = names[j];
-                const genesA = setGenes[a], genesB = setGenes[b];
-                if (!genesA || !genesB) continue;
-                const inter = this._computeOverlap(genesA, genesB);
-                const union = genesA.length + genesB.length - inter;
-                const jaccard = union > 0 ? inter / union : 0;
-                if (jaccard > 0.05) { // only store non-trivial overlaps
-                    const key = a < b ? `${a}|||${b}` : `${b}|||${a}`;
-                    pairwise.set(key, jaccard);
-                }
-            }
-        }
-
-        this._overlapCache = { pairwise, setGenes };
+        // Skip pairwise computation — too expensive for large sets
+        // renderOverlapHeatmap uses pre-created Sets for fast O(n²) on the displayed subset
+        this._overlapCache = { pairwise: new Map(), setGenes };
     }
 
     /** Get Jaccard overlap between two gene sets from cache */
