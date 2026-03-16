@@ -1510,7 +1510,7 @@
     <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.35.1</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.36</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2041,7 +2041,8 @@
 
         <!-- Tab Bar -->
         <div class="tab-bar" id="tabBar">
-            <button class="tab-btn active" data-tab="overview">Overview</button>
+            <button class="tab-btn active" data-tab="ranked">Ranked List</button>
+            <button class="tab-btn" data-tab="overview">Overview</button>
             <button class="tab-btn" data-tab="enrichment">Enrichment Plot</button>
             <button class="tab-btn" data-tab="table">Results Table</button>
             <button class="tab-btn" data-tab="overlap">Overlap</button>
@@ -2050,8 +2051,74 @@
             </div>
         </div>
 
+        <!-- Tab: Ranked List -->
+        <div class="tab-panel active" id="tab-ranked">
+            <div id="rankedEmpty" class="empty-state">
+                <div class="empty-icon">&#x1F4CA;</div>
+                <p>Upload a ranked gene list to see the waterfall plot of your data</p>
+            </div>
+            <div id="rankedResults" style="display: none;">
+                <div class="card">
+                    <div class="card-title" style="position: relative;">
+                        Ranked Gene List
+                        <span class="info-icon">i<span class="info-tooltip"><b>Ranked Gene List</b><br>A waterfall plot of your entire dataset sorted by the ranking metric (e.g. log2FC).<br>• <b>X-axis:</b> Gene rank (1 = highest metric value).<br>• <b>Y-axis:</b> Ranking metric value from your data.<br>• <b>Red bars:</b> Positively correlated genes (metric &gt; 0).<br>• <b>Blue bars:</b> Negatively correlated genes (metric &lt; 0).<br>• The <b>zero cross</b> marks where genes transition from up- to down-regulated.<br>This is the ordered gene list that GSEA walks through to compute enrichment scores.</span></span>
+                        <div class="title-actions">
+                            <span class="action-label">Settings</span>
+                            <button class="card-settings-btn" onclick="app.openTextSettings('ranked')" title="Text settings">Aa</button>
+                            <button class="card-settings-btn" onclick="app.toggleGraphSettings('rankedSettings')">&#9881;</button>
+                            <div class="action-sep"></div>
+                            <span class="action-label">Export</span>
+                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">.svg</button>
+                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">.png</button>
+                            <button class="btn btn-sm" onclick="app.exportPlotCSV('ranked')">.csv</button>
+                            <button class="btn btn-sm" onclick="app.exportRScript('ranked')" title="Download R script to reproduce this plot">.R</button>
+                        </div>
+                        <div class="graph-settings-popup" id="rankedSettings">
+                            <h4>Ranked Plot Settings</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Positive color</label>
+                                    <input type="color" class="form-control settings-live" id="positiveColor" value="#dc2626" style="height: 28px; padding: 2px; max-width: 55px;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Negative color</label>
+                                    <input type="color" class="form-control settings-live" id="negativeColor" value="#2563eb" style="height: 28px; padding: 2px; max-width: 55px;">
+                                </div>
+                            </div>
+                            <div class="form-hint" style="margin-bottom: 6px;">These colors also apply to the enrichment score metric panel</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Y-axis min</label>
+                                    <input type="number" class="form-control settings-live" id="rankedYMin" value="" step="any" placeholder="Auto">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Y-axis max</label>
+                                    <input type="number" class="form-control settings-live" id="rankedYMax" value="" step="any" placeholder="Auto">
+                                </div>
+                            </div>
+                            <div class="form-hint" style="margin-bottom: 6px;">Leave empty for auto range</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Width (px)</label>
+                                    <input type="number" class="form-control settings-live" id="rankedPlotWidth" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Height (px)</label>
+                                    <input type="number" class="form-control settings-live" id="rankedPlotHeight" value="0" min="0" max="2000" step="50" placeholder="Auto">
+                                </div>
+                            </div>
+                            <div class="form-hint">Set to 0 for auto-sizing</div>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="rankedPlot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Tab: Overview -->
-        <div class="tab-panel active" id="tab-overview">
+        <div class="tab-panel" id="tab-overview">
             <div id="overviewEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center;">
                 <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
                 <div style="margin-bottom: 6px;">
@@ -2189,51 +2256,6 @@
                             <span class="result-count" id="overviewResultCount"></span>
                         </div>
                         <div id="bubblePlot"></div>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-title" style="position: relative;">
-                        Ranked Gene List
-                        <span class="info-icon">i<span class="info-tooltip"><b>Ranked Gene List</b><br>A waterfall plot of your entire dataset sorted by the ranking metric (e.g. log2FC).<br>• <b>X-axis:</b> Gene rank (1 = highest metric value).<br>• <b>Y-axis:</b> Ranking metric value from your data.<br>• <b>Red bars:</b> Positively correlated genes (metric &gt; 0).<br>• <b>Blue bars:</b> Negatively correlated genes (metric &lt; 0).<br>• The <b>zero cross</b> marks where genes transition from up- to down-regulated.<br>This is the ordered gene list that GSEA walks through to compute enrichment scores.</span></span>
-                        <div class="title-actions">
-                            <span class="action-label">Settings</span>
-                            <button class="card-settings-btn" onclick="app.openTextSettings('ranked')" title="Text settings">Aa</button>
-                            <button class="card-settings-btn" onclick="app.toggleGraphSettings('rankedSettings')">&#9881;</button>
-                            <div class="action-sep"></div>
-                            <span class="action-label">Export</span>
-                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">.svg</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">.png</button>
-                            <button class="btn btn-sm" onclick="app.exportPlotCSV('ranked')">.csv</button>
-                            <button class="btn btn-sm" onclick="app.exportRScript('ranked')" title="Download R script to reproduce this plot">.R</button>
-                        </div>
-                        <div class="graph-settings-popup" id="rankedSettings">
-                            <h4>Ranked Plot Settings</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Positive color</label>
-                                    <input type="color" class="form-control settings-live" id="positiveColor" value="#dc2626" style="height: 28px; padding: 2px; max-width: 55px;">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Negative color</label>
-                                    <input type="color" class="form-control settings-live" id="negativeColor" value="#2563eb" style="height: 28px; padding: 2px; max-width: 55px;">
-                                </div>
-                            </div>
-                            <div class="form-hint" style="margin-bottom: 6px;">These colors also apply to the enrichment score metric panel</div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Width (px)</label>
-                                    <input type="number" class="form-control settings-live" id="rankedPlotWidth" value="0" min="0" max="2000" step="50" placeholder="Auto">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Height (px)</label>
-                                    <input type="number" class="form-control settings-live" id="rankedPlotHeight" value="0" min="0" max="2000" step="50" placeholder="Auto">
-                                </div>
-                            </div>
-                            <div class="form-hint">Set to 0 for auto-sizing</div>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div id="rankedPlot"></div>
                     </div>
                 </div>
             </div>
@@ -2682,7 +2704,7 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
-            <p><strong>v.35.1</strong> <span style="color:#888;">(2026-03-15)</span></p>
+            <p><strong>v.36</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>Select Sets: FDR filter now properly applied on first open — sets with FDR ≥ threshold are deselected before auto-select runs</li>
                 <li>Select Sets: Apply now syncs FDR and p-value filters to all tabs (Overview, Enrichment Plot, Results Table)</li>
@@ -3035,6 +3057,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=62"></script>
+<script src="app.js?v=63"></script>
 </body>
 </html>

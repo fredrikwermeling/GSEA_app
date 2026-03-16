@@ -918,6 +918,13 @@ class GSEAApp {
     async runGSEA() {
         this.buildRankedList();
 
+        // Show ranked list plot immediately
+        if (this.rankedList && this.rankedList.genes.length > 0) {
+            document.getElementById('rankedEmpty').style.display = 'none';
+            document.getElementById('rankedResults').style.display = '';
+            this.renderRankedPlot();
+        }
+
         if (this.rankedList.genes.length === 0) {
             this.showStatus('runStatus', 'error', 'No valid gene-metric pairs found. Check column selection.');
             return;
@@ -1914,6 +1921,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
 
         try {
             // Show result panels
+            document.getElementById('rankedEmpty').style.display = 'none';
+            document.getElementById('rankedResults').style.display = '';
             document.getElementById('overviewEmpty').style.display = 'none';
             document.getElementById('overviewResults').style.display = '';
             document.getElementById('enrichmentEmpty').style.display = 'none';
@@ -1965,6 +1974,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
     // --------------------------------------------------------
     displayResults() {
         // Show results panels, hide empty states
+        document.getElementById('rankedEmpty').style.display = 'none';
+        document.getElementById('rankedResults').style.display = '';
         document.getElementById('overviewEmpty').style.display = 'none';
         document.getElementById('overviewResults').style.display = '';
         document.getElementById('enrichmentEmpty').style.display = 'none';
@@ -2477,6 +2488,13 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         // Add range padding so extreme bars aren't clipped at edges
         const yPad = Math.max(Math.abs(metrics[0]), Math.abs(metrics[N - 1])) * 0.06;
         const xPad = N * 0.015;
+        // Custom Y-axis range from settings
+        const rankedYMinEl = document.getElementById('rankedYMin');
+        const rankedYMaxEl = document.getElementById('rankedYMax');
+        const customYMin = rankedYMinEl && rankedYMinEl.value !== '' ? parseFloat(rankedYMinEl.value) : null;
+        const customYMax = rankedYMaxEl && rankedYMaxEl.value !== '' ? parseFloat(rankedYMaxEl.value) : null;
+        const yRangeMin = customYMin !== null ? customYMin : (Math.min(0, metrics[N - 1]) - yPad);
+        const yRangeMax = customYMax !== null ? customYMax : (Math.max(0, metrics[0]) + yPad);
 
         const rpXFont = this._getTextFont('ranked', 'xAxisLabel');
         const rpYFont = this._getTextFont('ranked', 'yAxisLabel');
@@ -2497,7 +2515,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
                 zerolinecolor: '#333',
                 gridcolor: '#e5e5e5',
                 tickfont: { size: rpYTickFont.visible !== false ? rpYTickFont.size : 0, family: rpYTickFont.family },
-                range: [Math.min(0, metrics[N - 1]) - yPad, Math.max(0, metrics[0]) + yPad],
+                range: [yRangeMin, yRangeMax],
                 fixedrange: true
             },
             height: 250,
@@ -5052,6 +5070,8 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         this.hideStatus('runStatus');
 
         // Hide results
+        document.getElementById('rankedEmpty').style.display = '';
+        document.getElementById('rankedResults').style.display = 'none';
         document.getElementById('overviewEmpty').style.display = '';
         document.getElementById('overviewResults').style.display = 'none';
         document.getElementById('enrichmentEmpty').style.display = '';
@@ -5086,7 +5106,7 @@ cat("Upload this file to Enrich to visualize the results.\\n")
         });
 
         // Show default tab
-        this.showTab('overview');
+        this.showTab('ranked');
 
         // Re-create worker
         this.createWorker();
