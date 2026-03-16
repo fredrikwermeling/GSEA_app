@@ -1306,7 +1306,8 @@ enrich_results <- lapply(seq_len(nrow(results)), function(i) {
 })
 
 # --- Save as JSON ---
-output_file <- file.path(path.expand("~/Downloads"), "enrich_fgsea_results.json")
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output_file <- file.path(path.expand("~/Downloads"), paste0("enrich_fgsea_results_", timestamp, ".json"))
 writeLines(toJSON(enrich_results, auto_unbox = TRUE, pretty = TRUE), output_file)
 cat("\\n=== Done! ===\\n")
 cat("Results saved to:", output_file, "\\n")
