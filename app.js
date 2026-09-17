@@ -4092,7 +4092,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
     _getSetCollection(name) {
         const colls = [
-            ['hallmark', 'H'],
+            ['hallmark', 'Hallmark'],
             ['c2kegg', 'KEGG'], ['c2reactome', 'Reactome'], ['c2wp', 'WikiPathways'],
             ['c2biocarta', 'BioCarta'], ['c2pid', 'PID'], ['c2cgp', 'CGP'],
             ['c5bp', 'GO:BP'], ['c5cc', 'GO:CC'], ['c5mf', 'GO:MF'], ['c5hpo', 'HPO'],
@@ -4101,6 +4101,14 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         for (const [id, label] of colls) {
             if (this.geneSets[id] && this.geneSets[id][name]) return label;
         }
+        if (this.customGeneSets && this.customGeneSets[name]) return 'Custom';
+        // Collection not loaded (e.g. results imported from R): read the MSigDB prefix
+        const prefixes = [
+            [/^HALLMARK_/, 'Hallmark'], [/^KEGG_/, 'KEGG'], [/^REACTOME_/, 'Reactome'], [/^WP_/, 'WikiPathways'],
+            [/^BIOCARTA_/, 'BioCarta'], [/^PID_/, 'PID'], [/^GOBP_/, 'GO:BP'], [/^GOCC_/, 'GO:CC'],
+            [/^GOMF_/, 'GO:MF'], [/^HP_/, 'HPO'], [/^MIR_|^LET_7|_TARGET_GENES$|^MIRNA_/, 'C3']
+        ];
+        for (const [re, label] of prefixes) if (re.test(name)) return label;
         return 'Custom';
     }
 
@@ -4716,8 +4724,12 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             filtered = this._applyOverlapFilter(filtered, parseInt(overlapVal));
         }
 
+        // Source collection (Hallmark, KEGG, Reactome, GO:BP, ...) for each set,
+        // cached on the result so sorting and the CSV export can use it.
+        for (const r of filtered) if (!r.collection) r.collection = this._getSetCollection(r.name);
+
         if (query) {
-            filtered = filtered.filter(r => r.name.toLowerCase().includes(query));
+            filtered = filtered.filter(r => r.name.toLowerCase().includes(query) || r.collection.toLowerCase().includes(query));
         }
         if (fdrVal !== 'all') {
             const thresh = parseFloat(fdrVal);
@@ -4737,9 +4749,9 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         filtered.sort((a, b) => {
             let valA = a[this.sortCol];
             let valB = b[this.sortCol];
-            if (this.sortCol === 'name') {
-                valA = valA.toLowerCase();
-                valB = valB.toLowerCase();
+            if (this.sortCol === 'name' || this.sortCol === 'collection') {
+                valA = String(valA).toLowerCase();
+                valB = String(valB).toLowerCase();
             }
             if (this.sortCol === 'leadingEdge') {
                 valA = (valA || []).length;
@@ -4766,6 +4778,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                     <span style="opacity:${isPinned ? '1' : '0.25'};font-size:13px">&#128204;</span>
                 </td>
                 <td title="${r.name}">${this.cleanName(r.name)}</td>
+                <td><span class="coll-chip" title="Source collection (MSigDB)">${r.collection}</span></td>
                 <td>${r.size}</td>
                 <td class="${r.es >= 0 ? 'positive' : 'negative'}">${r.es.toFixed(4)}</td>
                 <td class="${r.nes >= 0 ? 'positive' : 'negative'}"><strong>${r.nes.toFixed(3)}</strong></td>
@@ -5395,9 +5408,10 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
     downloadCSV() {
         if (!this.results) return;
 
-        const headers = ['Gene Set', 'Size', 'ES', 'NES', 'p-value', 'FDR', 'Leading Edge'];
+        const headers = ['Gene Set', 'Collection', 'Size', 'ES', 'NES', 'p-value', 'FDR', 'Leading Edge'];
         const rows = this.results.map(r => [
             r.name,
+            r.collection || this._getSetCollection(r.name),
             r.size,
             r.es.toFixed(6),
             r.nes.toFixed(6),

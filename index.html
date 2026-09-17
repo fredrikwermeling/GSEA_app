@@ -64,6 +64,17 @@
         .data-table, .results-table, input[type="number"], code, .mono {
             font-variant-numeric: tabular-nums;
         }
+        .coll-chip {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 10px;
+            background: var(--green-50);
+            border: 1px solid var(--green-200);
+            color: var(--green-800);
+            font-size: 0.85em;
+            font-weight: 600;
+            white-space: nowrap;
+        }
 
         /* ============================================
            Reset & Base
@@ -1611,7 +1622,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.43.2</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.43.3</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2742,6 +2753,7 @@
                                     <tr>
                                         <th style="width:28px;padding:2px" title="Pin to bubble plot">&#128204;</th>
                                         <th data-col="name">Gene Set <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-col="collection" title="Source collection: Hallmark, KEGG, Reactome, WikiPathways, BioCarta, PID, CGP, GO:BP/CC/MF, HPO, C3, C6, C7, C8 or a custom GMT">Collection <span class="sort-arrow">&#9650;</span></th>
                                         <th data-col="size">Size <span class="sort-arrow">&#9650;</span></th>
                                         <th data-col="es">ES <span class="sort-arrow">&#9650;</span></th>
                                         <th data-col="nes">NES <span class="sort-arrow">&#9650;</span></th>
@@ -2824,6 +2836,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.43.3</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>Results Table: new sortable Collection column showing where each gene set comes from (Hallmark, KEGG, Reactome, WikiPathways, BioCarta, PID, CGP, GO:BP/CC/MF, HPO, C3, C6, C7, C8, Custom). The filter box also matches it, and the CSV download carries it as a column.</li>
+            </ul>
             <p><strong>v.43.2</strong> <span style="color:#888;">(2026-09-17)</span></p>
             <ul>
                 <li>Leading Edge Genes table: genes in the leading edge (Yes) always sit at the top, whichever column is sorted; the sort column then orders within each group</li>
@@ -3215,6 +3231,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=81"></script>
+<script src="app.js?v=82"></script>
 </body>
 </html>
