@@ -6157,14 +6157,16 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
     async fetchGeneInfo(gene) {
         if (this.geneInfoCache[gene]) return this.geneInfoCache[gene];
         try {
-            const res = await fetch(`https://mygene.info/v3/query?q=symbol:${gene}&species=human&fields=symbol,name,summary&size=1`);
+            const res = await fetch(`https://mygene.info/v3/query?q=symbol:${encodeURIComponent(gene)}&species=human&fields=symbol,name,summary,entrezgene,HGNC&size=1`);
             const data = await res.json();
             if (data.hits && data.hits.length > 0) {
                 const hit = data.hits[0];
                 const info = {
                     symbol: hit.symbol || gene,
                     name: hit.name || '',
-                    summary: hit.summary || ''
+                    summary: hit.summary || '',
+                    entrezgene: hit.entrezgene || null,
+                    hgnc: hit.HGNC || null
                 };
                 this.geneInfoCache[gene] = info;
                 return info;
@@ -6175,51 +6177,132 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         return null;
     }
 
-    showGeneTooltip(event, gene) {
-        this.hideGeneTooltip();
+    _escText(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Gene card, same mechanism as Correlate: a hover shows a short preview
+    // that cannot capture the mouse; Shift (or Tab) while it shows rebuilds it
+    // pinned, with the full summary, outbound links, a close button, and
+    // Esc / click-outside to dismiss. A touch screen gets the pinned card
+    // straight away, since it has no key to hold and no mouse to move away.
+    showGeneTooltip(event, gene, forcePinned) {
+        const existing = document.getElementById('geneTooltip');
+        if (existing && existing.dataset.pinned === '1' && existing.dataset.gene === gene && !forcePinned) return;
+        this.hideGeneTooltip(true);
+
+        const pinned = !!forcePinned || !!(event && event.shiftKey) || !!this._shiftHeld
+            || window.innerWidth <= 640 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
         const tooltip = document.createElement('div');
         tooltip.id = 'geneTooltip';
-        tooltip.style.cssText = 'position:fixed; z-index:10001; background:white; border:1px solid #d1d5db; border-radius:8px; padding:10px 14px; max-width:350px; box-shadow:0 4px 12px rgba(0,0,0,0.15); font-size:12px; line-height:1.5; pointer-events:none;';
-        tooltip.innerHTML = `<div style="color:#6b7280;">Loading ${gene} info...</div>`;
+        tooltip.dataset.gene = gene;
+        tooltip.dataset.pinned = pinned ? '1' : '0';
+        tooltip._ctx = { gene, x: event.clientX, y: event.clientY };
+        const maxW = Math.min(pinned ? 460 : 350, window.innerWidth - 16);
+        tooltip.style.cssText = `position:fixed; z-index:10001; background:white; border:1px solid ${pinned ? 'var(--green-600)' : '#d1d5db'}; border-radius:8px; padding:10px 14px; max-width:${maxW}px; max-height:80vh; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.15); font-size:12px; line-height:1.5; color:#374151; pointer-events:${pinned ? 'auto' : 'none'};`;
+        tooltip.innerHTML = `<div style="margin-bottom:4px;"><b style="color:var(--green-700); font-size:13px;">${this._escText(gene)}</b></div><div style="color:#6b7280;">Loading info…</div>`;
 
-        const x = Math.min(event.clientX + 12, window.innerWidth - 370);
-        const y = Math.min(event.clientY + 12, window.innerHeight - 200);
+        // Clamped on all four sides so a card near an edge is never cut off.
+        const x = Math.max(8, Math.min(event.clientX + 12, window.innerWidth - maxW - 8));
+        const y = Math.max(8, Math.min(event.clientY + 12, window.innerHeight - 200));
         tooltip.style.left = x + 'px';
         tooltip.style.top = y + 'px';
         document.body.appendChild(tooltip);
 
+        if (pinned) {
+            const dismiss = (ev) => { if (!tooltip.contains(ev.target)) this.hideGeneTooltip(true); };
+            const escDismiss = (ev) => {
+                if (ev.key !== 'Escape') return;
+                ev.stopPropagation(); ev.stopImmediatePropagation(); ev.preventDefault();
+                this.hideGeneTooltip(true);
+            };
+            setTimeout(() => document.addEventListener('click', dismiss), 0);
+            document.addEventListener('keydown', escDismiss, true);
+            tooltip._cleanup = () => {
+                document.removeEventListener('click', dismiss);
+                document.removeEventListener('keydown', escDismiss, true);
+            };
+        }
+
         this.fetchGeneInfo(gene).then(info => {
             const el = document.getElementById('geneTooltip');
-            if (!el) return;
-            if (!info) {
-                el.innerHTML = `<b>${gene}</b><br><span style="color:#999;">No info available</span>`;
-                return;
+            if (!el || el.dataset.gene !== gene) return;
+            const isPinned = el.dataset.pinned === '1';
+            const sym = (info && info.symbol) || gene;
+            const q = encodeURIComponent(sym);
+            const mkLink = (href, label) => `<a href="${href}" target="_blank" rel="noopener" style="color:var(--green-800); text-decoration:none; white-space:nowrap;">${label}&nbsp;&#8599;</a>`;
+            const refs = [
+                mkLink(info && info.entrezgene ? `https://www.ncbi.nlm.nih.gov/gene/${info.entrezgene}` : `https://www.ncbi.nlm.nih.gov/gene/?term=${q}`, 'NCBI'),
+                mkLink(`https://www.proteinatlas.org/search/${q}`, 'Protein Atlas'),
+                mkLink(`https://www.genecards.org/cgi-bin/carddisp.pl?gene=${q}`, 'GeneCards'),
+                mkLink(`https://www.uniprot.org/uniprotkb?query=gene:${q}+AND+organism_id:9606`, 'UniProt'),
+                mkLink(`https://depmap.org/portal/gene/${q}?tab=overview`, 'DepMap'),
+                mkLink(`https://www.gsea-msigdb.org/gsea/msigdb/human/gene_families.jsp?search=${q}`, 'MSigDB')
+            ];
+            if (info && info.hgnc) refs.push(mkLink(`https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/${info.hgnc}`, 'HGNC'));
+
+            let html = isPinned
+                ? `<button title="Close (Esc)" style="position:absolute; top:4px; right:6px; background:none; border:none; font-size:18px; line-height:1; color:#9ca3af; cursor:pointer;" onclick="app.hideGeneTooltip(true)">&times;</button>`
+                : '';
+            html += `<div style="margin-bottom:4px; padding-right:${isPinned ? '18px' : '0'};"><b style="color:var(--green-700); font-size:13px;">${this._escText(sym)}</b>`;
+            if (info && info.name) html += ` <span style="color:#374151;">${this._escText(info.name)}</span>`;
+            html += `</div>`;
+            if (info && info.summary) {
+                const text = isPinned || info.summary.length <= 260 ? info.summary : info.summary.substring(0, 260) + '…';
+                html += `<div style="color:#4b5563; font-size:11.5px;">${this._escText(text)}</div>`;
+            } else if (info) {
+                html += `<div style="color:#9ca3af; font-style:italic;">No summary available.</div>`;
+            } else {
+                html += `<div style="color:#9ca3af;">No info available.</div>`;
             }
-            let html = `<div style="margin-bottom:4px;"><b style="color:#5d9239; font-size:13px;">${info.symbol}</b> <span style="color:#374151;">${info.name}</span></div>`;
-            if (info.summary) {
-                const short = info.summary.length > 200 ? info.summary.substring(0, 200) + '...' : info.summary;
-                html += `<div style="color:#4b5563; font-size:11px;">${short}</div>`;
-            }
+            html += `<div style="margin-top:8px; padding-top:6px; border-top:1px solid #f3f4f6; font-size:10.5px; color:#6b7280;">`;
+            if (isPinned) html += `<div style="display:flex; flex-wrap:wrap; gap:2px 6px;">${refs.join(' &middot; ')}</div>`;
+            const hint = window.innerWidth <= 640 ? 'Tap anywhere to close'
+                : (isPinned ? 'Esc to close' : 'Press Tab or hold Shift for the full text and links');
+            html += `<div style="color:#9ca3af; margin-top:4px;">${hint}</div></div>`;
             el.innerHTML = html;
-            // Reposition if needed
+
             const rect = el.getBoundingClientRect();
-            if (rect.bottom > window.innerHeight) {
-                el.style.top = (window.innerHeight - rect.height - 10) + 'px';
+            if (rect.bottom > window.innerHeight - 8) {
+                el.style.top = Math.max(8, window.innerHeight - rect.height - 8) + 'px';
             }
         });
     }
 
-    hideGeneTooltip() {
+    // Leaves a pinned card alone unless forced, so a hover ending does not
+    // close the card the user just opened.
+    hideGeneTooltip(force) {
         const existing = document.getElementById('geneTooltip');
-        if (existing) existing.remove();
+        if (!existing) return;
+        if (existing.dataset.pinned === '1' && !force) return;
+        if (existing._cleanup) existing._cleanup();
+        existing.remove();
+    }
+
+    // Shift or Tab while a hover card shows: rebuild it pinned. Registered once.
+    _initGeneTooltipKeys() {
+        if (this._geneTooltipKeysInit) return;
+        this._geneTooltipKeysInit = true;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Shift') this._shiftHeld = true;
+            if (e.key !== 'Shift' && e.key !== 'Tab') return;
+            const tip = document.getElementById('geneTooltip');
+            if (!tip || tip.dataset.pinned === '1' || !tip._ctx) return;
+            if (e.key === 'Tab') e.preventDefault();
+            const c = tip._ctx;
+            this.showGeneTooltip({ clientX: c.x, clientY: c.y }, c.gene, true);
+        });
+        document.addEventListener('keyup', (e) => { if (e.key === 'Shift') this._shiftHeld = false; });
+        window.addEventListener('blur', () => { this._shiftHeld = false; });
     }
 
     attachGeneTooltips(container) {
+        this._initGeneTooltipKeys();
         container.querySelectorAll('.gene-hover').forEach(el => {
             el.addEventListener('mouseenter', (e) => {
-                this._tooltipTimer = setTimeout(() => {
-                    this.showGeneTooltip(e, el.dataset.gene);
-                }, 400);
+                const ctx = { clientX: e.clientX, clientY: e.clientY };
+                this._tooltipTimer = setTimeout(() => this.showGeneTooltip(ctx, el.dataset.gene), 400);
             });
             el.addEventListener('mouseleave', () => {
                 clearTimeout(this._tooltipTimer);
