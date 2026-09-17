@@ -5550,12 +5550,12 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             U251: 'Brain cancer (Glioblastoma)'
         };
         const metricMap = {
-            expression: 'Expression_zscore',
+            expression: 'log2FC_vs_median',
             crispr: 'Chronos_score'
         };
         const labelMap = {
-            expression: 'Expression (z-score)',
-            crispr: 'CRISPR (Chronos gene effect)'
+            expression: 'expression as log2 fold change vs the median of all DepMap cell lines',
+            crispr: 'CRISPR screen, Chronos gene effect (negative = the cell line depends on the gene)'
         };
 
         this.showStatus('uploadStatus', 'info', `Loading ${cellLine} ${dataType} data from DepMap...`);
@@ -5579,7 +5579,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             this.settings.dataType = dtVal;
 
             this.showStatus('uploadStatus', 'success',
-                `Loaded ${cellLine} \u2014 ${cellLineInfo[cellLine]} \u2014 ${labelMap[dataType]}: ${data.length.toLocaleString()} genes (DepMap)`);
+                `Loaded ${cellLine}, ${cellLineInfo[cellLine]}: ${labelMap[dataType]}. ${data.length.toLocaleString()} genes from DepMap.`);
             this.checkReady();
         } catch (err) {
             this.showStatus('uploadStatus', 'error', `Failed to load example data: ${err.message}`);

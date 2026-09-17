@@ -5,8 +5,13 @@ Prepare DepMap example datasets for Enrich web app.
 Downloads expression and CRISPR data from DepMap for 5 cell lines,
 computes per-cell-line ranking metrics, and saves as JSON files.
 
-Expression: z-score vs median across all DepMap cell lines
+Expression: log2 fold change of the cell line vs the median of all DepMap
+            cell lines (the matrix is log2(TPM+1), so the difference of the
+            two is a log2 fold change; 1 = twice the median, -1 = half)
 CRISPR: raw Chronos gene effect scores (negative = dependency)
+
+Usage: python3 prepare_depmap_examples.py [--expression-only]
+Put (or symlink) the DepMap CSVs in web_data/.cache to skip the download.
 """
 
 import json
@@ -56,15 +61,12 @@ def download_if_needed(url, local_path):
 
 
 def process_expression(df, cell_lines):
-    """Compute z-scores for each cell line vs median across all cell lines."""
-    # Compute median and MAD across all cell lines
+    """log2 fold change of each cell line vs the median of all cell lines.
+
+    The DepMap matrix is log2(TPM+1), so cell - median is log2FC vs the panel
+    median. Genes that are not expressed anywhere (median 0 and cell 0) get 0.
+    """
     median = df.median(axis=0)
-    mad = (df - median).abs().median(axis=0)
-    # Use 5th percentile of non-zero MADs as floor (avoids extreme z-scores
-    # from near-zero variability genes while preserving true signal)
-    nonzero_mads = mad[mad > 0]
-    min_mad = nonzero_mads.quantile(0.05) if len(nonzero_mads) > 0 else 0.1
-    mad = mad.clip(lower=min_mad)
 
     results = {}
     for name, ach_id in cell_lines.items():
@@ -72,17 +74,16 @@ def process_expression(df, cell_lines):
             print(f"  WARNING: {name} ({ach_id}) not found in expression data!")
             continue
         row = df.loc[ach_id]
-        zscores = (row - median) / mad
-        # Build gene list, sorted by z-score descending
+        lfc = row - median
         genes = []
         for col in df.columns:
             gene = clean_gene_name(col)
-            z = round(float(zscores[col]), 4)
-            if not np.isnan(z):
-                genes.append({'Gene': gene, 'Expression_zscore': z})
-        genes.sort(key=lambda x: x['Expression_zscore'], reverse=True)
+            v = round(float(lfc[col]), 4)
+            if not np.isnan(v):
+                genes.append({'Gene': gene, 'log2FC_vs_median': v})
+        genes.sort(key=lambda x: x['log2FC_vs_median'], reverse=True)
         results[name] = genes
-        print(f"  {name}: {len(genes)} genes, range [{genes[-1]['Expression_zscore']:.2f}, {genes[0]['Expression_zscore']:.2f}]")
+        print(f"  {name}: {len(genes)} genes, range [{genes[-1]['log2FC_vs_median']:.2f}, {genes[0]['log2FC_vs_median']:.2f}]")
     return results
 
 
@@ -107,6 +108,7 @@ def process_crispr(df, cell_lines):
 
 
 def main():
+    expression_only = '--expression-only' in sys.argv
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     cache_dir = os.path.join(OUTPUT_DIR, '.cache')
     os.makedirs(cache_dir, exist_ok=True)
@@ -117,7 +119,8 @@ def main():
     # Download data
     print("Step 1: Downloading DepMap data...")
     download_if_needed(EXPRESSION_URL, expr_cache)
-    download_if_needed(CRISPR_URL, crispr_cache)
+    if not expression_only:
+        download_if_needed(CRISPR_URL, crispr_cache)
 
     # Process expression — file has metadata columns before gene columns
     print("\nStep 2: Processing expression data...")
@@ -136,9 +139,11 @@ def main():
     expr_results = process_expression(expr_df, CELL_LINES)
 
     # Process CRISPR
-    print("\nStep 3: Processing CRISPR data...")
-    crispr_df = pd.read_csv(crispr_cache, index_col=0)
-    crispr_results = process_crispr(crispr_df, CELL_LINES)
+    crispr_results = {}
+    if not expression_only:
+        print("\nStep 3: Processing CRISPR data...")
+        crispr_df = pd.read_csv(crispr_cache, index_col=0)
+        crispr_results = process_crispr(crispr_df, CELL_LINES)
 
     # Save JSON files
     print("\nStep 4: Saving JSON files...")
