@@ -23,7 +23,7 @@ Hosted on GitHub Pages.
 - Design language matches other Wermeling Lab apps (Correlate, Visualize, Green Listed)
 - CSS variables defined in `:root` — copied verbatim from Green Listed/Correlate; green-600 (#6ba544) is the primary accent, #83aa3d is the wordmark green (logo only)
 - Cards: green header bar + white body
-- Header: `.brand` lockup (logo-word.svg + live-text strapline + logo-mark.svg) sized in cqw units, then a blue nav row (Updates, How to use, How to interpret, How to cite, Green Listed, Correlate, Wermeling Lab, version badge)
+- Header: `.brand` lockup (logo-word.svg with a dandelion i-dot + live-text strapline) sized in cqw units, then a blue nav row (Updates, How to use, How to interpret, How to cite, Green Listed, Correlate, Wermeling Lab, version badge)
 - Sibling app URLs: https://greenlisted.cmm.se and https://correlate.cmm.se (not the github.io ones)
 - Font: Open Sans (body), Roboto Mono (data)
 
