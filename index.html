@@ -132,7 +132,7 @@
             padding: 10px 20px 0;
         }
         .logo-header img {
-            width: 550px;
+            width: 460px;
             max-width: 100%;
             height: auto;
             display: inline-block;
@@ -485,7 +485,9 @@
         .collection-item {
             display: flex;
             align-items: center;
+            font-size: 0.85em;
         }
+        .collection-label strong { font-weight: 500; }
         .collection-label {
             flex: 1;
             display: flex;
@@ -1588,7 +1590,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.44.3</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.44.4</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2660,7 +2662,7 @@
             <div id="tableEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center;">
                 <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
                 <div style="margin-bottom: 6px; max-width: 560px; text-align: center; line-height: 1.6;">
-                    Load one of the test data sets (<span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">skin, lung, colorectal, brain</span> or <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">blood cancer</span>) or upload your own ranked gene list, then click <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">Run GSEA</span>.
+                    Upload your own data set (for example a CRISPR screen or an RNA-seq comparison) or load a <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">test data set</span>, then click <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">Run GSEA</span>.
                 </div>
                 <div style="font-size: 0.88em; color: var(--gray-500);">Both are in the panel on the left.</div>
                 <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.7; max-width: 520px; color: var(--gray-500); text-align: center;">
@@ -2802,6 +2804,12 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.44.4</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>Logo shown a little smaller (460 px) to sit like the Green Listed and Correlate logos</li>
+                <li>Gene set collection names in the sidebar are lighter and smaller</li>
+                <li>Welcome text: upload your own data set (CRISPR screen, RNA-seq) or load a test data set</li>
+            </ul>
             <p><strong>v.44.3</strong> <span style="color:#888;">(2026-09-17)</span></p>
             <ul>
                 <li>Updated logo artwork (lighter dandelion, refined lettering)</li>
