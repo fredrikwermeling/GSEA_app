@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enrich - Gene Set Enrichment Analysis</title>
-    <link rel="icon" type="image/png" href="enrich favicon.png">
-    <link rel="apple-touch-icon" href="enrich favicon.png">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=43">
+    <link rel="icon" type="image/png" href="favicon.png?v=43">
+    <link rel="apple-touch-icon" href="favicon.png?v=43">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Aptos+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -23,30 +24,45 @@
            CSS Custom Properties — Wermeling Lab Design
            ============================================ */
         :root {
-            --green-900: #2d5a27;
-            --green-800: #3a7333;
-            --green-700: #4a8c3f;
-            --green-600: #5a9f4a;
-            --green-500: #6ab257;
-            --green-400: #8bc77a;
-            --green-300: #a8d89a;
-            --green-200: #c5e8bc;
-            --green-100: #e2f4de;
-            --green-50:  #f0f9ef;
+            /* Brand ramp shared with Green Listed (index.css) and Correlate, so the
+               three apps read as one family. Do not re-derive these values. */
+            --green-900: #3b5e23;
+            --green-800: #4c782e;
+            --green-700: #5d9239;
+            --green-600: #6ba544;
+            --green-500: #7ab950;
+            --green-400: #98cd74;
+            --green-300: #b2dd95;
+            --green-200: #cdebb9;
+            --green-100: #e6f6dc;
+            --green-50:  #f3faee;
+            --gray-700: #374151;
             --gray-600: #4b5563;
             --gray-500: #6b7280;
+            --gray-400: #9ca3af;
+            --gray-300: #d1d5db;
             --gray-200: #e5e7eb;
             --gray-100: #f3f4f6;
+            /* Earthy bronze accent, reserved for download / export actions (as in Correlate) */
+            --earth-700: #8a6a3a;
+            --earth-300: #d6c19a;
+            --earth-50:  #f5efe2;
+            /* The wordmark's own green (Green Listed logo-word.svg); UI accent is --green-600 */
+            --logo-green: #83aa3d;
             --text-primary: #1f2937;
             --text-secondary: #4b5563;
             --bg-white: #ffffff;
-            --brand-green: #5a9f4a;
+            --brand-green: #6ba544;
             --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
             --shadow-md: 0 2px 4px rgba(0,0,0,0.1);
             --shadow-lg: 0 4px 16px rgba(0,0,0,0.15);
             --radius-sm: 4px;
             --radius-md: 6px;
             --radius-lg: 8px;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        .data-table, .results-table, input[type="number"], code, .mono {
+            font-variant-numeric: tabular-nums;
         }
 
         /* ============================================
@@ -98,17 +114,46 @@
         /* ============================================
            Header & Nav
            ============================================ */
-        .logo-header {
-            text-align: center;
-            padding: 0 20px;
-            margin-bottom: -4px;
+        /* Brand lockup, same construction as Green Listed: an outline-traced SVG
+           wordmark, a live-text strapline in the wordmark's green, and a mark on the
+           right. Every part is sized in container-query units so the three hold
+           their proportions at any width. */
+        .brand-header {
+            display: flex;
+            justify-content: center;
+            padding: 22px 20px 2px;
         }
-        .logo-header img {
-            max-width: 700px;
+        .brand {
+            width: 620px;
+            max-width: 100%;
+            container-type: inline-size;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            margin: 0 auto 6px;
+        }
+        .brandText {
+            display: flex;
+            flex-direction: column;
+            flex: 0 0 auto;
+        }
+        .brandWord {
+            width: 58cqw;
             height: auto;
-            display: inline-block;
-            margin-top: -45px;
-            margin-bottom: -160px;
+            display: block;
+        }
+        .brandTag {
+            font-size: 3.35cqw;
+            color: var(--logo-green);
+            white-space: nowrap;
+            line-height: 1.2;
+            margin: 1.1cqw 0 0 0.5cqw;
+            letter-spacing: 0.01em;
+        }
+        .brandMark {
+            width: 20cqw;
+            height: auto;
+            margin: 0 0 0.6cqw 3.2cqw;
         }
         .example-data-grid { display: flex; flex-direction: column; gap: 1px; }
         .example-row {
@@ -134,17 +179,15 @@
         .nav-bar a {
             color: #0055bb;
             text-decoration: none;
-            margin: 0 12px;
-            font-size: 13px;
+            margin: 0 10px;
+            font-size: 15px;
             font-weight: 500;
+            cursor: pointer;
         }
         .nav-bar a:hover {
             text-decoration: underline;
         }
         .nav-bar .how-to-use-link {
-            color: var(--green-700);
-            cursor: pointer;
-            font-weight: 600;
             position: relative;
         }
         /* How to Use popup */
@@ -356,7 +399,7 @@
         }
         .btn-primary:hover:not(:disabled) {
             background: var(--green-700);
-            box-shadow: 0 2px 8px rgba(22,163,74,0.3);
+            box-shadow: 0 2px 8px rgba(93,146,57,0.3);
         }
         .btn-secondary {
             background: var(--gray-100);
@@ -413,7 +456,7 @@
         }
         .form-control:focus {
             border-color: var(--green-500);
-            box-shadow: 0 0 0 3px rgba(34,197,94,0.15);
+            box-shadow: 0 0 0 3px rgba(122,185,80,0.15);
             outline: none;
         }
         .form-control:disabled {
@@ -881,16 +924,26 @@
            ============================================ */
         .site-footer {
             text-align: center;
-            padding: 12px 20px;
-            margin-top: 16px;
+            padding: 20px;
+            margin-top: 20px;
             color: var(--gray-500);
-            font-size: 0.82em;
+            font-size: 0.85em;
             border-top: 1px solid var(--gray-200);
         }
         .site-footer a {
             color: #0066cc;
             text-decoration: none;
+            font-weight: 400;
         }
+        .site-footer-small {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--gray-200);
+            font-size: 0.8em;
+            line-height: 1.6;
+            color: var(--gray-500);
+        }
+        .site-footer-small p { margin: 0 0 4px; }
         .site-footer a:hover {
             text-decoration: underline;
         }
@@ -1539,23 +1592,48 @@
 </div>
 
 <!-- Header -->
-<div class="logo-header">
-    <img src="enrich logo v3.png" alt="Enrich - a Gene Set Enrichment Analysis (GSEA) tool">
-</div>
+<header class="brand-header">
+    <div class="brand" role="img" aria-label="Enrich &mdash; a gene set enrichment analysis (GSEA) tool">
+        <span class="brandText">
+            <img class="brandWord" src="logo-word.svg?v=43" alt="">
+            <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a gene set enrichment (GSEA) tool</span>
+        </span>
+        <img class="brandMark" src="logo-mark.svg?v=43" alt="">
+    </div>
+</header>
 
 <!-- Navigation -->
 <div class="nav-bar">
-    <a href="https://fredrikwermeling.github.io/Greenlisted_v2/" target="_blank">Green Listed</a>
-    <a href="https://fredrikwermeling.github.io/correlation-web-app-/" target="_blank">Correlate</a>
-    <a href="https://fredrikwermeling.github.io/Visualize/" target="_blank">Visualize</a>
-    <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
+    <a href="#" id="updatesLink" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'">Updates</a>
     <a class="how-to-use-link" id="howToUseLink">How to use</a>
     <a class="how-to-use-link" id="interpretGuideLink">How to interpret</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:12px; font-family:monospace; font-size:10px; background:#f3f4f6; padding:1px 6px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db;">v.42.2</a>
+    <a class="how-to-use-link" id="howToCiteLink">How to cite</a>
+    <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
+    <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
+    <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.43</a>
 </div>
 
 <!-- How to Use popup -->
 <div class="how-to-use-backdrop" id="howToUseBackdrop"></div>
+
+<!-- How to cite popup -->
+<div class="how-to-use-popup" id="howToCitePopup">
+    <button class="close-btn" id="howToCiteClose">&times;</button>
+    <h3>How to cite</h3>
+    <p>If you use Enrich in a publication, please cite the tool by name and address, together with the methods and gene set resources it builds on:</p>
+    <h4>Enrich</h4>
+    <p>Enrich &ndash; a gene set enrichment analysis (GSEA) tool. Wermeling Lab, Karolinska Institutet.<br>
+    <a href="https://fredrikwermeling.github.io/GSEA_app/" target="_blank" rel="noopener noreferrer">https://fredrikwermeling.github.io/GSEA_app/</a></p>
+    <h4>Method</h4>
+    <p>Subramanian A, Tamayo P, Mootha VK, et al. <em>Gene set enrichment analysis: A knowledge-based approach for interpreting genome-wide expression profiles.</em> PNAS 2005;102(43):15545&ndash;15550. doi: 10.1073/pnas.0506580102</p>
+    <p>Korotkevich G, Sukhov V, Budin N, et al. <em>Fast gene set enrichment analysis.</em> bioRxiv 2021. doi: 10.1101/060012 (the weighted, preranked algorithm and the R script Enrich generates)</p>
+    <h4>Gene sets</h4>
+    <p>Liberzon A, Birger C, Thorvaldsd&oacute;ttir H, et al. <em>The Molecular Signatures Database (MSigDB) hallmark gene set collection.</em> Cell Systems 2015;1(6):417&ndash;425. doi: 10.1016/j.cels.2015.12.004</p>
+    <p>Gene sets are from MSigDB v2023.2 (<a href="https://www.gsea-msigdb.org/" target="_blank" rel="noopener noreferrer">gsea-msigdb.org</a>). Please also follow the citation and licensing terms of the individual collections you used (e.g. KEGG, Reactome, Gene Ontology).</p>
+    <h4>Example data</h4>
+    <p>DepMap, Broad Institute. <a href="https://depmap.org/portal/" target="_blank" rel="noopener noreferrer">depmap.org</a> (CC BY 4.0).</p>
+</div>
 <div class="how-to-use-popup" id="howToUsePopup">
     <button class="close-btn" id="howToUseClose">&times;</button>
     <h3>How to use Enrich</h3>
@@ -2319,7 +2397,7 @@
                                     <div class="form-row">
                                         <div class="form-group">
                                             <label class="form-label">ES line color</label>
-                                            <input type="color" class="form-control settings-live" id="esLineColor" value="#15a04a" style="height: 28px; padding: 2px; max-width: 55px;">
+                                            <input type="color" class="form-control settings-live" id="esLineColor" value="#5d9239" style="height: 28px; padding: 2px; max-width: 55px;">
                                         </div>
                                         <div class="form-group">
                                             <label class="form-label">Line width</label>
@@ -2728,10 +2806,15 @@
 </div>
 
 <!-- Footer -->
-<div class="site-footer">
-    GSEA Web Tool &mdash; <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>, Karolinska Institutet
-    &nbsp;|&nbsp; Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank">MSigDB</a> v2023.2
-</div>
+<footer class="site-footer">
+    <p>Enrich | Part of the <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a> tool family | Gene sets from <a href="https://www.gsea-msigdb.org/" target="_blank" rel="noopener noreferrer">MSigDB</a> v2023.2 | <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a></p>
+    <div class="site-footer-small">
+        <p>All computation runs in your browser. Nothing you upload leaves your computer.</p>
+        <p>Gene sets: <a href="https://www.gsea-msigdb.org/" target="_blank" rel="noopener noreferrer">MSigDB</a> (Broad Institute / UC San Diego); see MSigDB for the license terms of each collection. Example data: <a href="https://depmap.org" target="_blank" rel="noopener noreferrer">DepMap</a> (Broad Institute), CC BY 4.0.</p>
+        <p>Disclaimer: This tool is provided as-is without warranty. Not intended for diagnostic or clinical use. Results should be independently validated.</p>
+        <p>&copy; 2026 <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>, Karolinska Institutet. All rights reserved.</p>
+    </div>
+</footer>
 
 <!-- Changelog Modal (development only) -->
 <div id="changelogModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:3000; justify-content:center; align-items:center;">
@@ -2741,6 +2824,16 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.43</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>New logo: an outline-traced "Enrich" wordmark set in the same face and green as the Green Listed wordmark, with a running-enrichment-score mark and matching favicon</li>
+                <li>Colours now match Green Listed and Correlate exactly (shared green ramp, accent #6ba544); header, nav row and footer follow the family layout</li>
+                <li>Nav: Updates, How to cite added; sibling apps link to greenlisted.cmm.se and correlate.cmm.se; Escape closes popups</li>
+                <li>Fix: a ranking-metric column whose first row is NA (common in DESeq2 output) was treated as text and hidden from the metric dropdown; columns are now classified from a sample of rows</li>
+                <li>Fix: console exception on every mouse move (tooltip listener received the document as target)</li>
+                <li>Fix: ties in the ranking metric are now broken by input order instead of an inconsistent random comparator</li>
+                <li>Validation: enrichment scores and leading-edge sizes for all 50 Hallmark sets on the A375 CRISPR example were compared against R fgsea (fgseaSimple, 10,000 permutations) and match to four decimals; NES within 1%</li>
+            </ul>
             <p><strong>v.42.2</strong> <span style="color:#888;">(2026-03-15)</span></p>
             <ul>
                 <li>Select Sets: FDR filter now properly applied on first open — sets with FDR ≥ threshold are deselected before auto-select runs</li>
@@ -3114,6 +3207,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=78"></script>
+<script src="app.js?v=79"></script>
 </body>
 </html>

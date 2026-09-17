@@ -37,7 +37,7 @@ class GSEAApp {
             // Figure customization
             fontFamily: 'Open Sans',
             fontSize: 12,
-            esLineColor: '#15a04a',
+            esLineColor: '#5d9239',
             esLineWidth: 2.5,
             showStatsBox: true,
             showZeroCross: false,
@@ -396,6 +396,31 @@ class GSEAApp {
         howToUseClose.addEventListener('click', closeHowToUse);
         howToUseBackdrop.addEventListener('click', closeHowToUse);
 
+        // How to cite popup (shares the How to use backdrop)
+        const howToCiteLink = document.getElementById('howToCiteLink');
+        const howToCitePopup = document.getElementById('howToCitePopup');
+        const howToCiteClose = document.getElementById('howToCiteClose');
+        const closeHowToCite = () => {
+            howToCitePopup.classList.remove('open');
+            howToUseBackdrop.classList.remove('open');
+        };
+        if (howToCiteLink && howToCitePopup) {
+            howToCiteLink.addEventListener('click', () => {
+                howToCitePopup.classList.add('open');
+                howToUseBackdrop.classList.add('open');
+            });
+            howToCiteClose.addEventListener('click', closeHowToCite);
+            howToUseBackdrop.addEventListener('click', closeHowToCite);
+        }
+
+        // Escape closes any open popup or the changelog, as in Green Listed
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            document.querySelectorAll('.how-to-use-popup.open, .how-to-use-backdrop.open').forEach(el => el.classList.remove('open'));
+            const cl = document.getElementById('changelogModal');
+            if (cl && cl.style.display === 'flex') cl.style.display = 'none';
+        });
+
         // Interpret Guide modal
         const interpretLink = document.getElementById('interpretGuideLink');
         const interpretPopup = document.getElementById('interpretGuidePopup');
@@ -423,6 +448,7 @@ class GSEAApp {
         // Info tooltips — position with JS (fixed) to avoid clipping
         // Use event delegation so dynamically added info-icons also work
         document.addEventListener('mouseenter', (e) => {
+            if (!(e.target instanceof Element)) return;
             const icon = e.target.closest('.info-icon');
             if (!icon) return;
             const tooltip = icon.querySelector('.info-tooltip');
@@ -442,6 +468,7 @@ class GSEAApp {
             tooltip.style.top = top + 'px';
         }, true);
         document.addEventListener('mouseleave', (e) => {
+            if (!(e.target instanceof Element)) return;
             const icon = e.target.closest('.info-icon');
             if (!icon) return;
             const tooltip = icon.querySelector('.info-tooltip');
@@ -724,16 +751,23 @@ class GSEAApp {
         const numericCols = [];
         const stringCols = [];
 
+        // Classify each column from a sample of rows, not just the first value:
+        // DESeq2/edgeR/MAGeCK output often has NA in the first rows, and a
+        // single NA must not turn a numeric column into a text column.
+        const missing = new Set(['', 'NA', 'NAN', 'NULL', 'NONE', 'INF', '-INF', 'INFINITE']);
+        const sampleRows = this.rawData.slice(0, 500);
         for (const field of fields) {
-            // Check first non-null value
-            let isNumeric = false;
-            for (const row of this.rawData) {
+            let nNum = 0, nText = 0;
+            for (const row of sampleRows) {
                 const val = row[field];
-                if (val !== null && val !== undefined && val !== '') {
-                    isNumeric = typeof val === 'number' || !isNaN(parseFloat(val));
-                    break;
-                }
+                if (val === null || val === undefined) continue;
+                if (typeof val === 'number') { if (isFinite(val)) nNum++; continue; }
+                const str = String(val).trim();
+                if (str === '' || missing.has(str.toUpperCase())) continue;
+                if (isFinite(parseFloat(str)) && /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(str)) nNum++;
+                else nText++;
             }
+            const isNumeric = nNum > 0 && nNum >= 4 * nText;
             if (isNumeric) {
                 numericCols.push(field);
             } else {
@@ -862,11 +896,9 @@ class GSEAApp {
             return true;
         });
 
-        // Sort descending by metric, ties broken randomly
-        pairs.sort((a, b) => {
-            if (b.metric !== a.metric) return b.metric - a.metric;
-            return Math.random() - 0.5;
-        });
+        // Sort descending by metric. Ties keep their input order (Array.prototype.sort
+        // is stable), which makes a run reproducible for the same file.
+        pairs.sort((a, b) => b.metric - a.metric);
 
         this.rankedList = {
             genes: pairs.map(p => p.gene),
@@ -3716,7 +3748,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
         // Get overlap colorscale from settings
         const overlapColorscales = {
-            green: [[0,'#ffffff'],[0.2,'#e0f2e9'],[0.4,'#a8d89a'],[0.6,'#5a9f4a'],[0.8,'#3a7333'],[1.0,'#2d5a27']],
+            green: [[0,'#ffffff'],[0.2,'#e6f6dc'],[0.4,'#b2dd95'],[0.6,'#6ba544'],[0.8,'#4c782e'],[1.0,'#3b5e23']],
             blues: [[0,'#ffffff'],[0.2,'#deebf7'],[0.4,'#9ecae1'],[0.6,'#4292c6'],[0.8,'#2171b5'],[1.0,'#084594']],
             purples: [[0,'#ffffff'],[0.2,'#efedf5'],[0.4,'#bcbddc'],[0.6,'#807dba'],[0.8,'#6a51a3'],[1.0,'#3f007d']],
             YlGnBu: [[0,'#ffffff'],[0.2,'#edf8b1'],[0.4,'#7fcdbb'],[0.6,'#41b6c4'],[0.8,'#1d91c0'],[1.0,'#0c2c84']]
@@ -5327,7 +5359,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         s += `p <- ggplot(df_long, aes(x = col, y = row, fill = jaccard)) +\n`;
         s += `    geom_tile(color = "white", linewidth = 0.3) +\n`;
         s += `    scale_fill_gradientn(\n`;
-        s += `        colors = c("#ffffff", "#c5e8bc", "#5a9f4a", "#2d5a27"),\n`;
+        s += `        colors = c("#ffffff", "#cdebb9", "#6ba544", "#3b5e23"),\n`;
         s += `        name   = "Jaccard\\nIndex",\n`;
         s += `        limits = c(0, 1)\n`;
         s += `    ) +\n`;
@@ -6163,7 +6195,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 el.innerHTML = `<b>${gene}</b><br><span style="color:#999;">No info available</span>`;
                 return;
             }
-            let html = `<div style="margin-bottom:4px;"><b style="color:#5a9f4a; font-size:13px;">${info.symbol}</b> <span style="color:#374151;">${info.name}</span></div>`;
+            let html = `<div style="margin-bottom:4px;"><b style="color:#5d9239; font-size:13px;">${info.symbol}</b> <span style="color:#374151;">${info.name}</span></div>`;
             if (info.summary) {
                 const short = info.summary.length > 200 ? info.summary.substring(0, 200) + '...' : info.summary;
                 html += `<div style="color:#4b5563; font-size:11px;">${short}</div>`;

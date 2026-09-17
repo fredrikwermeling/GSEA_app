@@ -21,14 +21,19 @@ Hosted on GitHub Pages.
 
 ## Key conventions
 - Design language matches other Wermeling Lab apps (Correlate, Visualize, Green Listed)
-- CSS variables defined in `:root` — green-600 (#5a9f4a) is the primary accent
+- CSS variables defined in `:root` — copied verbatim from Green Listed/Correlate; green-600 (#6ba544) is the primary accent, #83aa3d is the wordmark green (logo only)
 - Cards: green header bar + white body
+- Header: `.brand` lockup (logo-word.svg + live-text strapline + logo-mark.svg) sized in cqw units, then a blue nav row (Updates, How to use, How to interpret, How to cite, Green Listed, Correlate, Wermeling Lab, version badge)
+- Sibling app URLs: https://greenlisted.cmm.se and https://correlate.cmm.se (not the github.io ones)
 - Font: Open Sans (body), Roboto Mono (data)
 
 ## Gene set JSON format
 ```json
 { "GENE_SET_NAME": ["GENE1", "GENE2", ...], ... }
 ```
+
+## Validation reference
+- R with fgsea is installed; `fgseaSimple` on the A375 CRISPR example (Hallmark) reproduces the app's ES to 4 decimals. Use it as the reference when touching worker.js.
 
 ## Running locally
 ```bash

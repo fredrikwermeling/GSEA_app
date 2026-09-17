@@ -2,6 +2,8 @@
 
 **Live demo: [https://fredrikwermeling.github.io/GSEA_app/](https://fredrikwermeling.github.io/GSEA_app/)**
 
+Part of the Wermeling Lab tool family with [Green Listed](https://greenlisted.cmm.se) and [Correlate](https://correlate.cmm.se); the three apps share one palette and header layout.
+
 A client-side Gene Set Enrichment Analysis (GSEA) web application. All computation runs in the browser — no backend required.
 
 ## Features
@@ -41,6 +43,13 @@ python3 -m http.server 8000
 | C5: GO | 16,008 | Gene Ontology BP, MF, CC |
 
 Gene sets from [MSigDB](https://www.gsea-msigdb.org/) v2023.2. Custom GMT files can also be uploaded.
+
+## Logo and design assets
+
+- `logo-word.svg` — outline-traced "Enrich" wordmark (Open Sans 700, fill `#83AA3D`, the same face and green as the Green Listed wordmark). Regenerate with fontTools from `greenlistedv2/fonts/open-sans-latin.woff2` if the name changes.
+- `logo-mark.svg` — running-enrichment-score mark shown to the right of the wordmark.
+- `favicon.svg` / `favicon.png` — bolder variant of the mark.
+- Colour tokens live in `:root` in `index.html` and are copied verbatim from Green Listed / Correlate (accent `--green-600: #6ba544`).
 
 ## Adding custom gene set collections
 
