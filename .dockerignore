@@ -1,0 +1,11 @@
+/Containerfile
+/.containerignore
+/.git
+/.github
+/.vscode
+/.claude
+/.old_logos_unused
+/benchmark_gsea.js
+/prepare_depmap_examples.py
+/convert_gmt.py
+/migration_v2.csv

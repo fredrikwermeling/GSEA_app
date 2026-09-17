@@ -1,0 +1,27 @@
+name: Deploy on commit with "deploy" comment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: contains(github.event.head_commit.message, 'deploy')
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up SSH agent
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Copy files via SSH 
+      run: |
+        rsync -avz --delete --exclude='.*' -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.SSH_SERVER }}
+      env:
+        SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+

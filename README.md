@@ -25,6 +25,10 @@ A client-side Gene Set Enrichment Analysis (GSEA) web application. All computati
 
 Or click **Load Example Data** to try it with simulated data.
 
+## Hosting at cmm.se
+
+Same setup as Green Listed. `Dockerfile` serves the repo with Apache (`httpd:alpine`); `.dockerignore` keeps git, tooling and the old logo files out of the image. `.github/workflows/deploy.yml` rsyncs the repo to the lab server over SSH whenever a commit to `main` has the word "deploy" in its message. It needs three repository secrets set by IT: `SSH_PRIVATE_KEY`, `SSH_SERVER` (user@host:/path) and `SSH_KNOWN_HOSTS`. Intended address: https://enrich.cmm.se (not set up yet).
+
 ## Running locally
 
 ```bash

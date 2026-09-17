@@ -1576,7 +1576,7 @@
 
 <!-- Header -->
 <header class="logo-header">
-    <img src="enrich-logo.png?v=47" alt="Enrich &mdash; a gene set enrichment (GSEA) tool">
+    <img src="enrich-logo.png?v=47" alt="Enrich, a gene set enrichment (GSEA) tool">
 </header>
 
 <!-- Navigation -->
@@ -1588,7 +1588,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.44.1</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.44.2</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1619,8 +1619,8 @@
     <h4>1. Prepare your data</h4>
     <p>Your input file should be a <code>.csv</code> or <code>.tsv</code> with at least two columns:</p>
     <ul>
-        <li><strong>Gene name column</strong> &mdash; standard gene symbols (e.g. TP53, BRCA1)</li>
-        <li><strong>Ranking metric column</strong> &mdash; a numeric value to rank genes (e.g. log2 fold change, t-statistic, or signal-to-noise ratio)</li>
+        <li><strong>Gene name column</strong>: standard gene symbols (e.g. TP53, BRCA1)</li>
+        <li><strong>Ranking metric column</strong>: a numeric value to rank genes (e.g. log2 fold change, t-statistic, or signal-to-noise ratio)</li>
     </ul>
     <p>Save your spreadsheet as <code>CSV (comma-separated)</code> or <code>TSV (tab-separated)</code> from Excel, Google Sheets, or R. Ensure the first row contains column headers.</p>
 
@@ -1639,32 +1639,32 @@
 
     <h4>5. Interpret the results</h4>
     <ul>
-        <li><strong>Overview</strong> &mdash; Lollipop plot showing top enriched gene sets sorted by NES</li>
-        <li><strong>Enrichment Plot</strong> &mdash; Classic GSEA enrichment score curve for individual gene sets</li>
-        <li><strong>Overlap</strong> &mdash; Jaccard similarity heatmap of significant gene sets</li>
-        <li><strong>Results Table</strong> &mdash; Full sortable/filterable table with CSV export</li>
+        <li><strong>Overview</strong>: Lollipop plot showing top enriched gene sets sorted by NES</li>
+        <li><strong>Enrichment Plot</strong>: Classic GSEA enrichment score curve for individual gene sets</li>
+        <li><strong>Overlap</strong>: Jaccard similarity heatmap of significant gene sets</li>
+        <li><strong>Results Table</strong>: Full sortable/filterable table with CSV export</li>
     </ul>
 
     <h4>Key statistics</h4>
     <ul>
-        <li><strong>NES</strong> (Normalized Enrichment Score) &mdash; positive = upregulated, negative = downregulated</li>
-        <li><strong>FDR</strong> (False Discovery Rate) &mdash; &lt;0.25 is suggestive, &lt;0.05 is significant</li>
-        <li><strong>Leading Edge</strong> &mdash; the subset of genes driving the enrichment signal</li>
+        <li><strong>NES</strong> (Normalized Enrichment Score): positive = upregulated, negative = downregulated</li>
+        <li><strong>FDR</strong> (False Discovery Rate): &lt;0.25 is suggestive, &lt;0.05 is significant</li>
+        <li><strong>Leading Edge</strong>: the subset of genes driving the enrichment signal</li>
     </ul>
 
     <h4>Gene set collection strategy</h4>
     <p>MSigDB contains over 33,000 gene sets across 7 collections. Running all at once is possible but takes several minutes and produces strict FDR corrections. A recommended approach:</p>
     <ol>
-        <li><strong>Start with Hallmark</strong> (50 sets) &mdash; well-defined biological pathways, fast and highly interpretable</li>
-        <li><strong>Explore specific collections</strong> &mdash; if Hallmark shows inflammatory signals, try C7 (Immunologic); for metabolic hits, try C2 (Curated: KEGG/Reactome)</li>
-        <li><strong>Use the Gene Set Browser</strong> &mdash; search for specific pathways or genes of interest across all collections</li>
-        <li><strong>Iterative permutation strategy</strong> &mdash; for large analyses, you can run with lower permutations (e.g. 200) for faster screening, then filter the results table and use &ldquo;Re-run filtered&rdquo; with &ge;1000 permutations. Note: low permutations give coarser p-values, so borderline hits (FDR ~0.2&ndash;0.3) may be missed in the initial screen</li>
-        <li><strong>Use the Data Type selector</strong> &mdash; set to "CRISPR / Perturbation" if your data is from a genetic screen or perturbation experiment, for correct interpretation</li>
-        <li><strong>For large analyses</strong> &mdash; if your computer struggles with many gene sets, use the &ldquo;Download R Script&rdquo; option in the run dialog. This generates a self-contained fgsea script you can run in R &mdash; then upload the results back here for visualization</li>
+        <li><strong>Start with Hallmark</strong> (50 sets): well-defined biological pathways, fast and highly interpretable</li>
+        <li><strong>Explore specific collections</strong>: if Hallmark shows inflammatory signals, try C7 (Immunologic); for metabolic hits, try C2 (Curated: KEGG/Reactome)</li>
+        <li><strong>Use the Gene Set Browser</strong>: search for specific pathways or genes of interest across all collections</li>
+        <li><strong>Iterative permutation strategy</strong>: for large analyses, you can run with lower permutations (e.g. 200) for faster screening, then filter the results table and use &ldquo;Re-run filtered&rdquo; with &ge;1000 permutations. Note: low permutations give coarser p-values, so borderline hits (FDR ~0.2&ndash;0.3) may be missed in the initial screen</li>
+        <li><strong>Use the Data Type selector</strong>: set to "CRISPR / Perturbation" if your data is from a genetic screen or perturbation experiment, for correct interpretation</li>
+        <li><strong>For large analyses</strong>: if your computer struggles with many gene sets, use the &ldquo;Download R Script&rdquo; option in the run dialog. This generates a self-contained fgsea script you can run in R, then upload the results back here for visualization</li>
     </ol>
 
     <h4 style="margin-top: 18px;">Note on naming</h4>
-    <p><strong>Enrich</strong> is not the same tool as <a href="https://maayanlab.cloud/Enrichr/" target="_blank" rel="noopener">Enrichr</a> (Ma&rsquo;ayan Lab). Enrichr performs over-representation analysis (ORA) on gene lists. Enrich performs Gene Set Enrichment Analysis (GSEA) on pre-ranked gene lists, which considers all genes in the ranking &mdash; not just a cutoff-based subset.</p>
+    <p><strong>Enrich</strong> is not the same tool as <a href="https://maayanlab.cloud/Enrichr/" target="_blank" rel="noopener">Enrichr</a> (Ma&rsquo;ayan Lab). Enrichr performs over-representation analysis (ORA) on gene lists. Enrich performs Gene Set Enrichment Analysis (GSEA) on pre-ranked gene lists, which considers all genes in the ranking, not just a cutoff-based subset.</p>
 </div>
 
 <!-- How to Interpret Guide -->
@@ -1693,10 +1693,10 @@
         </div>
         <div class="interpret-badges">
             <div class="interpret-badge expression">
-                <strong>Expression:</strong> Pathway is <strong>upregulated</strong> &mdash; genes are enriched among those with high fold change
+                <strong>Expression:</strong> Pathway is <strong>upregulated</strong>: genes are enriched among those with high fold change
             </div>
             <div class="interpret-badge crispr">
-                <strong>CRISPR:</strong> Pathway genes confer <strong>resistance</strong> &mdash; knockouts are enriched among positively selected hits
+                <strong>CRISPR:</strong> Pathway genes confer <strong>resistance</strong>: knockouts are enriched among positively selected hits
             </div>
         </div>
     </div>
@@ -1719,10 +1719,10 @@
         </div>
         <div class="interpret-badges">
             <div class="interpret-badge expression">
-                <strong>Expression:</strong> Pathway is <strong>downregulated</strong> &mdash; genes are enriched among those with low fold change
+                <strong>Expression:</strong> Pathway is <strong>downregulated</strong>: genes are enriched among those with low fold change
             </div>
             <div class="interpret-badge crispr">
-                <strong>CRISPR:</strong> Pathway genes confer <strong>sensitivity</strong> &mdash; knockouts are enriched among depleted hits
+                <strong>CRISPR:</strong> Pathway genes confer <strong>sensitivity</strong>: knockouts are enriched among depleted hits
             </div>
         </div>
     </div>
@@ -1741,10 +1741,10 @@
         </div>
         <div class="interpret-badges">
             <div class="interpret-badge" style="background: var(--gray-100); border-left: 3px solid var(--gray-400);">
-                <strong>Expression:</strong> No directional change &mdash; pathway genes are randomly distributed
+                <strong>Expression:</strong> No directional change. Pathway genes are spread evenly through the ranked list
             </div>
             <div class="interpret-badge" style="background: var(--gray-100); border-left: 3px solid var(--gray-400);">
-                <strong>CRISPR:</strong> No selective effect &mdash; pathway knockouts show no consistent phenotype
+                <strong>CRISPR:</strong> No selective effect. Pathway knockouts show no consistent phenotype
             </div>
         </div>
     </div>
@@ -1762,16 +1762,16 @@
             <div style="position: absolute; bottom: 0px; right: 60px; font-size: 9px; color: #3b82f6;">&minus; peak</div>
         </div>
         <p style="font-size: 0.82em; line-height: 1.5; color: var(--text-secondary); margin: 8px 0 0 0;">
-            Some curves show <strong>both a positive and negative deflection</strong>. This means the pathway has genes on both ends of the ranked list &mdash; some are upregulated/enriched and others are downregulated/depleted. The <strong>reported ES</strong> is the peak with the larger absolute value. While the pathway is still significantly enriched in one direction, the dual-peak pattern suggests the pathway contains functionally diverse genes with opposing responses to the condition.
+            Some curves show <strong>both a positive and negative deflection</strong>. This means the pathway has genes on both ends of the ranked list: some are upregulated/enriched and others are downregulated/depleted. The <strong>reported ES</strong> is the peak with the larger absolute value. While the pathway is still significantly enriched in one direction, the dual-peak pattern suggests the pathway contains functionally diverse genes with opposing responses to the condition.
         </p>
     </div>
 
     <!-- Key Statistics -->
     <h4>Key Statistics</h4>
     <ul>
-        <li><strong>NES</strong> &mdash; Normalized score, comparable across gene sets of different sizes</li>
-        <li><strong>FDR</strong> &mdash; False discovery rate. Values &lt; 0.25 are commonly considered significant; &lt; 0.05 indicates strong evidence</li>
-        <li><strong>Leading edge</strong> &mdash; The subset of genes driving the enrichment signal (genes before the ES peak)</li>
+        <li><strong>NES</strong>: Normalized score, comparable across gene sets of different sizes</li>
+        <li><strong>FDR</strong>: False discovery rate. Values &lt; 0.25 are commonly considered significant; &lt; 0.05 indicates strong evidence</li>
+        <li><strong>Leading edge</strong>: The subset of genes driving the enrichment signal (genes before the ES peak)</li>
     </ul>
 </div>
 
@@ -2102,7 +2102,7 @@
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
                         <button class="btn btn-secondary btn-sm" id="invertBtn" style="font-size: 0.82em; white-space: nowrap; flex-shrink: 0;">⇅ Invert &amp; re-run</button>
                         <span style="font-size: 0.78em; color: var(--gray-500);">Swap comparison direction</span>
-                        <span class="info-icon" style="font-size: 0.75em;">?<span class="info-tooltip"><b>Invert Ranking &amp; Re-run</b><br>Negates all metric values (multiplies by -1) and re-runs the full analysis. This swaps the comparison direction — e.g. if you ranked by condition vs. control, this re-runs as control vs. condition.</span></span>
+                        <span class="info-icon" style="font-size: 0.75em;">?<span class="info-tooltip"><b>Invert Ranking &amp; Re-run</b><br>Negates all metric values (multiplies by -1) and re-runs the full analysis. This swaps the comparison direction, e.g. if you ranked by condition vs. control, this re-runs as control vs. condition.</span></span>
                     </div>
                 </div>
 
@@ -2157,7 +2157,7 @@
                 <div class="card">
                     <div class="card-title" style="position: relative;">
                         Enrichment Overview
-                        <span class="info-icon">i<span class="info-tooltip"><b>Enrichment Overview (Lollipop Plot)</b><br>Shows the top enriched gene sets ranked by Normalized Enrichment Score (NES).<br>• <b>X-axis:</b> NES — positive values (right) indicate upregulated pathways; negative (left) indicate downregulated.<br>• <b>Dot size:</b> Number of genes in the set.<br>• <b>Dot color:</b> FDR significance — darker/warmer colors = more significant.<br>• <b>Click</b> any dot or label to see its full enrichment plot.</span></span>
+                        <span class="info-icon">i<span class="info-tooltip"><b>Enrichment Overview (Lollipop Plot)</b><br>Shows the top enriched gene sets ranked by Normalized Enrichment Score (NES).<br>• <b>X-axis:</b> NES, positive values (right) indicate upregulated pathways; negative (left) indicate downregulated.<br>• <b>Dot size:</b> Number of genes in the set.<br>• <b>Dot color:</b> FDR significance, darker/warmer colors = more significant.<br>• <b>Click</b> any dot or label to see its full enrichment plot.</span></span>
                         <div class="title-actions">
                             <span class="action-label">Settings</span>
                             <button class="card-settings-btn" onclick="app.openTextSettings('bubble')" title="Text settings">Aa</button>
@@ -2357,7 +2357,7 @@
                         <div class="card">
                             <div class="card-title" style="position: relative;">
                                 Enrichment Score Plot
-                                <span class="info-icon">i<span class="info-tooltip"><b>How to read this plot:</b><br><b>Top panel</b> — The green running enrichment score (ES) curve. A peak away from zero indicates enrichment. Peaks to the left = genes are upregulated; peaks to the right = downregulated.<br><b>Middle panel</b> — Black bars show where genes in this set appear in the ranked list.<br><b>Bottom panel</b> — The ranking metric for all genes (red = positive/upregulated, blue = negative/downregulated).<br><b>Leading edge</b> = genes before the ES peak that drive the signal.</span></span>
+                                <span class="info-icon">i<span class="info-tooltip"><b>How to read this plot:</b><br><b>Top panel</b>: The green running enrichment score (ES) curve. A peak away from zero indicates enrichment. Peaks to the left = genes are upregulated; peaks to the right = downregulated.<br><b>Middle panel</b>: Black bars show where genes in this set appear in the ranked list.<br><b>Bottom panel</b>: The ranking metric for all genes (red = positive/upregulated, blue = negative/downregulated).<br><b>Leading edge</b> = genes before the ES peak that drive the signal.</span></span>
                                 <div class="title-actions">
                                     <span class="action-label">Settings</span>
                                     <button class="card-settings-btn" onclick="app.openTextSettings('es')" title="Text settings">Aa</button>
@@ -2476,12 +2476,12 @@
                         <div class="card" style="margin-bottom: 8px;">
                             <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">Gene Set Info
                                 <span class="info-icon">i<span class="info-tooltip" id="geneSetInfoTooltip">
-                                    <b>NES</b> — Normalized Enrichment Score. The key metric for comparing across gene sets.<br>
-                                    <b>FDR</b> — False Discovery Rate (Benjamini-Hochberg). &lt;0.05 = significant, &lt;0.25 = suggestive.<br>
-                                    <b>p-value</b> — Nominal enrichment p-value from permutation test.<br>
-                                    <b>ES</b> — Raw (unnormalized) enrichment score.<br>
-                                    <b>Leading Edge</b> — Genes before the ES peak that drive the enrichment signal.<br>
-                                    <b>Direction</b> — Tells you HOW to interpret the result. "Upregulated" means the genes in this set tend to have high positive metric values (e.g. high log2FC), so this pathway is activated/increased. "Downregulated" means the genes tend to have negative metric values, so this pathway is suppressed/decreased in your condition vs control.
+                                    <b>NES</b>: Normalized Enrichment Score. The key metric for comparing across gene sets.<br>
+                                    <b>FDR</b>: False Discovery Rate (Benjamini-Hochberg). &lt;0.05 = significant, &lt;0.25 = suggestive.<br>
+                                    <b>p-value</b>: Nominal enrichment p-value from permutation test.<br>
+                                    <b>ES</b>: Raw (unnormalized) enrichment score.<br>
+                                    <b>Leading Edge</b>: Genes before the ES peak that drive the enrichment signal.<br>
+                                    <b>Direction</b>: Tells you HOW to interpret the result. "Upregulated" means the genes in this set tend to have high positive metric values (e.g. high log2FC), so this pathway is activated/increased. "Downregulated" means the genes tend to have negative metric values, so this pathway is suppressed/decreased in your condition vs control.
                                 </span></span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px 0; border-bottom: 1px solid #eee; margin: 0 10px;" id="dataTypeInlineRow">
@@ -2535,7 +2535,7 @@
                 <div class="card" style="margin-top: 8px;">
                     <div class="card-title" style="font-size: 0.85em; padding: 6px 10px;">
                         Leading Edge Genes
-                        <span class="info-icon">i<span class="info-tooltip">All genes belonging to this gene set, shown by their position in the ranked list.<br><b>Rank (gene set)</b> — This gene's position in your full ranked gene list (from 1 = highest metric to N = lowest). Shows where each gene set member falls in the ranking.<br><b>Gene</b> — Gene symbol from the gene set.<br><b>Metric (your data)</b> — The ranking metric value from your uploaded data (e.g. log2FC).<br><b>Running ES</b> — The cumulative enrichment score at this gene's rank. Think of it as a running tally: it goes up when a gene set member is encountered and down otherwise. The peak of this curve is the enrichment score (ES).<br><b>Leading Edge</b> — "Yes" if the gene appears before the ES peak, meaning it contributes to the enrichment signal. These are the core genes driving the result.</span></span>
+                        <span class="info-icon">i<span class="info-tooltip">All genes belonging to this gene set, shown by their position in the ranked list.<br><b>Rank (gene set)</b>: This gene's position in your full ranked gene list (from 1 = highest metric to N = lowest). Shows where each gene set member falls in the ranking.<br><b>Gene</b>: Gene symbol from the gene set.<br><b>Metric (your data)</b>: The ranking metric value from your uploaded data (e.g. log2FC).<br><b>Running ES</b>: The cumulative enrichment score at this gene's rank. Think of it as a running tally: it goes up when a gene set member is encountered and down otherwise. The peak of this curve is the enrichment score (ES).<br><b>Leading Edge</b>: "Yes" if the gene appears before the ES peak, meaning it contributes to the enrichment signal. These are the core genes driving the result.</span></span>
                         <div class="title-actions">
                             <button class="btn btn-sm" id="downloadGeneDetailCSV">Download CSV</button>
                         </div>
@@ -2659,21 +2659,21 @@
         <div class="tab-panel active" id="tab-table">
             <div id="tableEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center;">
                 <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
-                <div style="margin-bottom: 6px;">
-                    Load test data for <span style="color: var(--green-600); font-weight: 600;">skin, lung, colorectal, brain</span> or <span style="color: var(--green-600); font-weight: 600;">blood cancer</span> &mdash; or upload your own data set &mdash; and click <span style="color: var(--green-600); font-weight: 600;">Run GSEA</span>
+                <div style="margin-bottom: 6px; max-width: 560px; text-align: center; line-height: 1.6;">
+                    Load one of the test data sets (<span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">skin, lung, colorectal, brain</span> or <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">blood cancer</span>) or upload your own ranked gene list, then click <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">Run GSEA</span>.
                 </div>
-                <div style="font-size: 0.88em; color: var(--gray-500);">(both in the sidebar on the left)</div>
+                <div style="font-size: 0.88em; color: var(--gray-500);">Both are in the panel on the left.</div>
                 <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.7; max-width: 520px; color: var(--gray-500); text-align: center;">
-                    The <span style="color: var(--green-600); font-weight: 500;">Results Table</span> shows all tested gene sets. Click any row to see its <span style="color: var(--green-600); font-weight: 500;">Enrichment Plot</span>. The <span style="color: var(--green-600); font-weight: 500;">Overview</span> tab shows a lollipop plot and ranked gene list. Use <span style="color: var(--green-600); font-weight: 500;">Overlap</span> to find redundant pathways.
+                    The <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Results Table</span> lists every tested gene set. Click a row to see its <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Enrichment Plot</span>. The <span style="color: var(--green-600); font-weight: 500;">Overview</span> tab shows a lollipop plot and the ranked gene list. <span style="color: var(--green-600); font-weight: 500;">Overlap</span> shows which significant gene sets share genes.
                 </div>
                 <div style="margin-top: 14px; font-size: 0.82em; line-height: 1.6; max-width: 520px; color: var(--gray-400); text-align: center;">
-                    <strong style="color: var(--gray-500);">Performance note:</strong> Over 33,000 MSigDB gene sets are available, but large analyses may be very slow or become unresponsive depending on your computer. For heavy analyses, Enrich can generate an <strong>R script</strong> (fgsea) &mdash; run it locally in R and upload the results back here to use Enrich&rsquo;s visualization tools.
+                    <strong style="color: var(--gray-500);">Performance note:</strong> Over 33,000 MSigDB gene sets are available. A large analysis can be slow or freeze the browser. For heavy analyses, let Enrich write an <strong style="white-space: nowrap;">R script</strong> (fgsea), run it in R, and upload the results here to use the plots.
                 </div>
             </div>
             <div id="tableResults" style="display: none;">
                 <div class="card">
                     <div class="card-title">GSEA Results
-                        <span class="info-icon">i<span class="info-tooltip"><b>Results Table</b><br>Full table of all tested gene sets. Click any row to view its enrichment plot.<br>• <b>NES:</b> Normalized Enrichment Score — the primary metric. Positive = upregulated, negative = downregulated.<br>• <b>FDR:</b> False discovery rate. &lt;0.25 is suggestive, &lt;0.05 is significant.<br>• <b>ES:</b> Raw enrichment score (before normalization).<br>• <b>Leading Edge:</b> Genes driving the enrichment signal.<br>Use the filters above to narrow results by name, FDR, or direction.</span></span>
+                        <span class="info-icon">i<span class="info-tooltip"><b>Results Table</b><br>Full table of all tested gene sets. Click any row to view its enrichment plot.<br>• <b>NES:</b> Normalized Enrichment Score, the primary metric. Positive = upregulated, negative = downregulated.<br>• <b>FDR:</b> False discovery rate. &lt;0.25 is suggestive, &lt;0.05 is significant.<br>• <b>ES:</b> Raw enrichment score (before normalization).<br>• <b>Leading Edge:</b> Genes driving the enrichment signal.<br>Use the filters above to narrow results by name, FDR, or direction.</span></span>
                     </div>
                     <div class="card-content">
                         <div class="table-toolbar">
@@ -2802,6 +2802,11 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.44.2</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>Welcome text rewritten in plain sentences; phrases like "Run GSEA" no longer break across lines</li>
+                <li>Em dashes removed from all interface text, help popups, tooltips and status messages</li>
+            </ul>
             <p><strong>v.44.1</strong> <span style="color:#888;">(2026-09-17)</span></p>
             <ul>
                 <li>New logo and favicon from the lab: the dot of the i is a dandelion clock with seeds blowing away. Shown at 550 px like the Correlate logo.</li>
@@ -3220,6 +3225,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=82"></script>
+<script src="app.js?v=83"></script>
 </body>
 </html>
