@@ -47,7 +47,7 @@ Gene sets from [MSigDB](https://www.gsea-msigdb.org/) v2023.2. Custom GMT files 
 ## Logo and design assets
 
 - `logo-word.svg` — outline-traced "Enrich" wordmark (Open Sans 700, fill `#83AA3D`, the same face and green as the Green Listed wordmark). Regenerate with fontTools from `greenlistedv2/fonts/open-sans-latin.woff2` if the name changes.
-- `logo-mark.svg` — running-enrichment-score mark shown to the right of the wordmark.
+- `logo-mark.svg` — a plant sprouting from a running-enrichment-score hill (the family botanical mark, beside Green Listed leaves and the Correlate tree).
 - `favicon.svg` / `favicon.png` — bolder variant of the mark.
 - Colour tokens live in `:root` in `index.html` and are copied verbatim from Green Listed / Correlate (accent `--green-600: #6ba544`).
 

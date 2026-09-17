@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enrich - Gene Set Enrichment Analysis</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=43">
-    <link rel="icon" type="image/png" href="favicon.png?v=43">
-    <link rel="apple-touch-icon" href="favicon.png?v=43">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=44">
+    <link rel="icon" type="image/png" href="favicon.png?v=44">
+    <link rel="apple-touch-icon" href="favicon.png?v=44">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Aptos+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -132,10 +132,10 @@
         .brand-header {
             display: flex;
             justify-content: center;
-            padding: 22px 20px 2px;
+            padding: 18px 20px 0;
         }
         .brand {
-            width: 620px;
+            width: 540px;
             max-width: 100%;
             container-type: inline-size;
             display: flex;
@@ -162,9 +162,9 @@
             letter-spacing: 0.01em;
         }
         .brandMark {
-            width: 20cqw;
+            width: 19cqw;
             height: auto;
-            margin: 0 0 0.6cqw 3.2cqw;
+            margin: 0 0 0.4cqw 2.4cqw;
         }
         .example-data-grid { display: flex; flex-direction: column; gap: 1px; }
         .example-row {
@@ -190,8 +190,8 @@
         .nav-bar a {
             color: #0055bb;
             text-decoration: none;
-            margin: 0 10px;
-            font-size: 15px;
+            margin: 0 9px;
+            font-size: 14px;
             font-weight: 500;
             cursor: pointer;
         }
@@ -1606,10 +1606,10 @@
 <header class="brand-header">
     <div class="brand" role="img" aria-label="Enrich &mdash; a gene set enrichment analysis (GSEA) tool">
         <span class="brandText">
-            <img class="brandWord" src="logo-word.svg?v=43" alt="">
+            <img class="brandWord" src="logo-word.svg?v=44" alt="">
             <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a gene set enrichment (GSEA) tool</span>
         </span>
-        <img class="brandMark" src="logo-mark.svg?v=43" alt="">
+        <img class="brandMark" src="logo-mark.svg?v=44" alt="">
     </div>
 </header>
 
@@ -1622,7 +1622,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.43.3</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.43.4</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2836,6 +2836,12 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.43.4</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>Logo: a plant now grows out of the enrichment curve, giving Enrich a botanical mark alongside Green Listed's leaves and Correlate's tree; favicon updated to match</li>
+                <li>Fix: the top of the "h" and the dot of the "i" in the wordmark were clipped</li>
+                <li>Header made more compact: smaller lockup and nav row</li>
+            </ul>
             <p><strong>v.43.3</strong> <span style="color:#888;">(2026-09-17)</span></p>
             <ul>
                 <li>Results Table: new sortable Collection column showing where each gene set comes from (Hallmark, KEGG, Reactome, WikiPathways, BioCarta, PID, CGP, GO:BP/CC/MF, HPO, C3, C6, C7, C8, Custom). The filter box also matches it, and the CSV download carries it as a column.</li>
