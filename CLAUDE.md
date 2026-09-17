@@ -25,7 +25,7 @@ Hosted on GitHub Pages.
 - Cards: green header bar + white body
 - Header: `.brand` lockup (logo-word.svg + live-text strapline + logo-mark.svg) sized in cqw units, then a blue nav row (Updates, How to use, How to interpret, How to cite, Green Listed, Correlate, Wermeling Lab, version badge)
 - Sibling app URLs: https://greenlisted.cmm.se and https://correlate.cmm.se (not the github.io ones)
-- Font: Open Sans (body), Roboto Mono (data)
+- Font: Open Sans (body, 16px base like the sibling apps), Roboto Mono (data)
 
 ## Gene set JSON format
 ```json
