@@ -1590,7 +1590,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.44.5</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.44.6</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1790,12 +1790,12 @@
             <div class="card-content">
                 <!-- Step A: Upload or load example -->
                 <div class="form-group">
-                    <label class="form-label">Upload your ranked gene list</label>
+                    <label class="form-label">Upload your data set</label>
                     <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.tab" class="form-control">
-                    <div class="form-hint">CSV or TSV with a gene name column and a numeric ranking column</div>
+                    <div class="form-hint">A CSV or TSV file with a gene name column and a numeric ranking column, such as log2 fold change.</div>
                 </div>
 
-                <div style="text-align: center; font-size: 0.8em; color: var(--gray-400); margin: 6px 0; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">or try example data</div>
+                <div style="font-size: 0.78em; color: var(--gray-400); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 6px;">Or load example data</div>
 
                 <div class="form-group" style="margin-top: 0;">
                     <div class="example-data-grid" style="background: var(--green-50); border-radius: var(--radius-sm); padding: 6px;">
@@ -2662,14 +2662,14 @@
             <div id="tableEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center;">
                 <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
                 <div style="margin-bottom: 6px; max-width: 560px; text-align: center; line-height: 1.6;">
-                    Upload your own data set, for example from a CRISPR screen or RNAseq experiment, or load a <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">test data set</span>, then click <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">Run GSEA</span>.
+                    Upload your own data set, for example from a CRISPR screen or RNAseq experiment, or load example data, then click <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">Run GSEA</span>.
                 </div>
-                <div style="font-size: 0.88em; color: var(--gray-500);">Both are in the panel on the left.</div>
+                <div style="font-size: 0.88em; color: var(--gray-500);">Both are in the panel on the left. Green words are buttons and tabs you will find on screen.</div>
                 <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.7; max-width: 520px; color: var(--gray-500); text-align: center;">
                     The <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Results Table</span> lists every tested gene set. Click a row to see its <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Enrichment Plot</span>. The <span style="color: var(--green-600); font-weight: 500;">Overview</span> tab shows a lollipop plot and the ranked gene list. <span style="color: var(--green-600); font-weight: 500;">Overlap</span> shows which significant gene sets share genes.
                 </div>
                 <div style="margin-top: 14px; font-size: 0.82em; line-height: 1.6; max-width: 520px; color: var(--gray-400); text-align: center;">
-                    <strong style="color: var(--gray-500);">Performance note:</strong> Over 33,000 MSigDB gene sets are available. A large analysis can be slow or freeze the browser. For heavy analyses, let Enrich write an <strong style="white-space: nowrap;">R script</strong> (fgsea), run it in R, and upload the results here to use the plots.
+                    <strong style="color: var(--gray-500);">Performance note:</strong> Over 33,000 MSigDB gene sets are available. A large analysis can be slow or freeze the browser. For heavy analyses, let Enrich write an R script (fgsea), run it in R, and upload the results here to use the plots.
                 </div>
             </div>
             <div id="tableResults" style="display: none;">
@@ -2804,6 +2804,11 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.44.6</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>Upload card and welcome text use the same words: "Upload your data set" and "load example data"; the file hint now fills two full lines; "Or load example data" is left aligned like the other section labels</li>
+                <li>Green text in the welcome block is now only used for names of buttons and tabs, and a note says so</li>
+            </ul>
             <p><strong>v.44.5</strong> <span style="color:#888;">(2026-09-17)</span></p>
             <ul>
                 <li>Welcome line reworded: "for example from a CRISPR screen or RNAseq experiment"</li>
