@@ -5578,8 +5578,21 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             if (dtInline) dtInline.value = dtVal;
             this.settings.dataType = dtVal;
 
+            // A cell line against the DepMap median is a question about cell identity,
+            // and the C8 cell-type signatures are the collection that answers it.
+            // Tick it (with Hallmark) so the first run shows the expected biology.
+            let collNote = '';
+            if (dataType === 'expression') {
+                const c8 = document.getElementById('checkC8');
+                const h = document.getElementById('checkHallmark');
+                let changed = false;
+                if (h && !h.checked) { h.checked = true; changed = true; }
+                if (c8 && !c8.checked) { c8.checked = true; changed = true; }
+                if (changed) await this.onCollectionChange();
+                collNote = ' Hallmark and C8 (cell type signatures) are ticked: C8 shows what kind of cell this is, Hallmark the dominant programmes.';
+            }
             this.showStatus('uploadStatus', 'success',
-                `Loaded ${cellLine}, ${cellLineInfo[cellLine]}: ${labelMap[dataType]}. ${data.length.toLocaleString()} genes from DepMap.`);
+                `Loaded ${cellLine}, ${cellLineInfo[cellLine]}: ${labelMap[dataType]}. ${data.length.toLocaleString()} genes from DepMap.${collNote}`);
             this.checkReady();
         } catch (err) {
             this.showStatus('uploadStatus', 'error', `Failed to load example data: ${err.message}`);
