@@ -154,9 +154,9 @@
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            padding: 0 20px 4px 20px;
+            padding: 0 20px 14px 20px;
             background: white;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
             position: relative;
         }
         .nav-bar a {
@@ -301,8 +301,8 @@
             align-items: flex-start;
         }
         .sidebar {
-            width: 415px;
-            min-width: 390px;
+            width: 380px;
+            min-width: 360px;
             flex-shrink: 0;
         }
         .main-panel {
@@ -887,8 +887,8 @@
            Placeholder / Empty State
            ============================================ */
         .empty-state {
-            text-align: center;
-            padding: 30px 30px 60px;
+            text-align: left;
+            padding: 24px 20px 60px;
             color: var(--gray-500);
         }
         .empty-state .empty-icon {
@@ -1590,7 +1590,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.44.6</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.45</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2659,16 +2659,16 @@
 
         <!-- Tab: Results Table -->
         <div class="tab-panel active" id="tab-table">
-            <div id="tableEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: center;">
+            <div id="tableEmpty" class="empty-state" style="display: flex; flex-direction: column; align-items: flex-start;">
                 <div style="font-size: 1.2em; font-weight: 500; color: var(--text-primary); margin-bottom: 10px;">New to Enrich?</div>
-                <div style="margin-bottom: 6px; max-width: 560px; text-align: center; line-height: 1.6;">
+                <div style="margin-bottom: 6px; max-width: 560px; text-align: left; line-height: 1.6;">
                     Upload your own data set, for example from a CRISPR screen or RNAseq experiment, or load example data, then click <span style="color: var(--green-600); font-weight: 600; white-space: nowrap;">Run GSEA</span>.
                 </div>
                 <div style="font-size: 0.88em; color: var(--gray-500);">Both are in the panel on the left. Green words are buttons and tabs you will find on screen.</div>
-                <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.7; max-width: 520px; color: var(--gray-500); text-align: center;">
+                <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.7; max-width: 520px; color: var(--gray-500); text-align: left;">
                     The <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Results Table</span> lists every tested gene set. Click a row to see its <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Enrichment Plot</span>. The <span style="color: var(--green-600); font-weight: 500;">Overview</span> tab shows a lollipop plot and the ranked gene list. <span style="color: var(--green-600); font-weight: 500;">Overlap</span> shows which significant gene sets share genes.
                 </div>
-                <div style="margin-top: 14px; font-size: 0.82em; line-height: 1.6; max-width: 520px; color: var(--gray-400); text-align: center;">
+                <div style="margin-top: 14px; font-size: 0.82em; line-height: 1.6; max-width: 520px; color: var(--gray-400); text-align: left;">
                     <strong style="color: var(--gray-500);">Performance note:</strong> Over 33,000 MSigDB gene sets are available. A large analysis can be slow or freeze the browser. For heavy analyses, let Enrich write an R script (fgsea), run it in R, and upload the results here to use the plots.
                 </div>
             </div>
@@ -2804,6 +2804,13 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.45</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>Enrichment Plot: highlighted gene names now sit below the x-axis title, in the gap above the correlated labels, in a larger font. "Highlighted genes" is a new entry in the Aa text settings so font, size and visibility can be changed. Highlights survive redraws and gene set changes.</li>
+                <li>Search Genes: a name that is not in your data gets "Did you mean" buttons with the closest spellings (as in Green Listed and Correlate), and aliases such as CD279 are resolved to the official symbol (PDCD1) when that is in the data. Click a button to use it.</li>
+                <li>Top &amp; Bottom Genes: headings and help text now say "enriched / depleted in the screen" for CRISPR data and "upregulated / downregulated" for expression data</li>
+                <li>Layout: a little more air between the nav links and the content, a narrower sidebar (380 px), and the welcome text is left aligned with the rest of the app</li>
+            </ul>
             <p><strong>v.44.6</strong> <span style="color:#888;">(2026-09-17)</span></p>
             <ul>
                 <li>Upload card and welcome text use the same words: "Upload your data set" and "load example data"; the file hint now fills two full lines; "Or load example data" is left aligned like the other section labels</li>
@@ -3246,6 +3253,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=83"></script>
+<script src="app.js?v=84"></script>
 </body>
 </html>

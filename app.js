@@ -91,7 +91,8 @@ class GSEAApp {
                 { key: 'posLabel', label: 'Positive label', editable: true, defaultText: 'Positively correlated', defaultSize: 12 },
                 { key: 'negLabel', label: 'Negative label', editable: true, defaultText: 'Negatively correlated', defaultSize: 12 },
                 { key: 'esTickFont', label: 'ES axis ticks', editable: false, defaultSize: 11 },
-                { key: 'tickFont', label: 'Metric axis ticks', editable: false, defaultSize: 11 }
+                { key: 'tickFont', label: 'Metric axis ticks', editable: false, defaultSize: 11 },
+                { key: 'geneHighlight', label: 'Highlighted genes', editable: false, defaultSize: 12 }
             ],
             overlap: [
                 { key: 'title', label: 'Title', editable: true, defaultText: 'Gene Set Overlap', defaultSize: 14 },
@@ -167,6 +168,7 @@ class GSEAApp {
             const sel = document.getElementById('geneSetSelector');
             if (sel && sel.value) this.renderGeneSetInfo(sel.value);
             if (this.results) this.updateSettings();
+            if (this.rankedList) this.renderTopBottomGenes();
         });
         document.getElementById('dataTypeInline').addEventListener('change', (e) => {
             this.settings.dataType = e.target.value;
@@ -174,6 +176,7 @@ class GSEAApp {
             const sel = document.getElementById('geneSetSelector');
             if (sel && sel.value) this.renderGeneSetInfo(sel.value);
             if (this.results) this.updateSettings();
+            if (this.rankedList) this.renderTopBottomGenes();
         });
 
         // Gene set collection checkboxes
@@ -3029,7 +3032,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             if (esPosFont.visible) {
                 annotations.push({
                     text: esPosFont.wrap(esPosFont.text || esPosLabel),
-                    xref: 'paper', yref: 'paper', x: 0.0, y: -0.14,
+                    xref: 'paper', yref: 'paper', x: 0.0, y: -0.17,
                     showarrow: false,
                     font: { size: esPosFont.size, family: esPosFont.family, color: s.positiveColor },
                     xanchor: 'left', yanchor: 'top'
@@ -3038,7 +3041,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             if (esNegFont.visible) {
                 annotations.push({
                     text: esNegFont.wrap(esNegFont.text || esNegLabel),
-                    xref: 'paper', yref: 'paper', x: 1.0, y: -0.14,
+                    xref: 'paper', yref: 'paper', x: 1.0, y: -0.17,
                     showarrow: false,
                     font: { size: esNegFont.size, family: esNegFont.family, color: s.negativeColor },
                     xanchor: 'right', yanchor: 'top'
@@ -3182,6 +3185,11 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 edits: { annotationPosition: true, annotationTail: true, annotationText: true, axisTitleText: false, titleText: false, legendPosition: true, colorbarPosition: true }
             }
         );
+        // Keep highlighted genes when the plot is redrawn, for the current gene set's membership
+        if (this._highlightedGeneData && this._highlightedGeneData.length) {
+            const hits = new Set((result.hits || []).map(i => this.rankedList.genes[i]));
+            this._highlightGenesOnPlot(this._highlightedGeneData.map(g => ({ ...g, inGeneSet: hits.has(g.gene) })));
+        }
     }
 
     // --------------------------------------------------------
@@ -3482,10 +3490,30 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             html += '</table>';
         }
         if (notFound.length > 0) {
-            html += `<div style="color: #dc2626; margin-top: 4px; font-size: 0.95em;">Not found: ${notFound.join(', ')}</div>`;
+            html += `<div style="color: #dc2626; margin-top: 6px; font-size: 0.95em;">Not found: ${notFound.map(g => this._escText(g)).join(', ')}</div>`;
+            for (const g of notFound) {
+                const sugg = this._suggestGenes(g);
+                html += `<div id="sugg-${this._escText(g)}" style="margin: 2px 0 0 0; font-size: 0.92em; color: #6b7280;">`;
+                if (sugg.length) {
+                    html += `Did you mean (for ${this._escText(g)}): ` + sugg.map(sg =>
+                        `<button class="btn btn-outline btn-xs" style="margin: 1px 2px;" onclick="app._useSuggestedGene('${this._escText(g)}','${sg}')">${sg}</button>`).join('');
+                } else {
+                    html += `No similar name in your data for ${this._escText(g)}.`;
+                }
+                html += `</div>`;
+            }
         }
 
         resultsEl.innerHTML = html;
+
+        // Aliases and old names (e.g. CD279 for PDCD1) resolve through mygene.info
+        for (const g of notFound) {
+            this._aliasInData(g).then(sym => {
+                if (!sym) return;
+                const box = document.getElementById(`sugg-${g}`);
+                if (box) box.insertAdjacentHTML('beforeend', ` <span style="color:#4b5563;">${g} is an alias of <button class="btn btn-outline btn-xs" style="margin: 1px 2px;" onclick="app._useSuggestedGene('${g}','${sym}')">${sym}</button></span>`);
+            });
+        }
 
         // Highlight on the ES plot if it's showing
         this._highlightGenesOnPlot(allFound.map(f => ({ gene: f.gene, rank: f.rank, inGeneSet: f.inGeneSet })));
@@ -3500,7 +3528,15 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         const currentShapes = (currentLayout.shapes || []).filter(s => !s._isHighlight);
         const currentAnnotations = (currentLayout.annotations || []).filter(a => !a._isHighlight);
 
-        for (const g of geneData) {
+        // Labels of genes that sit close together go on a second row so they do not overlap
+        const N = this.rankedList ? this.rankedList.genes.length : 1;
+        const sorted = geneData.slice().sort((a, b) => a.rank - b.rank);
+        let lastRank = -Infinity, lastRow = 1;
+        for (const g of sorted) {
+            g._row = (g.rank - lastRank) < N * 0.11 ? (lastRow === 1 ? 2 : 1) : 1;
+            lastRank = g.rank; lastRow = g._row;
+        }
+        for (const g of sorted) {
             const lineColor = g.inGeneSet ? 'rgba(255, 140, 0, 0.7)' : 'rgba(100, 100, 255, 0.5)';
             const lineStyle = g.inGeneSet ? 'dot' : 'dashdot';
             const labelColor = g.inGeneSet ? '#e65100' : '#4444cc';
@@ -3513,32 +3549,90 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 line: { color: lineColor, width: 2, dash: lineStyle },
                 _isHighlight: true
             });
-            // Gene name label BELOW the graph (in the margin area)
+            // Gene name label in the gap below the x-axis title and above the
+            // "Positively / Negatively correlated" labels. Font and size come from
+            // the Enrichment Plot text settings ("Highlighted genes").
             const suffix = g.inGeneSet === false ? ' *' : '';
+            const hlFont = this._getTextFont('es', 'geneHighlight');
+            if (hlFont.visible === false) continue;
             currentAnnotations.push({
-                text: `<b>${g.gene}${suffix}</b>`,
+                text: hlFont.wrap(`<b>${g.gene}${suffix}</b>`),
                 x: g.rank,
-                y: -0.02,
+                y: g._row === 2 ? -0.13 : -0.095,
                 xref: 'x3', yref: 'paper',
-                showarrow: true,
-                arrowhead: 0,
-                arrowwidth: 1,
-                arrowcolor: lineColor,
-                ax: 0, ay: 18,
-                font: { size: 9, color: labelColor, family: this.settings.fontFamily + ', sans-serif' },
+                showarrow: false,
+                font: { size: hlFont.size, color: labelColor, family: hlFont.family },
                 bgcolor: 'rgba(255,255,255,0.85)',
                 borderpad: 2,
-                xanchor: 'center',
+                xanchor: 'center', yanchor: 'top',
                 _isHighlight: true
             });
         }
 
+        this._highlightedGeneData = geneData;
         Plotly.relayout('esPlot', { shapes: currentShapes, annotations: currentAnnotations });
+    }
+
+    // Closest gene symbols in the ranked list for a symbol that was not found:
+    // prefix matches first, then names within two edits (digits kept in place
+    // break ties), the same rule Green Listed uses. Local and instant.
+    _suggestGenes(query, cap = 5) {
+        if (!this.rankedList) return [];
+        const q = String(query).toUpperCase().trim();
+        if (q.length < 3) return [];
+        const keys = this.rankedList.genes;
+        const matches = [];
+        for (const k of keys) if (k.startsWith(q) || q.startsWith(k)) matches.push(k);
+        matches.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        if (matches.length < cap) {
+            const seen = new Set(matches);
+            const shape = t => t.replace(/[0-9]/g, '0').replace(/[A-Z]/g, 'A');
+            const dist = (a, b) => {
+                const m = a.length, n = b.length;
+                let prev = Array.from({ length: n + 1 }, (_, i) => i), cur = new Array(n + 1);
+                for (let i = 1; i <= m; i++) {
+                    cur[0] = i;
+                    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+                    [prev, cur] = [cur, prev];
+                }
+                return prev[n];
+            };
+            const scored = [];
+            const qs = shape(q);
+            for (const k of keys) {
+                if (seen.has(k) || Math.abs(k.length - q.length) > 2) continue;
+                const d = dist(q, k);
+                if (d <= 2) scored.push({ k, d, sh: dist(qs, shape(k)) });
+            }
+            scored.sort((a, b) => a.d - b.d || a.sh - b.sh || a.k.localeCompare(b.k));
+            for (const x of scored) { matches.push(x.k); if (matches.length >= cap) break; }
+        }
+        return matches.slice(0, cap);
+    }
+
+    // Official symbol for an alias or old name, via mygene.info; only returned
+    // when that symbol is actually in the ranked list.
+    async _aliasInData(query) {
+        try {
+            const res = await fetch(`https://mygene.info/v3/query?q=${encodeURIComponent(query)}&scopes=alias,symbol&fields=symbol&species=human&size=5`);
+            const data = await res.json();
+            const hits = (data.hits || []).map(h => String(h.symbol || '').toUpperCase());
+            return hits.find(sym => sym && sym !== query && this.rankedList.genes.includes(sym)) || null;
+        } catch (e) { return null; }
+    }
+
+    // Swap a misspelt symbol for the chosen one in the search box and search again.
+    _useSuggestedGene(wrong, right) {
+        const box = document.getElementById('geneSearchInput');
+        const esc = wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        box.value = box.value.replace(new RegExp(`(^|[\\s,;])${esc}(?=[\\s,;]|$)`, 'i'), (m, lead) => `${lead}${right}`);
+        this.searchGenes();
     }
 
     clearGeneSearch() {
         document.getElementById('geneSearchInput').value = '';
         document.getElementById('geneSearchResults').innerHTML = '';
+        this._highlightedGeneData = null;
         // Remove highlight shapes and annotations
         const plotEl = document.getElementById('esPlot');
         if (plotEl && plotEl.layout) {
@@ -3558,8 +3652,15 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         const metrics = this.rankedList.metrics;
         const metricLabel = document.getElementById('metricColumn').value || 'metric';
         const el = document.getElementById('topBottomGenes');
+        const isCrispr = (this.settings.dataType || document.getElementById('dataType')?.value) === 'crispr';
+        const topNote = isCrispr ? 'highest ' + metricLabel + ', enriched in the screen' : 'highest ' + metricLabel + ', most upregulated';
+        const botNote = isCrispr ? 'lowest ' + metricLabel + ', depleted in the screen' : 'lowest ' + metricLabel + ', most downregulated';
+        const tip = el.closest('.card')?.querySelector('.card-title .info-tooltip');
+        if (tip) tip.textContent = isCrispr
+            ? 'The genes with the highest and lowest ' + metricLabel + ' in your data. In a CRISPR screen the top genes are the most enriched (positively selected) and the bottom genes the most depleted (negatively selected, often essential).'
+            : 'The genes with the highest and lowest ' + metricLabel + ' in your data. The top genes are the most upregulated and the bottom genes the most downregulated.';
 
-        let html = '<div style="font-weight: 600; color: #dc2626; margin-bottom: 3px;">Top ' + n + ' in your dataset <span style="font-weight:400;color:#888;font-size:0.9em;">(highest ' + metricLabel + ')</span></div>';
+        let html = '<div style="font-weight: 600; color: #dc2626; margin-bottom: 3px;">Top ' + n + ' in your dataset <span style="font-weight:400;color:#888;font-size:0.9em;">(' + topNote + ')</span></div>';
         html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">';
         for (let i = 0; i < Math.min(n, genes.length); i++) {
             html += `<tr style="border-bottom: 1px solid #f0f0f0;">
@@ -3569,7 +3670,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         }
         html += '</table>';
 
-        html += '<div style="font-weight: 600; color: #2563eb; margin-bottom: 3px;">Bottom ' + n + ' in your dataset <span style="font-weight:400;color:#888;font-size:0.9em;">(lowest ' + metricLabel + ')</span></div>';
+        html += '<div style="font-weight: 600; color: #2563eb; margin-bottom: 3px;">Bottom ' + n + ' in your dataset <span style="font-weight:400;color:#888;font-size:0.9em;">(' + botNote + ')</span></div>';
         html += '<table style="width: 100%; border-collapse: collapse;">';
         for (let i = genes.length - 1; i >= Math.max(0, genes.length - n); i--) {
             html += `<tr style="border-bottom: 1px solid #f0f0f0;">
