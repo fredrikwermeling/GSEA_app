@@ -46,9 +46,8 @@ Gene sets from [MSigDB](https://www.gsea-msigdb.org/) v2023.2. Custom GMT files 
 
 ## Logo and design assets
 
-- `logo-word.svg` — outline-traced "Enrich" wordmark (Open Sans 700, fill `#83AA3D`, the same face and green as the Green Listed wordmark). Regenerate with fontTools from `greenlistedv2/fonts/open-sans-latin.woff2` if the name changes.
-- `logo-mark.svg` — running-enrichment-score curve over a gene-hit barcode, shown to the right of the wordmark.
-- `favicon.svg` / `favicon.png` — bolder variant of the mark.
+- `enrich-logo.png` — the lab's logo (wordmark, dandelion i-dot, strapline), transparent PNG, shown at 550 px wide like the Correlate logo. Source files are kept outside git in `.old_logos_unused/`.
+- `favicon.png` (512 px) and `apple-touch-icon.png` (180 px) — the dandelion clock.
 - Colour tokens live in `:root` in `index.html` and are copied verbatim from Green Listed / Correlate (accent `--green-600: #6ba544`).
 
 ## Adding custom gene set collections

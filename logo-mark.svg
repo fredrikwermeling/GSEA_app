@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="">
-<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9dc25a"/><stop offset="1" stop-color="#83AA3D"/></linearGradient></defs>
-<path d="M4,76 C10,76 16,12 30,10 C44,8 52,40 70,56 C86,70 100,74 116,76 Z" fill="url(#g)"/>
-<path d="M4,76 C10,76 16,12 30,10 C44,8 52,40 70,56 C86,70 100,74 116,76" fill="none" stroke="#5d9239" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M4,76 H116" stroke="#b2dd95" stroke-width="1.5" stroke-linecap="round"/>
-<path d="M6.0,84 v12 M7.7,84 v12 M9.4,84 v12 M11.2,84 v12 M13.0,84 v12 M14.8,84 v12 M16.8,84 v12 M18.8,84 v12 M20.9,84 v12 M23.1,84 v12 M25.3,84 v12 M27.7,84 v12 M30.2,84 v12 M32.9,84 v12 M35.7,84 v12 M38.6,84 v12 M41.8,84 v12 M45.1,84 v12 M48.7,84 v12 M52.6,84 v12 M56.7,84 v12 M61.2,84 v12 M66.0,84 v12 M71.3,84 v12 M77.0,84 v12 M83.3,84 v12 M90.2,84 v12 M97.8,84 v12 M106.2,84 v12 M115.6,84 v12" stroke="#6ba544" stroke-width="1.8" stroke-linecap="round"/>
-</svg>
