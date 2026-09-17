@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enrich - Gene Set Enrichment Analysis</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=45">
-    <link rel="icon" type="image/png" href="favicon.png?v=45">
-    <link rel="apple-touch-icon" href="favicon.png?v=45">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=46">
+    <link rel="icon" type="image/png" href="favicon.png?v=46">
+    <link rel="apple-touch-icon" href="favicon.png?v=46">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Aptos+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -126,16 +126,17 @@
            Header & Nav
            ============================================ */
         /* Brand lockup, same construction as Green Listed: an outline-traced SVG
-           wordmark (the dot of the i is a dandelion clock with seeds drifting off)
-           and a live-text strapline in the wordmark's green. Sized in
-           container-query units so the parts hold their proportions at any width. */
+           wordmark, a live-text strapline in the wordmark's green, and a mark on the
+           right (a running enrichment score curve over the gene-hit barcode). Every
+           part is sized in container-query units so the three hold their
+           proportions at any width. */
         .brand-header {
             display: flex;
             justify-content: center;
             padding: 12px 20px 0;
         }
         .brand {
-            width: 430px;
+            width: 540px;
             max-width: 100%;
             container-type: inline-size;
             display: flex;
@@ -149,17 +150,22 @@
             flex: 0 0 auto;
         }
         .brandWord {
-            width: 78cqw;
+            width: 58cqw;
             height: auto;
             display: block;
         }
         .brandTag {
-            font-size: 3.6cqw;
+            font-size: 3.35cqw;
             color: var(--logo-green);
             white-space: nowrap;
             line-height: 1.2;
-            margin: 0.9cqw 0 0 0.7cqw;
+            margin: 1.1cqw 0 0 0.5cqw;
             letter-spacing: 0.01em;
+        }
+        .brandMark {
+            width: 20cqw;
+            height: auto;
+            margin: 0 0 0.6cqw 3cqw;
         }
         .example-data-grid { display: flex; flex-direction: column; gap: 1px; }
         .example-row {
@@ -1601,9 +1607,10 @@
 <header class="brand-header">
     <div class="brand" role="img" aria-label="Enrich &mdash; a gene set enrichment analysis (GSEA) tool">
         <span class="brandText">
-            <img class="brandWord" src="logo-word.svg?v=45" alt="">
+            <img class="brandWord" src="logo-word.svg?v=46" alt="">
             <span class="brandTag" aria-hidden="true">&ndash;&nbsp;a gene set enrichment (GSEA) tool</span>
         </span>
+        <img class="brandMark" src="logo-mark.svg?v=46" alt="">
     </div>
 </header>
 
@@ -1616,7 +1623,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.43.5</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.43.6</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2830,6 +2837,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.43.6</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>Logo reverted to the v.43 design: wordmark plus the enrichment-curve mark (no plant, no dandelion), keeping the fix for the clipped "h"</li>
+            </ul>
             <p><strong>v.43.5</strong> <span style="color:#888;">(2026-09-17)</span></p>
             <ul>
                 <li>Logo: the dot of the i is now a dandelion clock with three seeds drifting off; the plant mark is gone. Favicon is the dandelion clock.</li>
