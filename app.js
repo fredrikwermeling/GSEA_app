@@ -3352,10 +3352,13 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             rows.push({ rank: hitIdx, gene, metric, es, isLE });
         }
 
-        // Sort
+        // Sort. Leading-edge genes always come first; the chosen column then
+        // orders within the Yes group and within the No group. Clicking the
+        // Leading Edge header itself still toggles which group is on top.
         const col = this.detailSortCol;
         const asc = this.detailSortAsc;
         rows.sort((a, b) => {
+            if (col !== 'isLE' && a.isLE !== b.isLE) return a.isLE ? -1 : 1;
             let va = a[col], vb = b[col];
             if (col === 'gene') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
             if (col === 'isLE') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
