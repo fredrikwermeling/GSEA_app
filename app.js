@@ -3278,8 +3278,9 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         const previewGenes = geneSetGenes.slice(0, 10).join(', ');
         const hasMore = geneCount > 10;
 
+        const collection = result.collection || this._getSetCollection(geneSetName);
         el.innerHTML = `
-            <div style="font-weight: 600; margin-bottom: 6px; line-height: 1.3; word-break: break-word;">${displayName}</div>
+            <div style="font-weight: 600; margin-bottom: 6px; line-height: 1.3; word-break: break-word;">${displayName} <span class="coll-chip" title="Source collection (MSigDB)" style="vertical-align: middle; margin-left: 4px;">${collection}</span></div>
             <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 0.95em;">
                 <span style="color: var(--gray-500);">NES:</span>
                 <span style="font-weight: 600; color: ${dirColor};">${result.nes.toFixed(3)}</span>
