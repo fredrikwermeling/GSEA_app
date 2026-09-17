@@ -30,13 +30,13 @@ CELL_LINES = {
     'A375':  'ACH-000219',  # Skin cancer (Melanoma)
     'A549':  'ACH-000681',  # Lung cancer (Adenocarcinoma)
     'HT29':  'ACH-000552',  # Colon cancer (Colorectal)
-    'Raji':  'ACH-000007',  # Blood cancer (B-cell Lymphoma)
+    'Raji':  'ACH-000654',  # Blood cancer (Burkitt lymphoma, B cell); ACH-000007 is LS513 (colon)
     'U251':  'ACH-000232',  # Brain cancer (Glioblastoma)
 }
 
 OUTPUT_DIR = 'web_data'
 
-# DepMap file URLs (25Q3 release)
+# DepMap file URLs (25Q3 release; the shipped files were built from a local 26Q1 copy, see web_data/.cache)
 EXPRESSION_URL = 'https://depmap.org/portal/download/api/download?file_name=downloads-by-canonical-id%2Fpublic-25q3-b56c.80%2FOmicsExpressionTPMLogp1HumanProteinCodingGenes.csv&dl_name=OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv&bucket=depmap-external-downloads'
 CRISPR_URL = 'https://depmap.org/portal/download/api/download?file_name=downloads-by-canonical-id%2F25q3-public-6202.1%2FCRISPRGeneEffect.csv&dl_name=CRISPRGeneEffect.csv&bucket=depmap-external-downloads'
 

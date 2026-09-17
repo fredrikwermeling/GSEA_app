@@ -1612,7 +1612,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.45.4</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.45.5</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2826,6 +2826,11 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.45.5</strong> <span style="color:#888;">(2026-09-17)</span></p>
+            <ul>
+                <li>Fix: the "Raji" example data was built from the wrong DepMap model (ACH-000007 is LS513, a colorectal line). It now uses ACH-000654, the real Raji, and shows B-cell biology: JCHAIN, HLA-DRA and CD79A at the top and immune gene sets enriched.</li>
+                <li>All ten example files (expression and CRISPR) are now built from the same DepMap release, 26Q1</li>
+            </ul>
             <p><strong>v.45.4</strong> <span style="color:#888;">(2026-09-17)</span></p>
             <ul>
                 <li>Example expression data is now a log2 fold change of the cell line versus the median of all DepMap cell lines (column log2FC_vs_median), instead of a robust z-score that ran up to 300 and was hard to read. A ? next to "DepMap cancer cell line data" explains both example metrics. Expression matrix from DepMap 26Q1.</li>
