@@ -4931,6 +4931,13 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
     // --------------------------------------------------------
     // Results Table
     // --------------------------------------------------------
+    _toggleOverlapNote() {
+        this._overlapNoteOpen = !this._overlapNoteOpen;
+        const more = document.getElementById('overlapNoteMore'), tog = document.getElementById('overlapNoteToggle');
+        if (more) more.style.display = this._overlapNoteOpen ? 'inline' : 'none';
+        if (tog) tog.textContent = this._overlapNoteOpen ? 'Show fewer' : `Show all ${(this._lastOverlapRemoved || []).length}`;
+    }
+
     filterAndRenderTable() {
         if (!this.results) return;
 
@@ -5003,7 +5010,19 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         if (noteEl) {
             const rem = overlapVal !== '0' ? (this._lastOverlapRemoved || []) : [];
             if (!rem.length) noteEl.innerHTML = overlapVal !== '0' ? `<span style="color: var(--gray-500);">Redundancy filter on (\u2265 ${overlapVal}% of a set's genes shared with a stronger set): none of the ${filtered.length} shown shares that much, so none was hidden.</span>` : '';
-            else noteEl.innerHTML = `<span style="color: var(--gray-600);"><b>${rem.length} set${rem.length > 1 ? 's' : ''} hidden as redundant</b> (\u2265 ${overlapVal}% of the smaller set's genes shared with a stronger set, which is kept): </span>` + rem.map(x => `<span title="${this._escapeAttr(this.describeSet(x.name))}">${this.cleanName(x.name)}</span> <span style="color: var(--gray-500);">(${Math.round(x.jaccard * 100)}% with ${this.cleanName(x.by)})</span>`).join('; ') + `. <a href="#" onclick="document.getElementById('tableOverlapFilter').value='0'; document.getElementById('tableOverlapFilter').dispatchEvent(new Event('change')); return false;">Show them</a>`;
+            else {
+                // a long list would push the table down the page: show the first
+                // few, the rest fold out on request
+                const item = x => `<span title="${this._escapeAttr(this.describeSet(x.name))}">${this.cleanName(x.name)}</span> <span style="color: var(--gray-500);">(${Math.round(x.jaccard * 100)}% with ${this.cleanName(x.by)})</span>`;
+                const nShow = 5, head = rem.slice(0, nShow), tail = rem.slice(nShow);
+                const expanded = !!this._overlapNoteOpen;
+                noteEl.innerHTML = `<span style="color: var(--gray-600);"><b>${rem.length} set${rem.length > 1 ? 's' : ''} hidden as redundant</b> (\u2265 ${overlapVal}% of the smaller set's genes shared with a stronger set, which is kept): </span>`
+                    + head.map(item).join('; ')
+                    + (tail.length ? `<span id="overlapNoteMore" style="display: ${expanded ? 'inline' : 'none'};">; ` + tail.map(item).join('; ') + `</span>` : '')
+                    + `. `
+                    + (tail.length ? `<a href="#" id="overlapNoteToggle" onclick="app._toggleOverlapNote(); return false;" style="white-space: nowrap;">${expanded ? 'Show fewer' : `Show all ${rem.length}`}</a> &middot; ` : '')
+                    + `<a href="#" onclick="document.getElementById('tableOverlapFilter').value='0'; document.getElementById('tableOverlapFilter').dispatchEvent(new Event('change')); return false;" style="white-space: nowrap;">Turn the filter off</a>`;
+            }
         }
 
         // Update count
