@@ -4374,6 +4374,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
      * Returns filtered array.
      */
     _applyOverlapFilter(results, thresholdPct) {
+        this._lastOverlapRemoved = [];
         if (!thresholdPct || thresholdPct <= 0 || !this._overlapCache) return results;
         const threshold = thresholdPct / 100;
 
@@ -4398,6 +4399,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 const jaccard = this._getCachedJaccard(r.name, other.name);
                 if (jaccard >= threshold) {
                     removed.add(other.name);
+                    this._lastOverlapRemoved.push({ name: other.name, by: r.name, jaccard });
                 }
             }
         }
@@ -4931,11 +4933,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         if (this._hiddenSets.size > 0) {
             filtered = filtered.filter(r => !this._hiddenSets.has(r.name));
         }
-        // Apply overlap redundancy filter
         const overlapVal = document.getElementById('tableOverlapFilter') ? document.getElementById('tableOverlapFilter').value : '0';
-        if (overlapVal !== '0') {
-            filtered = this._applyOverlapFilter(filtered, parseInt(overlapVal));
-        }
 
         // Source collection (Hallmark, KEGG, Reactome, GO:BP, ...) for each set,
         // cached on the result so sorting and the CSV export can use it.
@@ -4956,6 +4954,13 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             filtered = filtered.filter(r => r.nes > 0);
         } else if (dirVal === 'down') {
             filtered = filtered.filter(r => r.nes < 0);
+        }
+
+        // Redundancy filter, applied to the sets that pass the other filters so
+        // that a non-significant set can neither hide a significant one nor be
+        // reported as hidden when the FDR filter had already removed it
+        if (overlapVal !== '0') {
+            filtered = this._applyOverlapFilter(filtered, parseInt(overlapVal));
         }
 
         // Sort
@@ -4979,6 +4984,14 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         if (typeof DESC_load === 'function' && !DESC.map && !this._descRequested) {
             this._descRequested = true;
             DESC_load().then(() => { if (this.results) this.filterAndRenderTable(); });
+        }
+
+        // Say which sets the redundancy filter hid, and why
+        const noteEl = document.getElementById('overlapFilterNote');
+        if (noteEl) {
+            const rem = overlapVal !== '0' ? (this._lastOverlapRemoved || []) : [];
+            if (!rem.length) noteEl.innerHTML = overlapVal !== '0' ? `<span style="color: var(--gray-500);">Redundancy filter on (Jaccard \u2265 ${overlapVal}%): no set among the ${filtered.length} shown shares that much with a stronger set, so none was hidden.</span>` : '';
+            else noteEl.innerHTML = `<span style="color: var(--gray-600);"><b>${rem.length} set${rem.length > 1 ? 's' : ''} hidden as redundant</b> (Jaccard \u2265 ${overlapVal}% with a stronger set, kept set in brackets): </span>` + rem.map(x => `<span title="${this._escapeAttr(this.describeSet(x.name))}">${this.cleanName(x.name)}</span> <span style="color: var(--gray-500);">(${Math.round(x.jaccard * 100)}% with ${this.cleanName(x.by)})</span>`).join('; ') + `. <a href="#" onclick="document.getElementById('tableOverlapFilter').value='0'; document.getElementById('tableOverlapFilter').dispatchEvent(new Event('change')); return false;">Show them</a>`;
         }
 
         // Update count
