@@ -14,7 +14,7 @@
 //
 
 const HELP_DELAY_MS = 550;
-const HELP_SELECTOR = 'button[title], label[title], a[title], span[title]:not(.info-icon), option[title], select[title], input[title], th[title], [data-help]';
+const HELP_SELECTOR = 'button[title], label[title], a[title], span[title]:not(.info-icon), option[title], select[title], input[title], th[title], td[title], [data-help]';
 
 document.addEventListener("DOMContentLoaded", () => {
     let timer = null;

@@ -3362,6 +3362,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         const collection = result.collection || this._getSetCollection(geneSetName);
         el.innerHTML = `
             <div style="font-weight: 600; margin-bottom: 6px; line-height: 1.3; word-break: break-word;">${displayName} <span class="coll-chip" title="Source collection (MSigDB)" style="vertical-align: middle; margin-left: 4px;">${collection}</span></div>
+            ${(() => { const d = typeof DESC_get === 'function' ? DESC_get(geneSetName) : null; return d ? `<div style="font-size: 0.85em; color: var(--gray-600); margin: -2px 0 8px; line-height: 1.4;">${this._escText(d.d)}${d.p ? ` <a href="https://pubmed.ncbi.nlm.nih.gov/${d.p}/" target="_blank" rel="noopener" style="color: var(--green-700);">PubMed</a>` : ''}</div>` : ''; })()}
             <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 0.95em;">
                 <span style="color: var(--gray-500);">NES:</span>
                 <span style="font-weight: 600; color: ${dirColor};">${result.nes.toFixed(3)}</span>
@@ -4709,7 +4710,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
             html += `<tr class="gsf-row" data-name="${this._escapeAttr(r.name)}" style="border-bottom: 1px solid #f5f5f5; ${hidden ? 'opacity: 0.45;' : ''}">`;
             html += `<td style="padding: 3px 6px;"><input type="checkbox" class="gsf-check" data-name="${this._escapeAttr(r.name)}" ${hidden ? '' : 'checked'}></td>`;
-            html += `<td style="padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="${this._escapeAttr(r.name)}">${this.cleanName(r.name)}</td>`;
+            html += `<td style="padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="${this._escapeAttr(typeof DESC_get === 'function' && DESC_get(r.name) ? this.describeSet(r.name) : r.name)}">${this.cleanName(r.name)}</td>`;
             html += `<td style="padding: 3px 6px; text-align: right; font-family: Roboto Mono, monospace; color: var(--gray-500);">${r.size}</td>`;
             html += `<td style="padding: 3px 6px; text-align: right; color: ${nesColor}; font-family: Roboto Mono, monospace;">${r.nes.toFixed(2)}</td>`;
             html += `<td style="padding: 3px 6px; text-align: right; font-family: Roboto Mono, monospace;">${fdrStr}</td>`;
@@ -4972,6 +4973,12 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             return 0;
         });
 
+        // Gene set descriptions arrive once; redraw so the hover text has them
+        if (typeof DESC_load === 'function' && !DESC.map && !this._descRequested) {
+            this._descRequested = true;
+            DESC_load().then(() => { if (this.results) this.filterAndRenderTable(); });
+        }
+
         // Update count
         document.getElementById('resultCount').textContent =
             `${filtered.length} of ${this.results.length} gene sets`;
@@ -4987,7 +4994,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 <td style="width:28px;padding:2px;text-align:center;cursor:pointer" class="pin-cell" title="${isPinned ? 'Unpin from overview' : 'Pin to overview (lollipop plot)'}">
                     <span style="opacity:${isPinned ? '1' : '0.25'};font-size:13px">&#128204;</span>
                 </td>
-                <td title="${r.name}">${this.cleanName(r.name)}</td>
+                <td title="${this._escText(typeof DESC_get === 'function' && DESC_get(r.name) ? this.describeSet(r.name) : r.name)}">${this.cleanName(r.name)}</td>
                 <td><span class="coll-chip" title="Source collection (MSigDB)">${r.collection}</span></td>
                 <td>${r.size}</td>
                 <td class="${r.es >= 0 ? 'positive' : 'negative'}">${r.es.toFixed(4)}</td>
