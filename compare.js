@@ -295,25 +295,18 @@ Object.assign(GSEAApp.prototype, {
         this.renderGeneSetHeatmap();
     },
 
+    // A single loaded line: the heatmap is that line alone, one column, the
+    // gene set's genes sorted by value.
     async _buildPeerData(id, type) {
         const idx = await DEPMAP_index();
         const t = idx[type];
         const me = t.cellLines.findIndex(c => c.id === id);
         if (me < 0) throw new Error('cell line not in the DepMap ' + type + ' data');
         const mine = t.cellLines[me];
-        let peers = t.cellLines.map((c, i) => ({ c, i })).filter(x => x.i !== me && x.c.disease && x.c.disease === mine.disease);
-        let how = `other ${mine.disease} lines`;
-        if (peers.length < 5) { peers = t.cellLines.map((c, i) => ({ c, i })).filter(x => x.i !== me && x.c.lineage && x.c.lineage === mine.lineage); how = `other ${mine.lineage} lines`; }
-        if (peers.length > 150) { peers = peers.slice(0, 150); how += ' (first 150)'; }
-        const rowsB = [];
-        for (let k = 0; k < peers.length; k++) {
-            document.getElementById('hmInfo').textContent = `Loading peer cell lines: ${k + 1} of ${peers.length}...`;
-            rowsB.push(await DEPMAP_rowValues(type, peers[k].i));
-        }
         const rowA = await DEPMAP_rowValues(type, me);
-        return { id, type, peer: true, genes: t.genes, geneIndex: new Map(t.genes.map((g, i) => [g, i])), mutGene: '',
-            A: { ids: [id], names: [mine.name], rows: [rowA], label: 'the loaded cell line' },
-            B: { ids: peers.map(p => p.c.id), names: peers.map(p => p.c.name), rows: rowsB, label: how } };
+        return { id, type, single: true, genes: t.genes, geneIndex: new Map(t.genes.map((g, i) => [g, i])), mutGene: '',
+            A: { ids: [id], names: [mine.name], rows: [rowA], label: [mine.lineage, mine.disease].filter(Boolean).join(', ') },
+            B: { ids: [], names: [], rows: [], label: '' } };
     },
 
     closeGeneSetHeatmap() {
@@ -326,7 +319,12 @@ Object.assign(GSEAApp.prototype, {
         const result = this.results && this.results.find(r => r.name === name);
         if (!d || !result) return;
         const leOnly = document.getElementById('hmLeadingOnly').checked;
-        const zscore = document.getElementById('hmZscore').checked;
+        const single = !!d.single;
+        // One column cannot be z-scored, and sorting columns means nothing
+        const zEl = document.getElementById('hmZscore');
+        zEl.disabled = single; if (single) zEl.checked = false;
+        ['hmSort', 'hmSortDir', 'hmSortGene', 'hmMutGene'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = single; });
+        const zscore = zEl.checked;
         const sortBy = document.getElementById('hmSort').value;
         const sortGene = (document.getElementById('hmSortGene').value || '').trim().toUpperCase();
         const stripGeneEl = document.getElementById('hmMutGene');
@@ -391,7 +389,7 @@ Object.assign(GSEAApp.prototype, {
             const vals = order.map(k => geneVals.get(g)[k]);
             const mA = mean(cols.map((c, k) => c.group === 'A' ? vals[k] : null)), mB = mean(cols.map((c, k) => c.group === 'B' ? vals[k] : null));
             return { g, vals, mA, mB, diff: (mA ?? 0) - (mB ?? 0) };
-        }).sort((a, b) => b.diff - a.diff);
+        }).sort((a, b) => single ? ((b.mA ?? -Infinity) - (a.mA ?? -Infinity)) : (b.diff - a.diff));
         const metricName = zscore ? 'z-score per gene' : (isCrispr ? 'Chronos gene effect' : 'log2 expression vs DepMap median');
         const yLabels = rows.map(r => (le.has(r.g) ? '\u2605 ' : '') + r.g);
         const z = rows.map(r => r.vals);
@@ -399,9 +397,9 @@ Object.assign(GSEAApp.prototype, {
         const zmax = zscore ? Math.min(absMax, 3) : Math.min(absMax, isCrispr ? 2 : 6);
         const showX = cols.length <= 80;
         // annotation strips below the map: group, mutation, disease, subtype, lineage
-        const strips = [{ key: 'group', label: d.peer ? 'Loaded / peer' : 'Group', vals: cols.map(c => c.group) }];
-        if (stripGene) strips.push({ key: 'mut', label: `${stripGene} mutation`, vals: cols.map(c => c.mut) });
-        for (const [key, label] of [['disease', 'Disease'], ['subtype', 'Subtype'], ['lineage', 'Tissue']]) {
+        const strips = single ? [] : [{ key: 'group', label: 'Group', vals: cols.map(c => c.group) }];
+        if (stripGene && !single) strips.push({ key: 'mut', label: `${stripGene} mutation`, vals: cols.map(c => c.mut) });
+        for (const [key, label] of single ? [] : [['disease', 'Disease'], ['subtype', 'Subtype'], ['lineage', 'Tissue']]) {
             const vals = cols.map(c => c[key]);
             if (new Set(vals).size > 1) strips.push({ key, label, vals });
         }
@@ -427,20 +425,21 @@ Object.assign(GSEAApp.prototype, {
         const total = mapH + stripH + (showX ? 120 : 40) + 120;
         const stripFrac = stripH / total, xlabFrac = (showX ? 110 : 30) / total;
         const yMain = [stripFrac + xlabFrac + 0.02, 1], yStrip = [xlabFrac, xlabFrac + stripFrac];
-        const lab = d.peer
-            ? (grp, n, l) => (grp === 'A' ? `<b>${this._escText(d.A.names[0])}</b> (loaded line)` : `<b>${n} peers</b>: ${l}`)
-            : (grp, n, l) => `<b>Group ${grp}</b> (${n} lines)${l ? ': ' + l : ''}`;
+        const lab = (grp, n, l) => `<b>Group ${grp}</b> (${n} lines)${l ? ': ' + l : ''}`;
         const layout = {
-            title: { text: `${this.cleanName(name)}<br><span style="font-size:11px;color:#6b7280">${metricName}; \u2605 = leading edge; rows sorted by mean A minus mean B</span>`, font: { size: 14 } },
-            xaxis: { domain: [0, 0.86], tickangle: -60, showticklabels: showX, tickfont: { size: 9 }, side: 'bottom', anchor: 'y2' },
+            width: single ? 520 : undefined,
+            title: { text: `${this.cleanName(name)}<br><span style="font-size:11px;color:#6b7280">${metricName}; \u2605 = leading edge; rows sorted ${single ? 'by value, high to low' : 'by mean A minus mean B'}</span>`, font: { size: 14 } },
+            xaxis: { domain: single ? [0.3, 0.7] : [0, 0.86], tickangle: single ? 0 : -60, showticklabels: showX, tickfont: { size: single ? 12 : 9 }, side: single ? 'top' : 'bottom', anchor: single ? 'y' : 'y2' },
             xaxis2: { domain: [0.875, 0.875 + Math.max(0.03, Math.min(0.07, 2 * 0.86 / cols.length * 1.3))], tickfont: { size: 9 }, side: 'top', anchor: 'y' },
             yaxis: { domain: yMain, autorange: 'reversed', tickfont: { size: 10 }, automargin: true },
             yaxis2: { domain: yStrip, autorange: 'reversed', tickfont: { size: 9 }, automargin: true },
             margin: { l: 120, r: 70, t: 110, b: showX ? 110 : 30 },
             height: total,
-            shapes: !['value', 'le', 'disease', 'subtype', 'lineage'].includes(sortBy)
+            shapes: !single && !['value', 'le', 'disease', 'subtype', 'lineage'].includes(sortBy)
                 ? [{ type: 'line', x0: nA - 0.5, x1: nA - 0.5, y0: 0, y1: 1, xref: 'x', yref: 'paper', line: { color: '#111', width: 2 } }] : [],
-            annotations: [
+            annotations: single ? [
+                { text: `<b>${this._escText(d.A.names[0])}</b>${d.A.label ? ' (' + this._escText(d.A.label) + ')' : ''}`, x: 0.5, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'center', yanchor: 'bottom', yshift: 18, showarrow: false, font: { size: 12, color: '#4c782e' } }
+            ] : [
                 { text: lab('A', nA, this._escText(d.A.label)), x: 0.0, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#4c782e' } },
                 { text: lab('B', nB, this._escText(d.B.label)), x: 0.86, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'right', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#6d28d9' } }
             ],
@@ -456,7 +455,8 @@ Object.assign(GSEAApp.prototype, {
             colorscale: 'RdBu', reversescale: true, showscale: false, hovertemplate: '%{y}<br>%{x}: %{z:.2f} (own colour range \u00b1' + mAbs.toFixed(2) + ')<extra></extra>', hoverongaps: false };
         const stripTrace = { type: 'heatmap', z: stripZ, x: colNames, y: strips.map(st => st.label), text: stripText, xaxis: 'x', yaxis: 'y2',
             zmin: 0, zmax: nCat, colorscale: catScale, showscale: false, hovertemplate: '%{x}<br>%{text}<extra></extra>', xgap: 0.5, ygap: 2 };
-        Plotly.newPlot('gsHeatmap', [main, means, stripTrace], layout, { responsive: true, displayModeBar: false, displaylogo: false });
+        if (single) { main.colorbar.x = 0.78; main.colorbar.len = 0.9; main.colorbar.y = 0.5; main.text = rows.map(r => [r.vals[0] === null ? '' : r.vals[0].toFixed(2)]); main.texttemplate = '%{text}'; main.textfont = { size: 10 }; }
+        Plotly.newPlot('gsHeatmap', single ? [main] : [main, means, stripTrace], layout, { responsive: true, displayModeBar: false, displaylogo: false });
         // legend for the strips
         const legend = document.getElementById('hmLegend');
         legend.innerHTML = strips.map(st => {
@@ -464,8 +464,8 @@ Object.assign(GSEAApp.prototype, {
             return `<span style="margin-right: 12px;"><b>${st.label}:</b> ` + cats.map(v => `<span style="display:inline-block; width:10px; height:10px; background:${catColor.get(st.key + ':' + v).color}; border:1px solid #ccc; vertical-align:middle; margin: 0 3px 0 6px;"></span>${this._escText(v || 'n/a')}`).join('') + '</span>';
         }).join('');
         const sortNote = ['group', 'mutation', 'disease', 'subtype', 'lineage'].includes(sortBy) ? '' : `, sorted by ${scoreLabel} ${desc ? 'high to low' : 'low to high'}${sortBy.endsWith('Within') ? ' within each group' : ''}`;
-        document.getElementById('hmInfo').textContent = d.peer
-            ? `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${d.A.names[0]} (first column, left of the divider) against ${nB} peer lines${sortNote}. Right: the loaded line's value and the mean of the peers, on their own colour range (\u00b1${mAbs.toFixed(2)}). The peers are the DepMap lines with the same disease; to choose the columns yourself, use Compare cell lines.`
+        document.getElementById('hmInfo').textContent = single
+            ? `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}, values of ${d.A.names[0]} (${metricName}), sorted high to low. To see other cell lines next to it, build a comparison with Compare cell lines.`
             : `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${cols.length} cell lines${sortNote}. The two columns on the right are the mean of each group, on their own colour range (\u00b1${mAbs.toFixed(2)}) so small differences stay visible.`;
     }
 });
