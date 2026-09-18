@@ -1650,7 +1650,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.54.4</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.54.5</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1659,9 +1659,10 @@
 <!-- Gene set heatmap popup (genes x cell lines of a comparison) -->
 <div class="how-to-use-popup" id="gsHeatmapPopup" style="width: 1100px; max-width: 96vw;">
     <button class="close-btn" onclick="app.closeGeneSetHeatmap()">&times;</button>
-    <h3 style="margin-bottom: 6px;">Gene set heatmap by cell line</h3>
+    <h3 style="margin-bottom: 6px;" id="hmTitle">Gene set heatmap by cell line</h3>
     <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; font-size: 0.9em;">
         <label style="cursor: pointer;" title="Show only the leading-edge genes, the ones that drive the enrichment"><input type="checkbox" id="hmLeadingOnly" onchange="app.renderGeneSetHeatmap()"> Leading edge only</label>
+        <span id="hmCmpControls" style="display: contents;">
         <label style="cursor: pointer;" title="Scale each gene to mean 0 and standard deviation 1 across the shown cell lines. On by default: genes that are essential (or highly expressed) in every line would otherwise paint the whole map one colour and hide the differences between the groups."><input type="checkbox" id="hmZscore" checked onchange="app.renderGeneSetHeatmap()"> z-score per gene</label>
         <span title="Order of the cell line columns"><b>Sort cell lines by</b>
             <select class="form-control" id="hmSort" style="width: auto; font-size: 0.9em; padding: 3px 6px; display: inline-block;" onchange="app.renderGeneSetHeatmap()">
@@ -1679,7 +1680,8 @@
         <select class="form-control" id="hmSortDir" style="width: auto; font-size: 0.9em; padding: 3px 6px; display: inline-block;" onchange="app.renderGeneSetHeatmap()" title="Direction of the value sort"><option value="desc">high to low</option><option value="asc">low to high</option></select>
         <input type="text" class="form-control" id="hmSortGene" placeholder="or one gene, e.g. MITF" style="width: 150px; font-size: 0.85em; padding: 3px 6px;" title="When sorting by value: use this one gene instead of the mean of all shown genes" oninput="app.renderGeneSetHeatmap()">
         <input type="text" class="form-control" id="hmMutGene" placeholder="mutation strip gene" style="width: 150px; font-size: 0.85em; padding: 3px 6px;" title="Gene whose mutation status (hotspot, damaging, wild type, no data) is shown as a strip under the map; starts as the gene used to build the comparison" oninput="app.renderGeneSetHeatmap()">
-        <button class="btn btn-outline btn-sm" onclick="app.exportImage('gsHeatmap')" title="Save the heatmap as PNG, SVG, PDF, TIFF or PowerPoint">Image...</button>
+        </span>
+        <button class="btn btn-outline btn-sm" onclick="app.exportImage('gsHeatmap')" title="Save the figure as PNG, SVG, PDF, TIFF or PowerPoint">Image...</button>
     </div>
     <div id="hmInfo" style="font-size: 0.85em; color: var(--gray-500); margin-bottom: 4px;"></div>
     <div id="gsHeatmap"></div>
@@ -3047,6 +3049,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.54.5</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>The single cell line view of a gene set is now a bar chart instead of a one-column heatmap: one bar per gene, leading edge genes in green, values printed beside the bars, sorted with the strongest genes on top and a dashed line at the mean of the set. The comparison-only controls (z-score, sorting, mutation strip) are hidden in this view.</li>
+            </ul>
             <p><strong>v.54.4</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>Heatmap for a single loaded cell line shows that line alone: one column with the gene set's genes sorted by value, leading edge starred, values printed in the cells. The peer lines added in v.54.2 are gone; use Compare cell lines to put other lines next to it.</li>
@@ -3618,8 +3624,8 @@
 
 <script src="helpPopout.js?v=2"></script>
 <script src="depmapService.js?v=4"></script>
-<script src="app.js?v=101"></script>
-<script src="compare.js?v=12"></script>
+<script src="app.js?v=102"></script>
+<script src="compare.js?v=14"></script>
 <script src="explain.js?v=1"></script>
 <script src="exportImage.js?v=2"></script>
 </body>

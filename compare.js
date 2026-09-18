@@ -309,6 +309,44 @@ Object.assign(GSEAApp.prototype, {
             B: { ids: [], names: [], rows: [], label: '' } };
     },
 
+    // One loaded cell line has nothing to compare against, so instead of a
+    // one-column heatmap the set is drawn as a bar chart: one bar per gene,
+    // leading-edge genes in green, sorted by value.
+    _renderSingleLineBars(d, result, name, genes, le, leOnly, isCrispr) {
+        const row = d.A.rows[0], lineName = d.A.names[0];
+        const metricName = isCrispr ? 'Chronos gene effect' : 'log2 expression vs DepMap median';
+        const rows = genes.map(g => ({ g, v: row[d.geneIndex.get(g)] })).filter(r => !isNaN(r.v));
+        // negative NES (CRISPR dependencies) reads best with the most negative gene on top
+        const neg = (result.nes || 0) < 0;
+        rows.sort((a, b) => neg ? a.v - b.v : b.v - a.v);
+        const green = '#5d9239', grey = '#c9ced6';
+        const n = rows.length, nLE = rows.filter(r => le.has(r.g)).length;
+        const meanAll = n ? rows.reduce((a, r) => a + r.v, 0) / n : 0;
+        // axis fitted to the data (CRISPR sets are mostly negative), zero always inside,
+        // with room for the printed value beside each bar
+        const minV = Math.min(0, ...rows.map(r => r.v)), maxV = Math.max(0, ...rows.map(r => r.v));
+        const span = Math.max(0.5, maxV - minV), pad = span * 0.14;
+        const xRange = [minV - (minV < 0 ? pad : span * 0.03), maxV + (maxV > 0 ? pad : span * 0.03)];
+        const height = Math.max(320, 120 + n * 18);
+        const trace = {
+            type: 'bar', orientation: 'h', x: rows.map(r => r.v), y: rows.map(r => r.g),
+            marker: { color: rows.map(r => le.has(r.g) ? green : grey), line: { width: 0 } },
+            text: rows.map(r => r.v.toFixed(2)), textposition: 'outside', textfont: { size: 10, color: '#374151' }, cliponaxis: false,
+            hovertemplate: '%{y}: %{x:.2f}<extra></extra>'
+        };
+        const layout = {
+            title: { text: `${this.cleanName(name)} in ${this._escText(lineName)}${d.A.label ? ' (' + this._escText(d.A.label) + ')' : ''}<br><span style="font-size:11px;color:#6b7280">${metricName}; green = leading edge (${nLE} of ${n}); dashed line = mean of the set</span>`, font: { size: 14 } },
+            xaxis: { title: { text: metricName, font: { size: 11 } }, range: xRange, zeroline: true, zerolinecolor: '#111', zerolinewidth: 1.5, gridcolor: '#eee', tickfont: { size: 10 } },
+            yaxis: { autorange: 'reversed', tickfont: { size: 10, family: 'Roboto Mono, monospace' }, automargin: true, dtick: 1 },
+            shapes: [{ type: 'line', x0: meanAll, x1: meanAll, y0: 0, y1: 1, xref: 'x', yref: 'paper', line: { color: '#6b7280', width: 1, dash: 'dash' } }],
+            bargap: 0.25, height, margin: { l: 110, r: 40, t: 80, b: 60 },
+            paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: this.settings.fontFamily + ', sans-serif' }
+        };
+        Plotly.newPlot('gsHeatmap', [trace], layout, { responsive: true, displayModeBar: false, displaylogo: false });
+        document.getElementById('hmLegend').innerHTML = `<span style="display:inline-block; width:10px; height:10px; background:${green}; vertical-align:middle; margin: 0 4px 0 0;"></span>Leading edge <span style="display:inline-block; width:10px; height:10px; background:${grey}; vertical-align:middle; margin: 0 4px 0 14px;"></span>Other genes in the set`;
+        document.getElementById('hmInfo').textContent = `${n} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}, values of ${lineName} (${metricName}), sorted ${neg ? 'low to high' : 'high to low'}. Mean of the set ${meanAll.toFixed(2)}. To see other cell lines next to it, build a comparison with Compare cell lines.`;
+    },
+
     closeGeneSetHeatmap() {
         document.getElementById('gsHeatmapPopup').classList.remove('open');
         document.getElementById('howToUseBackdrop').classList.remove('open');
@@ -322,8 +360,9 @@ Object.assign(GSEAApp.prototype, {
         const single = !!d.single;
         // One column cannot be z-scored, and sorting columns means nothing
         const zEl = document.getElementById('hmZscore');
-        zEl.disabled = single; if (single) zEl.checked = false;
-        ['hmSort', 'hmSortDir', 'hmSortGene', 'hmMutGene'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = single; });
+        if (single) zEl.checked = false;
+        document.getElementById('hmCmpControls').style.display = single ? 'none' : 'contents';
+        document.getElementById('hmTitle').textContent = single ? 'Gene set values in the loaded cell line' : 'Gene set heatmap by cell line';
         const zscore = zEl.checked;
         const sortBy = document.getElementById('hmSort').value;
         const sortGene = (document.getElementById('hmSortGene').value || '').trim().toUpperCase();
@@ -334,6 +373,7 @@ Object.assign(GSEAApp.prototype, {
         let genes = (result.hits || []).map(i => this.rankedList.genes[i]).filter(g => d.geneIndex.has(g));
         if (leOnly) genes = genes.filter(g => le.has(g));
         const isCrispr = d.type === 'crispr';
+        if (single) return this._renderSingleLineBars(d, result, name, genes, le, leOnly, isCrispr);
         const idx = DEPMAP.index, mut = DEPMAP.mut;
         const lineOf = (id) => (idx && idx.all.find(x => x.id === id)) || {};
         const mutStatus = (id) => {
@@ -389,7 +429,7 @@ Object.assign(GSEAApp.prototype, {
             const vals = order.map(k => geneVals.get(g)[k]);
             const mA = mean(cols.map((c, k) => c.group === 'A' ? vals[k] : null)), mB = mean(cols.map((c, k) => c.group === 'B' ? vals[k] : null));
             return { g, vals, mA, mB, diff: (mA ?? 0) - (mB ?? 0) };
-        }).sort((a, b) => single ? ((b.mA ?? -Infinity) - (a.mA ?? -Infinity)) : (b.diff - a.diff));
+        }).sort((a, b) => b.diff - a.diff);
         const metricName = zscore ? 'z-score per gene' : (isCrispr ? 'Chronos gene effect' : 'log2 expression vs DepMap median');
         const yLabels = rows.map(r => (le.has(r.g) ? '\u2605 ' : '') + r.g);
         const z = rows.map(r => r.vals);
@@ -421,25 +461,22 @@ Object.assign(GSEAApp.prototype, {
         const nCat = Math.max(1, catIndex);
         const catScale = [...catColor.values()].sort((a, b) => a.i - b.i).flatMap(c => [[c.i / nCat, c.color], [(c.i + 1) / nCat, c.color]]);
         const stripH = strips.length * 16;
-        const mapH = Math.max(320, Math.min(single ? 3600 : 900, 40 + rows.length * (single ? 17 : 14)));
+        const mapH = Math.max(320, Math.min(900, 40 + rows.length * 14));
         const total = mapH + stripH + (showX ? 120 : 40) + 120;
         const stripFrac = stripH / total, xlabFrac = (showX ? 110 : 30) / total;
         const yMain = [stripFrac + xlabFrac + 0.02, 1], yStrip = [xlabFrac, xlabFrac + stripFrac];
         const lab = (grp, n, l) => `<b>Group ${grp}</b> (${n} lines)${l ? ': ' + l : ''}`;
         const layout = {
-            width: single ? 640 : undefined,
-            title: { text: `${this.cleanName(name)}<br><span style="font-size:11px;color:#6b7280">${metricName}; \u2605 = leading edge; rows sorted ${single ? 'by value, high to low' : 'by mean A minus mean B'}</span>`, font: { size: 14 } },
-            xaxis: { domain: single ? [0.2, 0.72] : [0, 0.86], tickangle: single ? 0 : -60, showticklabels: showX, tickfont: { size: single ? 12 : 9 }, side: single ? 'top' : 'bottom', anchor: single ? 'y' : 'y2' },
+            title: { text: `${this.cleanName(name)}<br><span style="font-size:11px;color:#6b7280">${metricName}; \u2605 = leading edge; rows sorted by mean A minus mean B</span>`, font: { size: 14 } },
+            xaxis: { domain: [0, 0.86], tickangle: -60, showticklabels: showX, tickfont: { size: 9 }, anchor: 'y2' },
             xaxis2: { domain: [0.875, 0.875 + Math.max(0.03, Math.min(0.07, 2 * 0.86 / cols.length * 1.3))], tickfont: { size: 9 }, side: 'top', anchor: 'y' },
             yaxis: { domain: yMain, autorange: 'reversed', tickfont: { size: 10 }, automargin: true },
             yaxis2: { domain: yStrip, autorange: 'reversed', tickfont: { size: 9 }, automargin: true },
             margin: { l: 120, r: 70, t: 110, b: showX ? 110 : 30 },
             height: total,
-            shapes: !single && !['value', 'le', 'disease', 'subtype', 'lineage'].includes(sortBy)
+            shapes: !['value', 'le', 'disease', 'subtype', 'lineage'].includes(sortBy)
                 ? [{ type: 'line', x0: nA - 0.5, x1: nA - 0.5, y0: 0, y1: 1, xref: 'x', yref: 'paper', line: { color: '#111', width: 2 } }] : [],
-            annotations: single ? [
-                { text: `<b>${this._escText(d.A.names[0])}</b>${d.A.label ? ' (' + this._escText(d.A.label) + ')' : ''}`, x: 0.5, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'center', yanchor: 'bottom', yshift: 18, showarrow: false, font: { size: 12, color: '#4c782e' } }
-            ] : [
+            annotations: [
                 { text: lab('A', nA, this._escText(d.A.label)), x: 0.0, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#4c782e' } },
                 { text: lab('B', nB, this._escText(d.B.label)), x: 0.86, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'right', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#6d28d9' } }
             ],
@@ -455,8 +492,7 @@ Object.assign(GSEAApp.prototype, {
             colorscale: 'RdBu', reversescale: true, showscale: false, hovertemplate: '%{y}<br>%{x}: %{z:.2f} (own colour range \u00b1' + mAbs.toFixed(2) + ')<extra></extra>', hoverongaps: false };
         const stripTrace = { type: 'heatmap', z: stripZ, x: colNames, y: strips.map(st => st.label), text: stripText, xaxis: 'x', yaxis: 'y2',
             zmin: 0, zmax: nCat, colorscale: catScale, showscale: false, hovertemplate: '%{x}<br>%{text}<extra></extra>', xgap: 0.5, ygap: 2 };
-        if (single) { main.colorbar.x = 0.78; main.colorbar.len = 0.9; main.colorbar.y = 0.5; main.text = rows.map(r => [r.vals[0] === null ? '' : r.vals[0].toFixed(2)]); main.texttemplate = '%{text}'; main.textfont = { size: 10 }; }
-        Plotly.newPlot('gsHeatmap', single ? [main] : [main, means, stripTrace], layout, { responsive: true, displayModeBar: false, displaylogo: false });
+        Plotly.newPlot('gsHeatmap', [main, means, stripTrace], layout, { responsive: true, displayModeBar: false, displaylogo: false });
         // legend for the strips
         const legend = document.getElementById('hmLegend');
         legend.innerHTML = strips.map(st => {
@@ -464,8 +500,6 @@ Object.assign(GSEAApp.prototype, {
             return `<span style="margin-right: 12px;"><b>${st.label}:</b> ` + cats.map(v => `<span style="display:inline-block; width:10px; height:10px; background:${catColor.get(st.key + ':' + v).color}; border:1px solid #ccc; vertical-align:middle; margin: 0 3px 0 6px;"></span>${this._escText(v || 'n/a')}`).join('') + '</span>';
         }).join('');
         const sortNote = ['group', 'mutation', 'disease', 'subtype', 'lineage'].includes(sortBy) ? '' : `, sorted by ${scoreLabel} ${desc ? 'high to low' : 'low to high'}${sortBy.endsWith('Within') ? ' within each group' : ''}`;
-        document.getElementById('hmInfo').textContent = single
-            ? `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}, values of ${d.A.names[0]} (${metricName}), sorted high to low. To see other cell lines next to it, build a comparison with Compare cell lines.`
-            : `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${cols.length} cell lines${sortNote}. The two columns on the right are the mean of each group, on their own colour range (\u00b1${mAbs.toFixed(2)}) so small differences stay visible.`;
+        document.getElementById('hmInfo').textContent = `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${cols.length} cell lines${sortNote}. The two columns on the right are the mean of each group, on their own colour range (\u00b1${mAbs.toFixed(2)}) so small differences stay visible.`;
     }
 });
