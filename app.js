@@ -1456,8 +1456,9 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 }
             }
 
-            const nSig = this.results.filter(r => r.fdr < 0.25).length;
-            let doneMsg = `Loaded ${this.results.length} fgsea results \u2014 ${nSig} significant (FDR < 0.25)`;
+            this._setDefaultSort();
+        const nSig = this.results.filter(r => r.fdr < 0.25).length; const nUp = this.results.filter(r => r.fdr < 0.25 && r.nes > 0).length; const nDown = nSig - nUp;
+            let doneMsg = `Loaded ${this.results.length} fgsea results, ${nSig} significant (FDR < 0.25): ${nUp} with positive NES, ${nDown} with negative NES. ${this._sortNote()}`;
             if (metadata) {
                 const parts = [];
                 if (metadata.sourceFile && metadata.sourceFile !== 'unknown') parts.push(`data: ${metadata.sourceFile}`);
@@ -1611,10 +1612,11 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         document.getElementById('rerunSection').style.display = '';
         this.updateRerunHitCount();
 
-        const nSig = this.results.filter(r => r.fdr < 0.25).length;
+        this._setDefaultSort();
+        const nSig = this.results.filter(r => r.fdr < 0.25).length; const nUp = this.results.filter(r => r.fdr < 0.25 && r.nes > 0).length; const nDown = nSig - nUp;
         const nTested = this.results.length;
         const nSkipped = nTotal - nTested;
-        let doneMsg = `Smart Run complete! ${nTested} gene sets tested, ${nSig} significant (FDR < 0.25)`;
+        let doneMsg = `Smart Run complete! ${nTested} gene sets tested, ${nSig} significant (FDR < 0.25): ${nUp} with positive NES, ${nDown} with negative NES. ${this._sortNote()}`;
         if (nSkipped > 0) {
             doneMsg += `. ${nSkipped} redundant sets skipped (similar to tested sets, Jaccard > 0.1)`;
         }
@@ -1998,8 +2000,9 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             document.getElementById('smartRunBtn').style.display = '';
             document.getElementById('cancelBtn').style.display = 'none';
 
-            const nSig = this.results.filter(r => r.fdr < 0.25).length;
-            let doneMsg = `Done! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25)`;
+            this._setDefaultSort();
+        const nSig = this.results.filter(r => r.fdr < 0.25).length; const nUp = this.results.filter(r => r.fdr < 0.25 && r.nes > 0).length; const nDown = nSig - nUp;
+            let doneMsg = `Done! ${this.results.length} gene sets tested, ${nSig} significant (FDR < 0.25): ${nUp} with positive NES, ${nDown} with negative NES. ${this._sortNote()}`;
             // Add exclusion details if any sets were filtered out
             const sfi = this._lastSizeFilterInfo;
             if (sfi && sfi.totalInput > sfi.totalPassed) {
@@ -4927,6 +4930,24 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 arrow.textContent = '\u25B2';
             }
         });
+    }
+
+    // Default order of the results table after a run. The interesting side
+    // differs by data type: for expression it is the sets that are higher than
+    // the reference (positive NES, "what this sample is"), for a CRISPR screen
+    // it is the depleted sets (negative NES, "what the cells depend on").
+    // Ordering by |NES| mixed the two and put "what Raji is not" on top.
+    _setDefaultSort() {
+        const dt = this.settings.dataType || document.getElementById('dataType')?.value || 'expression';
+        this.sortCol = 'nes';
+        this.sortAsc = dt === 'crispr';
+    }
+
+    _sortNote() {
+        const dt = this.settings.dataType || document.getElementById('dataType')?.value || 'expression';
+        return dt === 'crispr'
+            ? 'Table sorted with the most depleted sets first (negative NES = the cells depend on these genes)'
+            : 'Table sorted with the most enriched sets first (positive NES = higher than the reference)';
     }
 
     sortTable(col) {
