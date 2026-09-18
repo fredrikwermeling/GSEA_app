@@ -25,9 +25,12 @@ Object.assign(GSEAApp.prototype, {
     _cmpFillFilters() {
         const idx = DEPMAP.index; if (!idx) return;
         const lin = document.getElementById('cmpLineage'), dis = document.getElementById('cmpDisease');
+        // Counts are for the chosen data type only, so the menus say how many
+        // lines can actually go into a group.
+        const type = this._cmp.type;
         const count = (key, filter) => {
             const m = new Map();
-            for (const c of idx.all) { if (filter && !filter(c)) continue; const k = c[key] || ''; if (k) m.set(k, (m.get(k) || 0) + 1); }
+            for (const c of idx.all) { if (c.rows[type] === undefined) continue; if (filter && !filter(c)) continue; const k = c[key] || ''; if (k) m.set(k, (m.get(k) || 0) + 1); }
             return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
         };
         const curLin = lin.value;
@@ -131,6 +134,7 @@ Object.assign(GSEAApp.prototype, {
         this._cmp.type = type;
         // Lines without data of this type cannot stay in a group
         for (const g of ['A', 'B']) this._cmp[g] = this._cmp[g].filter(id => (DEPMAP.index?.all.find(x => x.id === id) || { rows: {} }).rows[type] !== undefined);
+        this._cmpFillFilters();
         this._cmpRender();
         this._cmpSearch();
     },
@@ -145,12 +149,13 @@ Object.assign(GSEAApp.prototype, {
         const mut = DEPMAP.mut;
         if (!gene) { if (note) note.textContent = ''; st.value = 'any'; this._cmpSearch(); return; }
         if (!mut) { if (note) note.textContent = 'Mutation data is still loading...'; DEPMAP_mutations().then(() => this._cmpGeneChanged()).catch(() => { if (note) note.textContent = 'Mutation data could not be loaded.'; }); return; }
-        const nHot = (mut.hotspot[gene] || []).length, nDam = (mut.damaging[gene] || []).length;
+        const type = this._cmp.type, has = (id) => (DEPMAP.index?.all.find(x => x.id === id) || { rows: {} }).rows[type] !== undefined;
+        const nHot = (mut.hotspot[gene] || []).filter(has).length, nDam = (mut.damaging[gene] || []).filter(has).length;
         if (!nHot && !nDam) {
             if (note) note.innerHTML = `<span style="color:#b45309;">No mutation calls for ${this._escText(gene)} in DepMap. Check the symbol; hotspot calls exist for ${Object.keys(mut.hotspot).length} cancer genes, damaging calls for most genes.</span>`;
             st.value = 'any';
         } else {
-            if (note) note.textContent = `${gene}: ${nHot} lines with a hotspot mutation, ${nDam} with a damaging mutation, ${mut.profiled.length} lines have mutation data.`;
+            if (note) note.textContent = `${gene}: ${nHot} lines with a hotspot mutation, ${nDam} with a damaging mutation, among the ${DEPMAP.index.all.filter(c => c.rows[type] !== undefined && mut.profiledSet.has(c.id)).length} ${type} lines with mutation data.`;
             if (st.value === 'any') st.value = nHot ? 'hotspot' : 'mutated';
         }
         this._cmpSearch();
