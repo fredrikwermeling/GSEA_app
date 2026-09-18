@@ -18,6 +18,10 @@
     </style>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Image export: JSZip for PowerPoint, jsPDF + svg2pdf for vector PDF (same as Correlate) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js"></script>
     <style>
         /* ============================================
            CSS Custom Properties — Wermeling Lab Design
@@ -1628,7 +1632,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.46</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.47</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2205,8 +2209,7 @@
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('bubbleSettings')">&#9881;</button>
                             <div class="action-sep"></div>
                             <span class="action-label">Export</span>
-                            <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','svg')">.svg</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('bubblePlot','png')">.png</button>
+                            <button class="btn btn-sm" onclick="app.exportImage('bubblePlot')" title="Save this figure as PNG, SVG, PDF, TIFF or PowerPoint at a chosen print size and resolution">Image...</button>
                             <button class="btn btn-sm" onclick="app.exportPlotCSV('bubble')">.csv</button>
                             <button class="btn btn-sm" onclick="app.exportRScript('bubble')" title="Download R script to reproduce this plot">.R</button>
                         </div>
@@ -2335,8 +2338,7 @@
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('rankedSettings')">&#9881;</button>
                             <div class="action-sep"></div>
                             <span class="action-label">Export</span>
-                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','svg')">.svg</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('rankedPlot','png')">.png</button>
+                            <button class="btn btn-sm" onclick="app.exportImage('rankedPlot')" title="Save this figure as PNG, SVG, PDF, TIFF or PowerPoint at a chosen print size and resolution">Image...</button>
                             <button class="btn btn-sm" onclick="app.exportPlotCSV('ranked')">.csv</button>
                             <button class="btn btn-sm" onclick="app.exportRScript('ranked')" title="Download R script to reproduce this plot">.R</button>
                         </div>
@@ -2411,8 +2413,7 @@
                                     <button class="card-settings-btn" onclick="app.toggleGraphSettings('esSettings')">&#9881;</button>
                                     <div class="action-sep"></div>
                                     <span class="action-label">Export</span>
-                                    <button class="btn btn-sm" onclick="app.exportPlot('esPlot','svg')">.svg</button>
-                                    <button class="btn btn-sm" onclick="app.exportPlot('esPlot','png')">.png</button>
+                                    <button class="btn btn-sm" onclick="app.exportImage('esPlot')" title="Save this figure as PNG, SVG, PDF, TIFF or PowerPoint at a chosen print size and resolution">Image...</button>
                                     <button class="btn btn-sm" onclick="app.exportPlotCSV('es')">.csv</button>
                                     <button class="btn btn-sm" onclick="app.exportRScript('es')" title="Download R script to reproduce this plot">.R</button>
                                 </div>
@@ -2624,8 +2625,7 @@
                             <button class="card-settings-btn" onclick="app.toggleGraphSettings('overlapSettings')">&#9881;</button>
                             <div class="action-sep"></div>
                             <span class="action-label">Export</span>
-                            <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','svg')">.svg</button>
-                            <button class="btn btn-sm" onclick="app.exportPlot('overlapHeatmap','png')">.png</button>
+                            <button class="btn btn-sm" onclick="app.exportImage('overlapHeatmap')" title="Save this figure as PNG, SVG, PDF, TIFF or PowerPoint at a chosen print size and resolution">Image...</button>
                             <button class="btn btn-sm" onclick="app.exportPlotCSV('overlap')">.csv</button>
                             <button class="btn btn-sm" onclick="app.exportRScript('overlap')" title="Download R script to reproduce this plot">.R</button>
                         </div>
@@ -2841,6 +2841,72 @@
     </div>
 </footer>
 
+<!-- Export image dialog (same options as Correlate) -->
+<div id="exportOptionsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:6000; justify-content:center; align-items:center;">
+    <div style="background:white; width:560px; max-width:94vw; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.25); overflow:hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 18px; background:var(--green-50); border-bottom:1px solid var(--gray-200);">
+            <h3 style="margin:0; font-size:1em; color:var(--green-800);">Export image</h3>
+            <button id="exportOptionsClose" style="background:none; border:none; font-size:24px; cursor:pointer; color:#6b7280; line-height:1;">&times;</button>
+        </div>
+        <div style="padding:14px 18px; font-size:13px; color:#374151;">
+            <div style="margin-bottom:10px;">
+                <label style="display:block; font-weight:600; margin-bottom:4px;">Format</label>
+                <select id="exportOptFormat" class="form-control" style="width:auto; font-size:13px;" title="PNG and TIFF are pixel images at the DPI below. SVG, PDF and PowerPoint are vector: they stay sharp at any size and the text can be edited.">
+                    <option value="png">PNG / raster image</option>
+                    <option value="svg">SVG / editable vector</option>
+                    <option value="pdf">PDF / vector (scalable, selectable text)</option>
+                    <option value="tiff">TIFF / raster, journal submission</option>
+                    <option value="pptx">PowerPoint / vector on a 16:9 slide</option>
+                </select>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block; font-weight:600; margin-bottom:4px;">Size</label>
+                <div style="display:flex; gap:4px; margin-bottom:6px;">
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 10px;" onclick="app.applyExportSizePreset(5)" title="5 cm wide: a single panel in a multi-panel figure">Small</button>
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 10px;" onclick="app.applyExportSizePreset(10)" title="10 cm wide: a one-column figure or a slide">Medium</button>
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 10px;" onclick="app.applyExportSizePreset(15)" title="15 cm wide: a full-width figure">Large</button>
+                </div>
+                <div style="display:flex; flex-wrap:nowrap; align-items:center; gap:20px;">
+                    <span style="display:inline-flex; gap:5px; align-items:center;">
+                        <label style="font-weight:600; white-space:nowrap;">Width (cm)</label>
+                        <button onclick="app.adjustExportSize('exportOptWidth', -0.5)" style="font-size:11px; padding:2px 6px; border:1px solid #ddd; border-radius:3px; background:#f9f9f9; cursor:pointer;">&minus;</button>
+                        <input type="text" inputmode="decimal" id="exportOptWidth" value="10" min="2" max="40" style="width:54px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:center;">
+                        <button onclick="app.adjustExportSize('exportOptWidth', 0.5)" style="font-size:11px; padding:2px 6px; border:1px solid #ddd; border-radius:3px; background:#f9f9f9; cursor:pointer;">+</button>
+                    </span>
+                    <span style="display:inline-flex; gap:5px; align-items:center;">
+                        <label style="font-weight:600; white-space:nowrap;">Height (cm)</label>
+                        <button onclick="app.adjustExportSize('exportOptHeight', -0.5)" style="font-size:11px; padding:2px 6px; border:1px solid #ddd; border-radius:3px; background:#f9f9f9; cursor:pointer;">&minus;</button>
+                        <input type="text" inputmode="decimal" id="exportOptHeight" value="10" min="2" max="40" style="width:54px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:center;">
+                        <button onclick="app.adjustExportSize('exportOptHeight', 0.5)" style="font-size:11px; padding:2px 6px; border:1px solid #ddd; border-radius:3px; background:#f9f9f9; cursor:pointer;">+</button>
+                    </span>
+                    <label style="font-size:11px; color:#374151; cursor:pointer; white-space:nowrap;" title="When on, changing one dimension scales the other so the figure keeps the proportions it has on screen">
+                        <input type="checkbox" id="exportOptLockAspect" checked> Lock aspect
+                    </label>
+                </div>
+                <div style="font-size:10px; color:#9ca3af; margin-top:4px;">The figure is written exactly as it looks on screen, at this print size. Presets set the width; the height follows the on-screen proportions.</div>
+            </div>
+            <div id="exportOptDpiRow" style="margin-bottom:10px;">
+                <label style="display:block; font-weight:600; margin-bottom:4px;">DPI (PNG and TIFF)</label>
+                <span style="display:inline-flex; gap:3px; align-items:center;">
+                    <button onclick="app.adjustNumber('exportOptDpi', -100)" style="font-size:11px; padding:2px 6px; border:1px solid #ddd; border-radius:3px; background:#f9f9f9; cursor:pointer;">&minus;</button>
+                    <input type="number" id="exportOptDpi" value="600" min="72" max="2400" step="100" style="width:70px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:center;">
+                    <button onclick="app.adjustNumber('exportOptDpi', 100)" style="font-size:11px; padding:2px 6px; border:1px solid #ddd; border-radius:3px; background:#f9f9f9; cursor:pointer;">+</button>
+                </span>
+                <span style="margin-left:8px; font-size:10px; color:#9ca3af;">300 = screen or draft; 600 = print; 1200 = high-quality print.</span>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block; font-weight:600; margin-bottom:4px;">Background</label>
+                <label style="margin-right:14px;" title="Solid white everywhere, including the plot panel"><input type="radio" name="exportOptBg" value="white" checked> White (solid)</label>
+                <label title="No background: for placing the figure on a coloured slide"><input type="radio" name="exportOptBg" value="transparent"> Transparent</label>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+                <button class="btn btn-outline btn-sm" id="exportOptCancel">Cancel</button>
+                <button class="btn btn-sm" id="exportOptConfirm" style="background: var(--green-600); color: white;">Export</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Changelog Modal (development only) -->
 <div id="changelogModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:3000; justify-content:center; align-items:center;">
     <div style="background:white; max-width:600px; width:90%; max-height:80vh; overflow-y:auto; border-radius:8px; padding:20px; position:relative;">
@@ -2849,6 +2915,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.47</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>Image export works as in Correlate: one "Image..." button per figure opens a dialog with format (PNG, SVG, PDF, TIFF, PowerPoint), print size in cm with Small / Medium / Large presets, DPI and background. The figure is written exactly as on screen at the chosen size; PNG and TIFF carry the DPI, PDF and PowerPoint are vector, file names carry date and time, and the last settings are kept for the session so a series of figures come out the same size.</li>
+            </ul>
             <p><strong>v.46</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>Select sets dialog: a short explanation of what ticking means and what happens on first opening; every control explains itself on hover; "Show all / Hide all" are now "Select all / Deselect all"; new per-collection buttons (Hallmark, C8, KEGG, ...) tick or untick a whole collection at once</li>
@@ -3228,8 +3298,9 @@
             <h3>Export</h3>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">PNG scale</label>
-                    <input type="number" class="form-control" id="exportScale" value="4" min="1" max="8">
+                    <label class="form-label">Image files</label>
+                    <div class="form-hint" style="margin-top:0;">Use the Image... button on each figure to choose format, print size and DPI.</div>
+                    <input type="hidden" id="exportScale" value="4">
                 </div>
                 <div class="form-group" style="display:flex; align-items:flex-end;">
                     <label class="checkbox-label">
@@ -3342,6 +3413,7 @@
 </div>
 
 <script src="helpPopout.js?v=1"></script>
-<script src="app.js?v=90"></script>
+<script src="app.js?v=91"></script>
+<script src="exportImage.js?v=1"></script>
 </body>
 </html>
