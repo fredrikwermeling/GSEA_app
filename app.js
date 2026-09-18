@@ -5724,6 +5724,13 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         }
     }
 
+    toggleExamples() {
+        const b = document.getElementById('exampleBlock'), t = document.getElementById('exampleToggle');
+        const open = b.style.display === 'none';
+        b.style.display = open ? '' : 'none';
+        t.innerHTML = (open ? '&#9662; ' : '&#9656; ') + 'No data at hand? Load example data';
+    }
+
     toggleDepMapSearch() {
         const box = document.getElementById('depmapSearchBox');
         const open = box.style.display === 'none';

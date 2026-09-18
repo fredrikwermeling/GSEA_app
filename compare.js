@@ -15,10 +15,55 @@ Object.assign(GSEAApp.prototype, {
         if (!this._cmp) this._cmp = { A: [], B: [], type: 'expression' };
         document.getElementById('comparePopup').classList.add('open');
         document.getElementById('howToUseBackdrop').classList.add('open');
-        DEPMAP_index().then(() => this._cmpRender()).catch(e => {
+        Promise.all([DEPMAP_index(), DEPMAP_mutations().catch(() => null)]).then(() => { this._cmpFillFilters(); this._cmpRender(); this._cmpSearch(); }).catch(e => {
             document.getElementById('cmpStatus').textContent = 'Could not load the DepMap index: ' + e.message;
         });
         this._cmpRender();
+    },
+
+    // Lineage and disease menus from the index; disease follows the chosen lineage
+    _cmpFillFilters() {
+        const idx = DEPMAP.index; if (!idx) return;
+        const lin = document.getElementById('cmpLineage'), dis = document.getElementById('cmpDisease');
+        const count = (key, filter) => {
+            const m = new Map();
+            for (const c of idx.all) { if (filter && !filter(c)) continue; const k = c[key] || ''; if (k) m.set(k, (m.get(k) || 0) + 1); }
+            return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+        };
+        const curLin = lin.value;
+        lin.innerHTML = '<option value="">Any tissue</option>' + count('lineage').map(([k, n]) => `<option value="${k}">${k} (${n})</option>`).join('');
+        lin.value = curLin;
+        const curDis = dis.value;
+        dis.innerHTML = '<option value="">Any disease</option>' + count('disease', lin.value ? (c => c.lineage === lin.value) : null).map(([k, n]) => `<option value="${k}">${k} (${n})</option>`).join('');
+        dis.value = [...dis.options].some(o => o.value === curDis) ? curDis : '';
+        const mut = DEPMAP.mut;
+        const note = document.getElementById('cmpMutNote');
+        if (note) note.textContent = mut ? `Hotspot calls for ${Object.keys(mut.hotspot).length} cancer genes, damaging calls for ${Object.keys(mut.damaging).length} genes; ${mut.profiled.length} lines have mutation data.` : 'Mutation data not available.';
+    },
+
+    // The cell lines that pass the tissue, disease and mutation filters (and the text box)
+    _cmpCandidates() {
+        const idx = DEPMAP.index; if (!idx) return [];
+        const type = this._cmp.type;
+        const lin = document.getElementById('cmpLineage').value, dis = document.getElementById('cmpDisease').value;
+        const gene = document.getElementById('cmpMutGene').value.trim().toUpperCase();
+        const status = document.getElementById('cmpMutStatus').value;
+        const q = document.getElementById('cmpSearch').value.trim();
+        let rows = q ? DEPMAP_search(q, 5000).rows : idx.all.slice();
+        rows = rows.filter(c => c.rows[type] !== undefined && (!lin || c.lineage === lin) && (!dis || c.disease === dis));
+        const mut = DEPMAP.mut;
+        if (gene && status !== 'any' && mut) {
+            const hs = mut.hotspotSets[gene] || new Set(), dm = mut.damagingSets[gene] || new Set();
+            rows = rows.filter(c => {
+                if (!mut.profiledSet.has(c.id)) return false;           // unknown mutation status: never counted as either
+                const isHot = hs.has(c.id), isDam = dm.has(c.id);
+                if (status === 'hotspot') return isHot;
+                if (status === 'mutated') return isHot || isDam;
+                if (status === 'wt') return !isHot && !isDam;
+                return true;
+            });
+        }
+        return rows;
     },
 
     closeCompareDialog() {
@@ -61,6 +106,14 @@ Object.assign(GSEAApp.prototype, {
 
     _cmpAddAll(group) {
         const res = this._cmpLastResults || [];
+        const parts = [];
+        const lin = document.getElementById('cmpLineage').value, dis = document.getElementById('cmpDisease').value;
+        const gene = document.getElementById('cmpMutGene').value.trim().toUpperCase(), st = document.getElementById('cmpMutStatus').value;
+        const q = document.getElementById('cmpSearch').value.trim();
+        if (q) parts.push(`"${q}"`); if (lin) parts.push(lin); if (dis) parts.push(dis);
+        if (gene && st !== 'any') parts.push(`${gene} ${st === 'wt' ? 'wild type' : st === 'hotspot' ? 'hotspot mutated' : 'mutated'}`);
+        if (!this._cmp.labels) this._cmp.labels = {};
+        this._cmp.labels[group] = parts.join(', ');
         for (const line of res) if (line.rows[this._cmp.type] !== undefined) this._cmpAdd(group, line.id);
     },
 
@@ -81,14 +134,16 @@ Object.assign(GSEAApp.prototype, {
     _cmpSearch() {
         const q = document.getElementById('cmpSearch').value.trim();
         const out = document.getElementById('cmpResults');
-        if (!q || !DEPMAP.index) { out.innerHTML = ''; return; }
-        const res = DEPMAP_search(q, 200);
+        if (!DEPMAP.index) { out.innerHTML = ''; return; }
+        const anyFilter = q || document.getElementById('cmpLineage').value || document.getElementById('cmpDisease').value
+            || (document.getElementById('cmpMutGene').value.trim() && document.getElementById('cmpMutStatus').value !== 'any');
+        if (!anyFilter) { out.innerHTML = '<div style="color: var(--gray-400); padding: 2px 4px; font-size: 0.85em;">Type a name, or choose a tissue, disease or mutation, to list cell lines.</div>'; this._cmpLastResults = []; return; }
         const type = this._cmp.type;
-        const rows = res.rows.filter(l => l.rows[type] !== undefined);
+        const rows = this._cmpCandidates();
         this._cmpLastResults = rows;
-        if (!rows.length) { out.innerHTML = `<div style="color: var(--gray-500); padding: 2px 4px;">No cell line with ${type} data matches "${this._escText(q)}".</div>`; return; }
+        if (!rows.length) { out.innerHTML = `<div style="color: var(--gray-500); padding: 2px 4px;">No cell line with ${type} data matches these filters.</div>`; return; }
         let html = '';
-        if (rows.length > 1) html += `<div style="padding: 2px 4px; font-size: 0.85em; color: var(--gray-600);">${rows.length} matches${res.total > rows.length ? ` (${res.total - rows.length} more without ${type} data)` : ''}: <a href="#" onclick="app._cmpAddAll('A'); return false;">add all to A</a> &middot; <a href="#" onclick="app._cmpAddAll('B'); return false;">add all to B</a></div>`;
+        if (rows.length > 1) html += `<div style="padding: 2px 4px; font-size: 0.85em; color: var(--gray-600);">${rows.length} matching cell lines: <a href="#" onclick="app._cmpAddAll('A'); return false;">add all to A</a> &middot; <a href="#" onclick="app._cmpAddAll('B'); return false;">add all to B</a></div>`;
         for (const l of rows.slice(0, 60)) {
             const where = [l.lineage, l.disease].filter(Boolean).join(', ');
             const inA = this._cmp.A.includes(l.id), inB = this._cmp.B.includes(l.id);
@@ -157,11 +212,15 @@ Object.assign(GSEAApp.prototype, {
             this.settings.dataType = dtVal;
             const h = document.getElementById('checkHallmark');
             if (h && !h.checked) { h.checked = true; await this.onCollectionChange(); }
-            const list = (ids) => ids.length <= 4 ? ids.map(nameOf).join(', ') : `${ids.slice(0, 3).map(nameOf).join(', ')} and ${ids.length - 3} more`;
+            const list = (ids, g) => {
+                const lab = this._cmp.labels && this._cmp.labels[g];
+                if (ids.length > 4 && lab) return `${lab} (${ids.length} lines: ${ids.slice(0, 3).map(nameOf).join(', ')}, ...)`;
+                return ids.length <= 4 ? ids.map(nameOf).join(', ') : `${ids.slice(0, 3).map(nameOf).join(', ')} and ${ids.length - 3} more`;
+            };
             const how = metricKind === 't'
                 ? `Welch t-statistic per gene (positive = higher in A)`
                 : (type === 'crispr' ? 'difference of mean Chronos score, A minus B (negative = more essential in A)' : 'log2 fold change of A over B (mean of A minus mean of B)');
-            this.showStatus('uploadStatus', 'success', `Comparison built: A = ${list(c.A)} (${c.A.length}) vs B = ${list(c.B)} (${c.B.length}), ${type} data, ${how}. ${out.length.toLocaleString()} genes.`);
+            this.showStatus('uploadStatus', 'success', `Comparison built: A = ${list(c.A, 'A')} vs B = ${list(c.B, 'B')}, ${type} data, ${how}. ${out.length.toLocaleString()} genes.`);
             this._loadedCellLine = { compare: true, type, A: c.A.slice(), B: c.B.slice() };
             this.checkReady();
             status.textContent = '';

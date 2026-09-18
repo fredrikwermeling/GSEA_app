@@ -1632,7 +1632,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.50.1</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.51</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1654,10 +1654,17 @@
         </select>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
-        <div style="border: 1px solid var(--green-200); border-radius: 6px; padding: 6px 8px; min-height: 58px;"><div style="font-weight: 600; color: var(--green-800); font-size: 0.9em;">Group A <span id="cmpCountA" style="font-weight: 400; color: var(--gray-500);"></span></div><div id="cmpGroupA"></div></div>
-        <div style="border: 1px solid var(--green-200); border-radius: 6px; padding: 6px 8px; min-height: 58px;"><div style="font-weight: 600; color: var(--green-800); font-size: 0.9em;">Group B <span id="cmpCountB" style="font-weight: 400; color: var(--gray-500);"></span></div><div id="cmpGroupB"></div></div>
+        <div style="border: 1px solid var(--green-200); border-radius: 6px; padding: 6px 8px; min-height: 58px; max-height: 150px; overflow-y: auto;"><div style="font-weight: 600; color: var(--green-800); font-size: 0.9em;">Group A <span id="cmpCountA" style="font-weight: 400; color: var(--gray-500);"></span></div><div id="cmpGroupA"></div></div>
+        <div style="border: 1px solid var(--green-200); border-radius: 6px; padding: 6px 8px; min-height: 58px; max-height: 150px; overflow-y: auto;"><div style="font-weight: 600; color: var(--green-800); font-size: 0.9em;">Group B <span id="cmpCountB" style="font-weight: 400; color: var(--gray-500);"></span></div><div id="cmpGroupB"></div></div>
     </div>
-    <input type="text" class="form-control" id="cmpSearch" placeholder="Find cell lines: name, tissue or disease, e.g. melanoma, lymphoma, HeLa" style="font-size: 0.9em;" oninput="app._cmpSearch()">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+        <select class="form-control" id="cmpLineage" style="font-size: 0.85em; padding: 4px 6px;" onchange="app._cmpFillFilters(); app._cmpSearch()" title="Tissue of origin (DepMap Oncotree lineage)"><option value="">Any tissue</option></select>
+        <select class="form-control" id="cmpDisease" style="font-size: 0.85em; padding: 4px 6px;" onchange="app._cmpSearch()" title="Disease (DepMap Oncotree primary disease); the list follows the chosen tissue"><option value="">Any disease</option></select>
+        <input type="text" class="form-control" id="cmpMutGene" placeholder="Mutation in gene, e.g. BRAF" style="font-size: 0.85em; padding: 4px 6px;" oninput="app._cmpSearch()" title="Gene symbol. Hotspot = a known cancer hotspot mutation (e.g. BRAF V600E, KRAS G12); damaging = a call predicted to disrupt the protein. Lines without mutation data are left out of both mutated and wild-type groups.">
+        <select class="form-control" id="cmpMutStatus" style="font-size: 0.85em; padding: 4px 6px;" onchange="app._cmpSearch()" title="Which lines to keep for the gene typed on the left"><option value="any">Any mutation status</option><option value="hotspot">Hotspot mutated</option><option value="mutated">Mutated (hotspot or damaging)</option><option value="wt">Wild type</option></select>
+    </div>
+    <div id="cmpMutNote" style="font-size: 0.75em; color: var(--gray-400); margin: -2px 0 6px;"></div>
+    <input type="text" class="form-control" id="cmpSearch" placeholder="Or type a cell line name, e.g. A375, MCF7, Raji" style="font-size: 0.9em;" oninput="app._cmpSearch()">
     <div id="cmpResults" class="example-data-grid" style="margin-top: 6px; max-height: 240px; overflow-y: auto; font-size: 0.95em;"></div>
     <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 12px;">
         <span id="cmpStatus" style="flex: 1; font-size: 0.85em; color: var(--gray-500);"></span>
@@ -1866,9 +1873,9 @@
                     <div class="form-hint">A CSV or TSV file with a gene name column and a numeric ranking column, such as log2 fold change.</div>
                 </div>
 
-                <div style="font-size: 0.78em; color: var(--gray-400); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 6px;">Or load example data</div>
+                <div style="margin: 8px 0 4px; font-size: 0.85em;"><a href="#" id="exampleToggle" onclick="app.toggleExamples(); return false;" style="color: var(--gray-500); text-decoration: none;" title="Try the app on DepMap cancer cell line data instead of your own file">&#9656; No data at hand? Load example data</a></div>
 
-                <div class="form-group" style="margin-top: 0;">
+                <div class="form-group" id="exampleBlock" style="margin-top: 0; display: none;">
                     <div class="example-data-grid" style="background: var(--green-50); border-radius: var(--radius-sm); padding: 6px;">
                         <div style="font-size: 0.75em; color: var(--gray-500); margin-bottom: 2px; padding: 0 4px;"><a href="https://depmap.org/" target="_blank" style="color: var(--gray-500); text-decoration: underline;">DepMap</a> cancer cell line data <span class="info-icon" style="font-size: 0.9em;">?<span class="info-tooltip">Five quick examples, or search all 1,775 DepMap cell lines below.<br><b>Expression</b>: log2 fold change of the cell line versus the median of all DepMap cell lines (about 1,700), computed from log2(TPM+1). A value of 1 means twice the median, -1 half of it. Top genes are the ones this cell line expresses far above other cell lines. Because this asks "what kind of cell is this", the C8 cell type signatures are ticked automatically together with Hallmark; the disease diagrams in KEGG (e.g. KEGG_MELANOMA) are signalling pathways shared by all cancers and are not expected to come up.<br><b>What to expect</b>: A375 gives neural crest and Schwann cell signatures (melanocytes are neural-crest derived, SOX10 is its top gene); A549 gives xenobiotic and NRF2 programmes (KEAP1 mutant); HT29 intestinal epithelium; Raji B cells and MYC targets (Burkitt lymphoma); U251 glia and EMT.<br><b>CRISPR</b>: Chronos gene effect from the DepMap knockout screen. Negative means the cell line depends on the gene (essential); 0 means no effect.</span></span></div>
                         <div class="example-row">
@@ -1891,13 +1898,13 @@
                             <div class="example-cell-info"><span class="example-cell-name">U251</span><span class="example-cancer-type">Brain (Glioblastoma)</span></div>
                             <div class="example-buttons"><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('U251','expression')">Expression</button><button class="btn btn-outline btn-xs" onclick="app.loadExampleData('U251','crispr')">CRISPR</button></div>
                         </div>
-                        <div style="margin-top: 6px; padding: 0 2px; display: flex; gap: 6px; align-items: center;">
-                            <button class="btn btn-outline btn-xs" id="depmapSearchToggle" onclick="app.toggleDepMapSearch()" title="Every DepMap cell line with CRISPR or expression data: 1,700 lines. Search by name (e.g. HeLa, MCF7), tissue (e.g. pancreas) or disease (e.g. leukemia).">&#128269; Find other cell lines</button>
-                            <button class="btn btn-outline btn-xs" onclick="app.openCompareDialog()" title="Rank genes by the difference between two cell lines, or two groups of cell lines (for example all melanoma lines vs all lymphoma lines), then run GSEA on that list">&#8644; Compare cell lines</button>
-                            <span id="depmapCounts" style="font-size: 0.75em; color: var(--gray-500);"></span>
+                        <div style="margin-top: 6px; padding: 0 2px; display: flex; gap: 6px; align-items: center; white-space: nowrap;">
+                            <button class="btn btn-outline btn-xs" id="depmapSearchToggle" onclick="app.toggleDepMapSearch()" title="Every DepMap cell line with CRISPR or expression data: 1,700 lines. Search by name (e.g. MCF7, A375), tissue (e.g. pancreas) or disease (e.g. leukemia).">&#128269; Find cell line</button>
+                            <button class="btn btn-outline btn-xs" onclick="app.openCompareDialog()" title="Rank genes by the difference between two cell lines, or two groups of cell lines chosen by tissue, disease or mutation (for example melanoma with and without a BRAF mutation), then run GSEA on that list">&#8644; Compare cell lines</button>
                         </div>
+                        <div id="depmapCounts" style="font-size: 0.75em; color: var(--gray-500); margin: 2px 2px 0;"></div>
                         <div id="depmapSearchBox" style="display: none; margin-top: 4px; padding: 0 2px;">
-                            <input type="text" class="form-control" id="depmapSearch" placeholder="Name, tissue or disease, e.g. HeLa, pancreas, leukemia" style="font-size: 0.85em; padding: 4px 8px;">
+                            <input type="text" class="form-control" id="depmapSearch" placeholder="Name, tissue or disease, e.g. MCF7, pancreas, leukemia" style="font-size: 0.85em; padding: 4px 8px;">
                         </div>
                         <div id="depmapSearchResults" class="example-data-grid" style="margin-top: 4px; max-height: 260px; overflow-y: auto;"></div>
                     </div>
@@ -2982,6 +2989,12 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.51</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>Uploading your own data is the main use, so the example data block is folded away behind "No data at hand? Load example data"</li>
+                <li>Cell line search ignores punctuation: a375 finds A-375</li>
+                <li>Compare cell lines: filter by tissue, disease and mutation status of a gene (hotspot, any mutation, wild type), so a group can be "melanoma with a BRAF hotspot mutation" and the other "melanoma, BRAF wild type"; the comparison summary names the filters used</li>
+            </ul>
             <p><strong>v.50.1</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>HeLa is not included in the DepMap cell line data (1,718 lines with expression)</li>
@@ -3497,9 +3510,9 @@
 </div>
 
 <script src="helpPopout.js?v=2"></script>
-<script src="depmapService.js?v=2"></script>
-<script src="app.js?v=94"></script>
-<script src="compare.js?v=1"></script>
+<script src="depmapService.js?v=3"></script>
+<script src="app.js?v=95"></script>
+<script src="compare.js?v=2"></script>
 <script src="explain.js?v=1"></script>
 <script src="exportImage.js?v=1"></script>
 </body>

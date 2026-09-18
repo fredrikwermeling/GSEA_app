@@ -43,16 +43,21 @@ function DEPMAP_search(query, limit = 25) {
     const idx = DEPMAP.index;
     if (!idx) return [];
     const q = String(query || '').trim().toLowerCase();
-    if (!q) return [];
+    if (!q) return { total: 0, rows: [] };
+    // Names are compared without punctuation or spaces, so a375, A-375 and
+    // "a 375" all find A-375; tissue and disease are matched word by word.
+    const norm = (t) => String(t).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const qn = norm(q);
     const words = q.split(/\s+/);
     const hit = (c) => {
+        if (qn && norm(c.name).includes(qn)) return true;
         const hay = `${c.name} ${c.lineage} ${c.disease}`.toLowerCase();
         return words.every(w => hay.includes(w));
     };
     const out = idx.all.filter(hit);
     out.sort((a, b) => {
-        const sa = a.name.toLowerCase().startsWith(q) ? 0 : 1;
-        const sb = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+        const sa = norm(a.name).startsWith(qn) ? 0 : 1;
+        const sb = norm(b.name).startsWith(qn) ? 0 : 1;
         return sa - sb || a.name.localeCompare(b.name, undefined, { numeric: true });
     });
     return { total: out.length, rows: out.slice(0, limit) };
@@ -111,4 +116,22 @@ async function DEPMAP_rowValues(type, rowIndex) {
     const out = new Float32Array(vals.length);
     for (let i = 0; i < vals.length; i++) out[i] = vals[i] === idx.na ? NaN : vals[i] / idx.scale;
     return out;
+}
+
+
+// Hotspot and damaging mutation calls per gene (DepMap somatic mutation
+// matrices), loaded when the compare dialog needs them.
+async function DEPMAP_mutations() {
+    if (DEPMAP.mut) return DEPMAP.mut;
+    if (!DEPMAP.mutLoading) {
+        DEPMAP.mutLoading = fetch(`web_data/depmap_mutations.json?v=${DEPMAP.v}`)
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(m => {
+                m.profiledSet = new Set(m.profiled);
+                m.hotspotSets = {}; for (const g in m.hotspot) m.hotspotSets[g] = new Set(m.hotspot[g]);
+                m.damagingSets = {}; for (const g in m.damaging) m.damagingSets[g] = new Set(m.damaging[g]);
+                DEPMAP.mut = m; return m;
+            });
+    }
+    return DEPMAP.mutLoading;
 }
