@@ -65,7 +65,7 @@ class GSEAApp {
         // Per-text-element font settings
         this.textElements = {
             bubble: [
-                { key: 'title', label: 'Title', editable: true, defaultText: 'Enrichment Overview', defaultSize: 14 },
+                { key: 'title', label: 'Title', editable: true, defaultText: 'Top gene sets by NES', defaultSize: 14 },
                 { key: 'xAxisLabel', label: 'X-axis label', editable: true, defaultText: 'Normalized Enrichment Score (NES)', defaultSize: 12 },
                 { key: 'yTickFont', label: 'Y-axis labels', editable: false, defaultSize: 11 },
                 { key: 'colorbarTitle', label: 'Colorbar title', editable: true, defaultText: 'FDR', defaultSize: 11 },
@@ -2443,7 +2443,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         // Title annotation (draggable)
         if (bubbleTitleFont.visible !== false) {
             layout.annotations.push({
-                text: bubbleTitleFont.wrap(bubbleTitleFont.text || 'Enrichment Overview'),
+                text: bubbleTitleFont.wrap(bubbleTitleFont.text || 'Top gene sets by NES'),
                 xref: 'paper', yref: 'paper', x: 0.5, y: 1.08,
                 showarrow: false,
                 font: { size: bubbleTitleFont.size, family: bubbleTitleFont.family },
@@ -2479,7 +2479,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
         Plotly.newPlot('bubblePlot', [trace], layout, {
             responsive: true,
-            displaylogo: false,
+            displayModeBar: false, displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
             scrollZoom: false,
             doubleClick: false,
@@ -2662,7 +2662,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
         Plotly.newPlot('rankedPlot', [trace], layout, {
             responsive: true,
-            displaylogo: false,
+            displayModeBar: false, displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
             scrollZoom: false,
             doubleClick: false,
@@ -3181,7 +3181,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             layout,
             {
                 responsive: true,
-                displaylogo: false,
+                displayModeBar: false, displaylogo: false,
                 modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
                 scrollZoom: false,
                 doubleClick: false,
@@ -3912,7 +3912,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         };
 
         Plotly.newPlot('overlapHeatmap', [trace], layout, {
-            responsive: true, displaylogo: false,
+            responsive: true, displayModeBar: false, displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d', 'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
             scrollZoom: false,
             doubleClick: false,
@@ -4578,7 +4578,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         html += `<button class="btn btn-outline btn-sm" id="gsfAutoSelect" title="Auto-select best representative per overlap cluster">Auto-select</button>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfShowAll">Show all</button>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfHideAll">Hide all</button>`;
-        html += `<button class="btn btn-sm" id="gsfViewInOverview" style="background: var(--green-50); border: 1px solid var(--green-600); color: var(--green-700);" title="Pin visible sets and view in Overview lollipop plot">📊 View in Overview</button>`;
+        html += `<button class="btn btn-sm" id="gsfViewInOverview" style="background: var(--green-50); border: 1px solid var(--green-600); color: var(--green-700);" title="Pin visible sets and view in Overview lollipop plot">📊 View in Bubble Plot</button>`;
         html += `</div>`;
 
         html += `<div style="max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;">`;
@@ -5236,7 +5236,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
         const h = Math.max(4, top.length * 0.35 + 1.5).toFixed(1);
 
-        let s = `# Enrichment Overview (Lollipop/Bubble Plot)\n`;
+        let s = `# Bubble Plot (top gene sets by NES)\n`;
         s += `# Install if needed: install.packages("ggplot2")\n\n`;
         s += `library(ggplot2)\n\n`;
 
@@ -6597,7 +6597,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         if (!elements) return;
 
         this._activeTextPlotType = plotType;
-        const plotLabels = { bubble: 'Overview Plot', ranked: 'Ranked Plot', es: 'Enrichment Plot', overlap: 'Overlap Heatmap' };
+        const plotLabels = { bubble: 'Bubble Plot', ranked: 'Ranked Plot', es: 'Enrichment Plot', overlap: 'Overlap Heatmap' };
 
         const fontOptions = ['Open Sans', 'Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Roboto Mono']
             .map(f => `<option value="${f}">${f}</option>`).join('');

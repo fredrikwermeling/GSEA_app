@@ -1612,7 +1612,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.45.7</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.45.8</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1663,7 +1663,7 @@
 
     <h4>5. Interpret the results</h4>
     <ul>
-        <li><strong>Overview</strong>: Lollipop plot showing top enriched gene sets sorted by NES</li>
+        <li><strong>Bubble Plot</strong>: the top enriched gene sets sorted by NES, bubble size = gene set size, colour = FDR</li>
         <li><strong>Enrichment Plot</strong>: Classic GSEA enrichment score curve for individual gene sets</li>
         <li><strong>Overlap</strong>: Jaccard similarity heatmap of significant gene sets</li>
         <li><strong>Results Table</strong>: Full sortable/filterable table with CSV export</li>
@@ -2165,7 +2165,7 @@
         <div class="tab-bar" id="tabBar">
             <button class="tab-btn active" data-tab="table">Results Table</button>
             <button class="tab-btn" data-tab="enrichment">Enrichment Plot</button>
-            <button class="tab-btn" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="overview">Bubble Plot</button>
             <button class="tab-btn" data-tab="overlap">Overlap</button>
             <div class="tab-bar-right">
                 <button class="settings-gear-btn" id="openSettingsBtn" style="display: none;" title="Figure Settings">&#9881; Settings</button>
@@ -2181,8 +2181,8 @@
             <div id="overviewResults" style="display: none;">
                 <div class="card">
                     <div class="card-title" style="position: relative;">
-                        Enrichment Overview
-                        <span class="info-icon">i<span class="info-tooltip"><b>Enrichment Overview (Lollipop Plot)</b><br>Shows the top enriched gene sets ranked by Normalized Enrichment Score (NES).<br>• <b>X-axis:</b> NES, positive values (right) indicate upregulated pathways; negative (left) indicate downregulated.<br>• <b>Dot size:</b> Number of genes in the set.<br>• <b>Dot color:</b> FDR significance, darker/warmer colors = more significant.<br>• <b>Click</b> any dot or label to see its full enrichment plot.</span></span>
+                        Bubble Plot
+                        <span class="info-icon">i<span class="info-tooltip"><b>Bubble Plot</b><br>Shows the top enriched gene sets ranked by Normalized Enrichment Score (NES).<br>• <b>X-axis:</b> NES, positive values (right) indicate upregulated pathways; negative (left) indicate downregulated.<br>• <b>Dot size:</b> Number of genes in the set.<br>• <b>Dot color:</b> FDR significance, darker/warmer colors = more significant.<br>• <b>Click</b> any dot or label to see its full enrichment plot.</span></span>
                         <div class="title-actions">
                             <span class="action-label">Settings</span>
                             <button class="card-settings-btn" onclick="app.openTextSettings('bubble')" title="Text settings">Aa</button>
@@ -2195,7 +2195,7 @@
                             <button class="btn btn-sm" onclick="app.exportRScript('bubble')" title="Download R script to reproduce this plot">.R</button>
                         </div>
                         <div class="graph-settings-popup" id="bubbleSettings">
-                            <h4>Overview Plot Settings</h4>
+                            <h4>Bubble Plot Settings</h4>
                             <div class="form-group">
                                 <label class="form-label">Top N gene sets</label>
                                 <input type="number" class="form-control settings-live" id="topN" value="20" min="5" max="100">
@@ -2689,7 +2689,7 @@
                 </div>
                 <div style="font-size: 0.88em; color: var(--gray-500);">Both are in the panel on the left. Green words are buttons and tabs on screen.</div>
                 <div style="margin-top: 16px; font-size: 0.85em; line-height: 1.7; max-width: 470px; color: var(--gray-500); text-align: center;">
-                    The <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Results Table</span> lists every tested gene set. Click a row to see its <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Enrichment Plot</span>. The <span style="color: var(--green-600); font-weight: 500;">Overview</span> tab shows a lollipop plot and the ranked gene list. <span style="color: var(--green-600); font-weight: 500;">Overlap</span> shows which significant gene sets share genes.
+                    The <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Results Table</span> lists every tested gene set. Click a row to see its <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Enrichment Plot</span>. The <span style="color: var(--green-600); font-weight: 500; white-space: nowrap;">Bubble Plot</span> tab shows the top gene sets and the ranked gene list. <span style="color: var(--green-600); font-weight: 500;">Overlap</span> shows which significant gene sets share genes.
                 </div>
                 <div style="margin-top: 14px; font-size: 0.82em; line-height: 1.6; max-width: 470px; color: var(--gray-400); text-align: center;">
                     <strong style="color: var(--gray-500);">Performance note:</strong> Over 33,000 MSigDB gene sets are available. A large analysis can be slow or freeze the browser. For heavy analyses, let Enrich write an R script (fgsea), run it in R, and upload the results here to use the plots.
@@ -2735,7 +2735,7 @@
                             <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('table')" title="Reset filters to defaults">↺ Reset</button>
                             <button class="btn btn-outline btn-sm" id="downloadCSVBtn">Download CSV</button>
                             <button class="btn btn-outline btn-sm" id="rerunFilteredBtn" style="background: var(--green-50); border-color: var(--green-600); color: var(--green-700);" title="Re-run GSEA on only the currently visible (filtered) gene sets, e.g. with higher permutations for accurate p-values">🔄 Re-run filtered</button>
-                            <button class="btn btn-outline btn-sm" id="viewPinnedBtn" style="display:none; background: var(--green-50); border-color: var(--green-600); color: var(--green-700);" title="View pinned gene sets in Overview lollipop plot" onclick="app.viewPinnedInOverview()">📊 View pinned in Overview</button>
+                            <button class="btn btn-outline btn-sm" id="viewPinnedBtn" style="display:none; background: var(--green-50); border-color: var(--green-600); color: var(--green-700);" title="View pinned gene sets in the Bubble Plot" onclick="app.viewPinnedInOverview()">📊 View pinned in Bubble Plot</button>
                             <span class="result-count" id="resultCount"></span>
                         </div>
                         <div class="table-container">
@@ -2827,6 +2827,11 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.45.8</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>The Overview tab is now called Bubble Plot, everywhere it is mentioned; the figure title defaults to "Top gene sets by NES"</li>
+                <li>Plotly's own toolbar (camera icon) is hidden on all figures; use the .svg / .png buttons in the card header</li>
+            </ul>
             <p><strong>v.45.7</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>Results Table default order now follows the data type: expression data lists the most enriched sets first (positive NES, what the sample is), CRISPR data the most depleted first (negative NES, what the cells depend on). Sorting by absolute NES had put "what the cell is not" on top. The run summary now says how many significant sets have positive and negative NES.</li>
@@ -3308,6 +3313,6 @@
     <div class="text-settings-body" id="textSettingsPanelBody"></div>
 </div>
 
-<script src="app.js?v=88"></script>
+<script src="app.js?v=89"></script>
 </body>
 </html>
