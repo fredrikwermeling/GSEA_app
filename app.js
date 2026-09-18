@@ -310,6 +310,12 @@ class GSEAApp {
 
         // Gene search
         document.getElementById('searchGenesBtn').addEventListener('click', () => this.searchGenes());
+        const dms = document.getElementById('depmapSearch');
+        if (dms) {
+            let dmsTimer = null;
+            dms.addEventListener('input', () => { clearTimeout(dmsTimer); dmsTimer = setTimeout(() => this.searchDepMapCellLines(), 200); });
+
+        }
         document.getElementById('rankedGeneSearchBtn').addEventListener('click', () => this.searchRankedGenes());
         document.getElementById('rankedGeneClearBtn').addEventListener('click', () => this.clearRankedGeneSearch());
         document.getElementById('rankedGeneSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.searchRankedGenes(); });
@@ -5660,32 +5666,22 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
     // --------------------------------------------------------
     // Example Data
     // --------------------------------------------------------
+    // Load one DepMap cell line (quick button name or a DepMap model id) as
+    // the ranked list, from the binary matrices via depmapService.js.
     async loadExampleData(cellLine, dataType) {
-        const cellLineInfo = {
-            A375: 'Skin cancer (Melanoma)',
-            A549: 'Lung cancer (Adenocarcinoma)',
-            HT29: 'Colon cancer (Colorectal)',
-            Raji: 'Blood cancer (B-cell Lymphoma)',
-            U251: 'Brain cancer (Glioblastoma)'
-        };
-        const metricMap = {
-            expression: 'log2FC_vs_median',
-            crispr: 'Chronos_score'
-        };
-        const labelMap = {
-            expression: 'expression as log2 fold change vs the median of all DepMap cell lines',
-            crispr: 'CRISPR screen, Chronos gene effect (negative = the cell line depends on the gene)'
-        };
-
+        const quick = { A375: 'ACH-000219', A549: 'ACH-000681', HT29: 'ACH-000552', Raji: 'ACH-000654', U251: 'ACH-000232' };
+        const id = quick[cellLine] || cellLine;
         this.showStatus('uploadStatus', 'info', `Loading ${cellLine} ${dataType} data from DepMap...`);
-
         try {
-            const resp = await fetch(`web_data/depmap_${dataType}_${cellLine}.json`);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const data = await resp.json();
+            const idx = await DEPMAP_index();
+            const t = idx[dataType];
+            const row = t.cellLines.findIndex(c => c.id === id);
+            if (row < 0) throw new Error(`${cellLine} has no ${dataType} data in DepMap ${idx.release}`);
+            const info = t.cellLines[row];
+            const data = await DEPMAP_row(dataType, row);
 
             this.rawData = data;
-            const metricCol = metricMap[dataType];
+            const metricCol = t.metric;
             this.populateColumnDropdowns(['Gene', metricCol]);
             document.getElementById('geneColumn').value = 'Gene';
             document.getElementById('metricColumn').value = metricCol;
@@ -5710,12 +5706,52 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 if (changed) await this.onCollectionChange();
                 collNote = ' Hallmark and C8 (cell type signatures) are ticked: C8 shows what kind of cell this is, Hallmark the dominant programmes.';
             }
+            const where = [info.lineage, info.disease].filter(Boolean).join(', ');
             this.showStatus('uploadStatus', 'success',
-                `Loaded ${cellLine}, ${cellLineInfo[cellLine]}: ${labelMap[dataType]}. ${data.length.toLocaleString()} genes from DepMap.${collNote}`);
+                `Loaded ${info.name}${where ? ' (' + where + ')' : ''}: ${t.label}. ${data.length.toLocaleString()} genes from DepMap ${idx.release}.${collNote}`);
+            this._loadedCellLine = { id, name: info.name, dataType };
             this.checkReady();
         } catch (err) {
-            this.showStatus('uploadStatus', 'error', `Failed to load example data: ${err.message}`);
+            this.showStatus('uploadStatus', 'error', `Failed to load DepMap data: ${err.message}`);
         }
+    }
+
+    toggleDepMapSearch() {
+        const box = document.getElementById('depmapSearchBox');
+        const open = box.style.display === 'none';
+        box.style.display = open ? '' : 'none';
+        if (open) {
+            document.getElementById('depmapSearch').focus();
+            DEPMAP_index().then(idx => this._setDepMapCounts(idx)).catch(() => {});
+        } else {
+            document.getElementById('depmapSearchResults').innerHTML = '';
+        }
+    }
+
+    _setDepMapCounts(idx) {
+        const n = document.getElementById('depmapCounts');
+        if (n) n.textContent = `${idx.expression.nCellLines.toLocaleString()} with expression, ${idx.crispr.nCellLines.toLocaleString()} with CRISPR (DepMap ${idx.release})`;
+    }
+
+    // Search box under the quick buttons: any DepMap cell line by name, tissue or disease.
+    async searchDepMapCellLines() {
+        const box = document.getElementById('depmapSearch');
+        const out = document.getElementById('depmapSearchResults');
+        const q = box.value.trim();
+        if (!q) { out.innerHTML = ''; return; }
+        try { this._setDepMapCounts(await DEPMAP_index()); } catch (e) { out.innerHTML = `<div style="color:#dc2626; padding:2px 4px;">Could not load the DepMap index: ${e.message}</div>`; return; }
+        const res = DEPMAP_search(q, 25);
+        if (!res.total) { out.innerHTML = `<div style="color:var(--gray-500); padding:2px 4px;">No DepMap cell line matches "${this._escText(q)}".</div>`; return; }
+        let html = '';
+        for (const c of res.rows) {
+            const where = [c.lineage, c.disease].filter(Boolean).join(', ');
+            const btn = (type, label) => c.rows[type] !== undefined
+                ? `<button class="btn btn-outline btn-xs" onclick="app.loadExampleData('${c.id}','${type}')" title="Load ${this._escText(c.name)} ${label} data">${label}</button>`
+                : `<button class="btn btn-outline btn-xs" disabled title="No ${label} data for this cell line" style="opacity:0.35;">${label}</button>`;
+            html += `<div class="example-row"><div class="example-cell-info"><span class="example-cell-name">${this._escText(c.name)}</span><span class="example-cancer-type">${this._escText(where)}</span></div><div class="example-buttons">${btn('expression', 'Expression')}${btn('crispr', 'CRISPR')}</div></div>`;
+        }
+        if (res.total > res.rows.length) html += `<div style="color:var(--gray-500); padding:2px 4px; font-size:0.9em;">${res.rows.length} of ${res.total} matches shown. Type more to narrow.</div>`;
+        out.innerHTML = html;
     }
 
     // --------------------------------------------------------

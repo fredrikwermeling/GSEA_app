@@ -35,6 +35,9 @@ Hosted on GitHub Pages.
 ## Validation reference
 - R with fgsea is installed; `fgseaSimple` on the A375 CRISPR example (Hallmark) reproduces the app's ES to 4 decimals. Use it as the reference when touching worker.js.
 
+## DepMap data
+- `depmapService.js` reads one cell line row from `web_data/depmap_{crispr,expression}.bin` (int16 x1000, row-major) using `web_data/depmap_index.json`; built by `prepare_depmap_matrix.py` from files symlinked into the git-ignored `web_data/.cache/`. Expression keeps one profile per model (IsDefaultEntryForModel). The five quick example buttons map to DepMap IDs inside `loadExampleData`.
+
 ## Hosting
 - GitHub Pages (github.io) plus, like Green Listed, a `Dockerfile` + `.github/workflows/deploy.yml` for IT to host at enrich.cmm.se. The workflow only runs when a commit message contains the word "deploy", so never put that word in a routine commit message.
 

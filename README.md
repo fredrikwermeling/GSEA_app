@@ -25,6 +25,10 @@ A client-side Gene Set Enrichment Analysis (GSEA) web application. All computati
 
 Or click **Load Example Data** to try it with simulated data.
 
+## DepMap cell line data
+
+All DepMap 26Q1 cell lines can be loaded as example data: `web_data/depmap_crispr.bin` (1,208 lines, Chronos gene effect) and `web_data/depmap_expression.bin` (1,719 lines, log2 fold change vs the median of all lines), int16 row-major matrices described by `web_data/depmap_index.json`. The app fetches one row per cell line with an HTTP Range request via `depmapService.js`. Rebuild with `python3 prepare_depmap_matrix.py` after placing (or symlinking) `CRISPRGeneEffect.csv`, `OmicsExpressionProteinCodingGenesTPMLogp1.csv` and `Model26Q1.csv` in `web_data/.cache/`.
+
 ## Hosting at cmm.se
 
 Same setup as Green Listed. `Dockerfile` serves the repo with Apache (`httpd:alpine`); `.dockerignore` keeps git, tooling and the old logo files out of the image. `.github/workflows/deploy.yml` rsyncs the repo to the lab server over SSH whenever a commit to `main` has the word "deploy" in its message. It needs three repository secrets set by IT: `SSH_PRIVATE_KEY`, `SSH_SERVER` (user@host:/path) and `SSH_KNOWN_HOSTS`. Intended address: https://enrich.cmm.se (not set up yet).
