@@ -370,8 +370,10 @@ Object.assign(GSEAApp.prototype, {
             const vals = cols.map(c => c[key]);
             if (new Set(vals).size > 1) strips.push({ key, label, vals });
         }
-        const palette = ['#7ab950', '#4472c4', '#ed7d31', '#a5a5a5', '#ffc000', '#5b9bd5', '#70ad47', '#9e480e', '#636363', '#997300', '#264478', '#43682b', '#c9c9c9', '#f4b183', '#8faadc', '#c5e0b4'];
-        const fixed = { A: '#dc2626', B: '#2563eb', hotspot: '#b91c1c', damaging: '#f59e0b', 'wild type': '#cbd5e1', 'no data': '#f3f4f6' };
+        const palette = ['#0d9488', '#d97706', '#db2777', '#65a30d', '#0891b2', '#a16207', '#9333ea', '#4b5563', '#84cc16', '#c2410c', '#0369a1', '#be185d', '#a3a3a3', '#15803d', '#f59e0b', '#6b21a8'];
+        // Red and blue are taken by the values, so the groups and the mutation
+        // strip use other hues: A green, B purple; hotspot orange, damaging yellow.
+        const fixed = { A: '#5d9239', B: '#7c3aed', hotspot: '#ea580c', damaging: '#facc15', 'wild type': '#d1d5db', 'no data': '#f9fafb' };
         const stripZ = [], stripText = [], stripColors = []; let catIndex = 0; const catColor = new Map();
         for (const st of strips) {
             const cats = [...new Set(st.vals)];
@@ -402,8 +404,8 @@ Object.assign(GSEAApp.prototype, {
             shapes: !['value', 'le', 'disease', 'subtype', 'lineage'].includes(sortBy)
                 ? [{ type: 'line', x0: nA - 0.5, x1: nA - 0.5, y0: 0, y1: 1, xref: 'x', yref: 'paper', line: { color: '#111', width: 2 } }] : [],
             annotations: [
-                { text: lab('A', nA, this._escText(d.A.label)), x: 0.0, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#dc2626' } },
-                { text: lab('B', nB, this._escText(d.B.label)), x: 0.86, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'right', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#2563eb' } }
+                { text: lab('A', nA, this._escText(d.A.label)), x: 0.0, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#4c782e' } },
+                { text: lab('B', nB, this._escText(d.B.label)), x: 0.86, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'right', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#6d28d9' } }
             ],
             paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: this.settings.fontFamily + ', sans-serif' }
         };
