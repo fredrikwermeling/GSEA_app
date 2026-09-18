@@ -421,15 +421,15 @@ Object.assign(GSEAApp.prototype, {
         const nCat = Math.max(1, catIndex);
         const catScale = [...catColor.values()].sort((a, b) => a.i - b.i).flatMap(c => [[c.i / nCat, c.color], [(c.i + 1) / nCat, c.color]]);
         const stripH = strips.length * 16;
-        const mapH = Math.max(320, Math.min(900, 40 + rows.length * 14));
+        const mapH = Math.max(320, Math.min(single ? 3600 : 900, 40 + rows.length * (single ? 17 : 14)));
         const total = mapH + stripH + (showX ? 120 : 40) + 120;
         const stripFrac = stripH / total, xlabFrac = (showX ? 110 : 30) / total;
         const yMain = [stripFrac + xlabFrac + 0.02, 1], yStrip = [xlabFrac, xlabFrac + stripFrac];
         const lab = (grp, n, l) => `<b>Group ${grp}</b> (${n} lines)${l ? ': ' + l : ''}`;
         const layout = {
-            width: single ? 520 : undefined,
+            width: single ? 640 : undefined,
             title: { text: `${this.cleanName(name)}<br><span style="font-size:11px;color:#6b7280">${metricName}; \u2605 = leading edge; rows sorted ${single ? 'by value, high to low' : 'by mean A minus mean B'}</span>`, font: { size: 14 } },
-            xaxis: { domain: single ? [0.3, 0.7] : [0, 0.86], tickangle: single ? 0 : -60, showticklabels: showX, tickfont: { size: single ? 12 : 9 }, side: single ? 'top' : 'bottom', anchor: single ? 'y' : 'y2' },
+            xaxis: { domain: single ? [0.2, 0.72] : [0, 0.86], tickangle: single ? 0 : -60, showticklabels: showX, tickfont: { size: single ? 12 : 9 }, side: single ? 'top' : 'bottom', anchor: single ? 'y' : 'y2' },
             xaxis2: { domain: [0.875, 0.875 + Math.max(0.03, Math.min(0.07, 2 * 0.86 / cols.length * 1.3))], tickfont: { size: 9 }, side: 'top', anchor: 'y' },
             yaxis: { domain: yMain, autorange: 'reversed', tickfont: { size: 10 }, automargin: true },
             yaxis2: { domain: yStrip, autorange: 'reversed', tickfont: { size: 9 }, automargin: true },
