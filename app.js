@@ -3382,6 +3382,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             <div style="margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap;">
                 <a href="${msigdbUrl}" target="_blank" rel="noopener" style="font-size: 0.85em; color: var(--green-600); text-decoration: none; font-weight: 600;">🔗 MSigDB</a>
                 <a href="#" onclick="app._openBrowserForSet('${this._escapeAttr(geneSetName)}'); return false;" style="font-size: 0.85em; color: var(--green-600); text-decoration: none; font-weight: 600;">🔍 Find in Browser</a>
+                ${this.hasComparisonData && this.hasComparisonData() ? `<a href="#" onclick="app.openGeneSetHeatmap('${this._escapeAttr(geneSetName)}'); return false;" style="font-size: 0.85em; color: var(--green-600); text-decoration: none; font-weight: 600;" title="Heatmap of this gene set's genes across the cell lines of group A and group B, with the filters that defined the groups">&#9638; Heatmap by cell line</a>` : ''}
             </div>
             <div style="margin-top: 8px; padding: 6px 8px; background: ${isUp ? '#fef2f2' : '#eff6ff'}; border-radius: 4px; border-left: 3px solid ${dirColor};">
                 <div style="font-weight: 600; color: ${dirColor}; margin-bottom: 2px;">${dirLabel}</div>

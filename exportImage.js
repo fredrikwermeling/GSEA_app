@@ -23,7 +23,7 @@ Object.assign(GSEAApp.prototype, {
         const fl = plotEl._fullLayout || {};
         const w = fl.width || plotEl.offsetWidth || 800;
         const h = fl.height || plotEl.offsetHeight || 500;
-        const stems = { bubblePlot: 'enrich_bubble_plot', rankedPlot: 'enrich_ranked_list', esPlot: 'enrich_enrichment_plot', overlapHeatmap: 'enrich_overlap' };
+        const stems = { bubblePlot: 'enrich_bubble_plot', rankedPlot: 'enrich_ranked_list', esPlot: 'enrich_enrichment_plot', overlapHeatmap: 'enrich_overlap', gsHeatmap: 'enrich_geneset_heatmap' };
         let filename = stems[plotId] || `enrich_${plotId}`;
         if (plotId === 'esPlot') {
             const sel = document.getElementById('geneSetSelector');

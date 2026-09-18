@@ -201,6 +201,9 @@ Object.assign(GSEAApp.prototype, {
             const A = await fetchGroup(c.A, 'A');
             const B = await fetchGroup(c.B, 'B');
             status.textContent = 'Computing...';
+            this._cmpData = { type, genes: t.genes, geneIndex: new Map(t.genes.map((g, i) => [g, i])),
+                A: { ids: c.A.slice(), names: c.A.map(nameOf), rows: A, label: (this._cmp.labels && this._cmp.labels.A) || '' },
+                B: { ids: c.B.slice(), names: c.B.map(nameOf), rows: B, label: (this._cmp.labels && this._cmp.labels.B) || '' } };
             const nG = t.genes.length;
             const stat = (rows, g) => {
                 let n = 0, s = 0, ss = 0;
@@ -253,5 +256,80 @@ Object.assign(GSEAApp.prototype, {
         } catch (e) {
             status.textContent = 'Failed: ' + e.message;
         }
+    }
+});
+
+
+// ---------------- Gene set heatmap: genes x cell lines of the two groups ----------------
+Object.assign(GSEAApp.prototype, {
+
+    hasComparisonData() { return !!(this._cmpData && this._cmpData.A.rows.length && this._cmpData.B.rows.length); },
+
+    openGeneSetHeatmap(geneSetName) {
+        if (!this.hasComparisonData()) { alert('The heatmap needs a comparison built from DepMap cell lines (Compare cell lines in the sidebar).'); return; }
+        const sel = document.getElementById('geneSetSelector');
+        const name = geneSetName || (sel && sel.value);
+        if (!name) return;
+        this._hmSet = name;
+        document.getElementById('gsHeatmapPopup').classList.add('open');
+        document.getElementById('howToUseBackdrop').classList.add('open');
+        this.renderGeneSetHeatmap();
+    },
+
+    closeGeneSetHeatmap() {
+        document.getElementById('gsHeatmapPopup').classList.remove('open');
+        document.getElementById('howToUseBackdrop').classList.remove('open');
+    },
+
+    renderGeneSetHeatmap() {
+        const d = this._cmpData, name = this._hmSet;
+        const result = this.results && this.results.find(r => r.name === name);
+        if (!d || !result) return;
+        const leOnly = document.getElementById('hmLeadingOnly').checked;
+        const zscore = document.getElementById('hmZscore').checked;
+        const le = new Set((result.leadingEdge || []).map(g => g.toUpperCase()));
+        let genes = (result.hits || []).map(i => this.rankedList.genes[i]).filter(g => d.geneIndex.has(g));
+        if (leOnly) genes = genes.filter(g => le.has(g));
+        const cols = [...d.A.rows, ...d.B.rows];
+        const colNames = [...d.A.names, ...d.B.names];
+        const nA = d.A.rows.length, nB = d.B.rows.length;
+        // one row per gene; order by the difference of group means, largest first
+        const rowsZ = genes.map(g => {
+            const gi = d.geneIndex.get(g);
+            let vals = cols.map(r => r[gi]);
+            if (zscore) {
+                const ok = vals.filter(v => !isNaN(v)); const m = ok.reduce((a, b) => a + b, 0) / (ok.length || 1);
+                const sd = Math.sqrt(ok.reduce((a, b) => a + (b - m) * (b - m), 0) / (ok.length > 1 ? ok.length - 1 : 1)) || 1;
+                vals = vals.map(v => isNaN(v) ? null : (v - m) / sd);
+            } else vals = vals.map(v => isNaN(v) ? null : v);
+            const mean = (arr) => { const ok = arr.filter(v => v !== null); return ok.length ? ok.reduce((a, b) => a + b, 0) / ok.length : 0; };
+            return { g, vals, diff: mean(vals.slice(0, nA)) - mean(vals.slice(nA)) };
+        }).sort((a, b) => b.diff - a.diff);
+        const isCrispr = d.type === 'crispr';
+        const metricName = zscore ? 'z-score per gene' : (isCrispr ? 'Chronos gene effect' : 'log2 expression vs DepMap median');
+        const yLabels = rowsZ.map(r => (le.has(r.g) ? '\u2605 ' : '') + r.g);
+        const z = rowsZ.map(r => r.vals);
+        const showX = cols.length <= 80;
+        const lab = (grp, n, l) => `<b>Group ${grp}</b> (${n} lines)${l ? ': ' + l : ''}`;
+        const absMax = Math.max(0.5, ...z.flat().filter(v => v !== null).map(Math.abs));
+        const zmax = zscore ? Math.min(absMax, 3) : Math.min(absMax, isCrispr ? 2 : 6);
+        const layout = {
+            title: { text: `${this.cleanName(name)}<br><span style="font-size:11px;color:#6b7280">${metricName}; \u2605 = leading edge; rows sorted by A minus B</span>`, font: { size: 14 } },
+            xaxis: { tickangle: -60, showticklabels: showX, tickfont: { size: 9 }, side: 'bottom' },
+            yaxis: { autorange: 'reversed', tickfont: { size: 10 }, automargin: true },
+            margin: { l: 120, r: 20, t: 110, b: showX ? 110 : 30 },
+            height: Math.max(340, Math.min(900, 60 + rowsZ.length * 14 + (showX ? 90 : 20))),
+            shapes: [{ type: 'line', x0: nA - 0.5, x1: nA - 0.5, y0: -0.5, y1: rowsZ.length - 0.5, xref: 'x', yref: 'y', line: { color: '#111', width: 2 } }],
+            annotations: [
+                { text: lab('A', nA, this._escText(d.A.label)), x: (nA - 1) / 2, y: 1.0, xref: 'x', yref: 'paper', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#dc2626' } },
+                { text: lab('B', nB, this._escText(d.B.label)), x: nA + (nB - 1) / 2, y: 1.0, xref: 'x', yref: 'paper', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#2563eb' } }
+            ],
+            paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: this.settings.fontFamily + ', sans-serif' }
+        };
+        const trace = { type: 'heatmap', z, x: colNames, y: yLabels, zmin: -zmax, zmax: zmax, zmid: 0,
+            colorscale: 'RdBu', reversescale: true, colorbar: { title: { text: metricName.length > 24 ? 'value' : metricName, side: 'right' }, thickness: 12 },
+            hovertemplate: '%{y}<br>%{x}<br>%{z:.2f}<extra></extra>', hoverongaps: false };
+        Plotly.newPlot('gsHeatmap', [trace], layout, { responsive: true, displayModeBar: false, displaylogo: false });
+        document.getElementById('hmInfo').textContent = `${rowsZ.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${nA + nB} cell lines. Columns are the cell lines of the comparison, in the order they were added.`;
     }
 });
