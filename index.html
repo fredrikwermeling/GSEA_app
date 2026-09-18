@@ -1632,11 +1632,39 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.48</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.49</a>
 </div>
 
 <!-- How to Use popup -->
 <div class="how-to-use-backdrop" id="howToUseBackdrop"></div>
+
+<!-- Compare cell lines popup -->
+<div class="how-to-use-popup" id="comparePopup" style="width: 640px;">
+    <button class="close-btn" onclick="app.closeCompareDialog()">&times;</button>
+    <h3>Compare cell lines</h3>
+    <p>Pick the cell lines for group A and group B. Genes are then ranked by how much they differ between the groups, and GSEA runs on that list. One line on each side is fine; with two or more on each side you can rank by a t-statistic instead of the plain difference.</p>
+    <div style="display: flex; gap: 14px; align-items: center; margin: 8px 0; font-size: 0.9em;">
+        <span style="font-weight: 600;">Data</span>
+        <label style="cursor: pointer;" title="log2(TPM+1) expression; the ranking is the log2 fold change of A over B"><input type="radio" name="cmpType" value="expression" checked onchange="app._cmpSetType('expression')"> Expression</label>
+        <label style="cursor: pointer;" title="Chronos gene effect from the CRISPR knockout screens; the ranking is A minus B, so negative = more essential in A"><input type="radio" name="cmpType" value="crispr" onchange="app._cmpSetType('crispr')"> CRISPR</label>
+        <span style="font-weight: 600; margin-left: 10px;">Rank by</span>
+        <select class="form-control" id="cmpMetric" style="width: auto; font-size: 0.9em; padding: 3px 6px;" title="Difference of means is the log2 fold change (expression) or the Chronos difference (CRISPR). The t-statistic also accounts for the spread within each group and needs at least two lines per group.">
+            <option value="diff">Difference of means (A minus B)</option>
+            <option value="t" disabled>Welch t-statistic (2+ lines per group)</option>
+        </select>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+        <div style="border: 1px solid var(--green-200); border-radius: 6px; padding: 6px 8px; min-height: 58px;"><div style="font-weight: 600; color: var(--green-800); font-size: 0.9em;">Group A <span id="cmpCountA" style="font-weight: 400; color: var(--gray-500);"></span></div><div id="cmpGroupA"></div></div>
+        <div style="border: 1px solid var(--green-200); border-radius: 6px; padding: 6px 8px; min-height: 58px;"><div style="font-weight: 600; color: var(--green-800); font-size: 0.9em;">Group B <span id="cmpCountB" style="font-weight: 400; color: var(--gray-500);"></span></div><div id="cmpGroupB"></div></div>
+    </div>
+    <input type="text" class="form-control" id="cmpSearch" placeholder="Find cell lines: name, tissue or disease, e.g. melanoma, lymphoma, HeLa" style="font-size: 0.9em;" oninput="app._cmpSearch()">
+    <div id="cmpResults" class="example-data-grid" style="margin-top: 6px; max-height: 240px; overflow-y: auto; font-size: 0.95em;"></div>
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 12px;">
+        <span id="cmpStatus" style="flex: 1; font-size: 0.85em; color: var(--gray-500);"></span>
+        <button class="btn btn-outline btn-sm" onclick="app.closeCompareDialog()">Cancel</button>
+        <button class="btn btn-sm" id="cmpBuild" style="background: var(--green-600); color: white;" onclick="app.buildComparison()" disabled title="Load the chosen cell lines, rank the genes, and put the list in the sidebar ready for Run GSEA">Build ranked list</button>
+    </div>
+</div>
 
 <!-- How to cite popup -->
 <div class="how-to-use-popup" id="howToCitePopup">
@@ -1865,6 +1893,7 @@
                         </div>
                         <div style="margin-top: 6px; padding: 0 2px; display: flex; gap: 6px; align-items: center;">
                             <button class="btn btn-outline btn-xs" id="depmapSearchToggle" onclick="app.toggleDepMapSearch()" title="Every DepMap cell line with CRISPR or expression data: 1,700 lines. Search by name (e.g. HeLa, MCF7), tissue (e.g. pancreas) or disease (e.g. leukemia).">&#128269; Find other cell lines</button>
+                            <button class="btn btn-outline btn-xs" onclick="app.openCompareDialog()" title="Rank genes by the difference between two cell lines, or two groups of cell lines (for example all melanoma lines vs all lymphoma lines), then run GSEA on that list">&#8644; Compare cell lines</button>
                             <span id="depmapCounts" style="font-size: 0.75em; color: var(--gray-500);"></span>
                         </div>
                         <div id="depmapSearchBox" style="display: none; margin-top: 4px; padding: 0 2px;">
@@ -2923,6 +2952,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.49</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>Compare cell lines: pick one or several DepMap cell lines for group A and group B (by name, tissue or disease), rank genes by the difference of means or by a Welch t-statistic, and run GSEA on that list. Works for expression (log2 fold change A over B) and CRISPR (Chronos A minus B).</li>
+            </ul>
             <p><strong>v.48</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>Every DepMap cell line can be loaded: 1,775 with expression and 1,208 with CRISPR (release 26Q1). A search box under the five quick buttons finds a line by name, tissue or disease. The data sits in two binary matrices and the app fetches only the one row it needs (about 37 KB), so loading is instant.</li>
@@ -3425,8 +3458,9 @@
 </div>
 
 <script src="helpPopout.js?v=1"></script>
-<script src="depmapService.js?v=1"></script>
-<script src="app.js?v=92"></script>
+<script src="depmapService.js?v=2"></script>
+<script src="app.js?v=93"></script>
+<script src="compare.js?v=1"></script>
 <script src="exportImage.js?v=1"></script>
 </body>
 </html>

@@ -90,3 +90,25 @@ async function DEPMAP_row(type, rowIndex) {
     rows.sort((a, b) => b[t.metric] - a[t.metric]);
     return rows;
 }
+
+// One cell line as a Float32Array aligned to the gene list (NaN where DepMap
+// has no value), for comparisons between cell lines.
+async function DEPMAP_rowValues(type, rowIndex) {
+    const idx = await DEPMAP_index();
+    const t = idx[type];
+    const url = `web_data/depmap_${type}.bin?v=${DEPMAP.v}`;
+    const start = rowIndex * t.rowBytes, end = start + t.rowBytes - 1;
+    let bytes;
+    if (DEPMAP.full[type]) bytes = DEPMAP.full[type].slice(start, end + 1);
+    else {
+        const r = await fetch(url, { headers: { Range: `bytes=${start}-${end}` } });
+        if (!r.ok && r.status !== 206) throw new Error(`HTTP ${r.status}`);
+        const buf = await r.arrayBuffer();
+        if (r.status === 206 && buf.byteLength === t.rowBytes) bytes = buf;
+        else { DEPMAP.full[type] = buf; bytes = buf.slice(start, end + 1); }
+    }
+    const vals = new Int16Array(bytes);
+    const out = new Float32Array(vals.length);
+    for (let i = 0; i < vals.length; i++) out[i] = vals[i] === idx.na ? NaN : vals[i] / idx.scale;
+    return out;
+}

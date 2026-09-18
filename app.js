@@ -423,6 +423,7 @@ class GSEAApp {
             });
             howToCiteClose.addEventListener('click', closeHowToCite);
             howToUseBackdrop.addEventListener('click', closeHowToCite);
+            howToUseBackdrop.addEventListener('click', () => { if (typeof this.closeCompareDialog === 'function') this.closeCompareDialog(); });
         }
 
         // Escape closes any open popup or the changelog, as in Green Listed
