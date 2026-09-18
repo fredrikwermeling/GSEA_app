@@ -270,15 +270,50 @@ Object.assign(GSEAApp.prototype, {
 
     hasComparisonData() { return !!(this._cmpData && this._cmpData.A.rows.length && this._cmpData.B.rows.length); },
 
-    openGeneSetHeatmap(geneSetName) {
-        if (!this.hasComparisonData()) { alert('The heatmap needs a comparison built from DepMap cell lines (Compare cell lines in the sidebar).'); return; }
+    // A heatmap is possible for a comparison (its two groups) and for a single
+    // DepMap cell line (the line against its peers of the same disease).
+    canShowHeatmap() { return this.hasComparisonData() || !!(this._loadedCellLine && !this._loadedCellLine.compare && this._loadedCellLine.id); },
+
+    async openGeneSetHeatmap(geneSetName) {
         const sel = document.getElementById('geneSetSelector');
         const name = geneSetName || (sel && sel.value);
         if (!name) return;
+        if (!this.canShowHeatmap()) { alert('The heatmap shows a gene set across DepMap cell lines. Load a DepMap cell line (example data or Find cell line) or build a comparison first; an uploaded file has no other cell lines to show.'); return; }
         this._hmSet = name;
         document.getElementById('gsHeatmapPopup').classList.add('open');
         document.getElementById('howToUseBackdrop').classList.add('open');
+        if (!this.hasComparisonData()) {
+            // Single line: fetch its peers once (same disease, else same tissue)
+            const lc = this._loadedCellLine;
+            if (!this._peerData || this._peerData.id !== lc.id || this._peerData.type !== lc.dataType) {
+                document.getElementById('hmInfo').textContent = 'Loading the peer cell lines...';
+                document.getElementById('gsHeatmap').innerHTML = '';
+                try { this._peerData = await this._buildPeerData(lc.id, lc.dataType); }
+                catch (e) { document.getElementById('hmInfo').textContent = 'Could not load peer cell lines: ' + e.message; return; }
+            }
+        }
         this.renderGeneSetHeatmap();
+    },
+
+    async _buildPeerData(id, type) {
+        const idx = await DEPMAP_index();
+        const t = idx[type];
+        const me = t.cellLines.findIndex(c => c.id === id);
+        if (me < 0) throw new Error('cell line not in the DepMap ' + type + ' data');
+        const mine = t.cellLines[me];
+        let peers = t.cellLines.map((c, i) => ({ c, i })).filter(x => x.i !== me && x.c.disease && x.c.disease === mine.disease);
+        let how = `other ${mine.disease} lines`;
+        if (peers.length < 5) { peers = t.cellLines.map((c, i) => ({ c, i })).filter(x => x.i !== me && x.c.lineage && x.c.lineage === mine.lineage); how = `other ${mine.lineage} lines`; }
+        if (peers.length > 150) { peers = peers.slice(0, 150); how += ' (first 150)'; }
+        const rowsB = [];
+        for (let k = 0; k < peers.length; k++) {
+            document.getElementById('hmInfo').textContent = `Loading peer cell lines: ${k + 1} of ${peers.length}...`;
+            rowsB.push(await DEPMAP_rowValues(type, peers[k].i));
+        }
+        const rowA = await DEPMAP_rowValues(type, me);
+        return { id, type, peer: true, genes: t.genes, geneIndex: new Map(t.genes.map((g, i) => [g, i])), mutGene: '',
+            A: { ids: [id], names: [mine.name], rows: [rowA], label: 'the loaded cell line' },
+            B: { ids: peers.map(p => p.c.id), names: peers.map(p => p.c.name), rows: rowsB, label: how } };
     },
 
     closeGeneSetHeatmap() {
@@ -287,7 +322,7 @@ Object.assign(GSEAApp.prototype, {
     },
 
     renderGeneSetHeatmap() {
-        const d = this._cmpData, name = this._hmSet;
+        const d = this.hasComparisonData() ? this._cmpData : this._peerData, name = this._hmSet;
         const result = this.results && this.results.find(r => r.name === name);
         if (!d || !result) return;
         const leOnly = document.getElementById('hmLeadingOnly').checked;
@@ -364,7 +399,7 @@ Object.assign(GSEAApp.prototype, {
         const zmax = zscore ? Math.min(absMax, 3) : Math.min(absMax, isCrispr ? 2 : 6);
         const showX = cols.length <= 80;
         // annotation strips below the map: group, mutation, disease, subtype, lineage
-        const strips = [{ key: 'group', label: 'Group', vals: cols.map(c => c.group) }];
+        const strips = [{ key: 'group', label: d.peer ? 'Loaded / peer' : 'Group', vals: cols.map(c => c.group) }];
         if (stripGene) strips.push({ key: 'mut', label: `${stripGene} mutation`, vals: cols.map(c => c.mut) });
         for (const [key, label] of [['disease', 'Disease'], ['subtype', 'Subtype'], ['lineage', 'Tissue']]) {
             const vals = cols.map(c => c[key]);
@@ -392,7 +427,9 @@ Object.assign(GSEAApp.prototype, {
         const total = mapH + stripH + (showX ? 120 : 40) + 120;
         const stripFrac = stripH / total, xlabFrac = (showX ? 110 : 30) / total;
         const yMain = [stripFrac + xlabFrac + 0.02, 1], yStrip = [xlabFrac, xlabFrac + stripFrac];
-        const lab = (grp, n, l) => `<b>Group ${grp}</b> (${n} lines)${l ? ': ' + l : ''}`;
+        const lab = d.peer
+            ? (grp, n, l) => (grp === 'A' ? `<b>${this._escText(d.A.names[0])}</b> (loaded line)` : `<b>${n} peers</b>: ${l}`)
+            : (grp, n, l) => `<b>Group ${grp}</b> (${n} lines)${l ? ': ' + l : ''}`;
         const layout = {
             title: { text: `${this.cleanName(name)}<br><span style="font-size:11px;color:#6b7280">${metricName}; \u2605 = leading edge; rows sorted by mean A minus mean B</span>`, font: { size: 14 } },
             xaxis: { domain: [0, 0.86], tickangle: -60, showticklabels: showX, tickfont: { size: 9 }, side: 'bottom', anchor: 'y2' },
@@ -415,7 +452,7 @@ Object.assign(GSEAApp.prototype, {
         // Means of many z-scores are small numbers; on the map's scale they all
         // looked pale, so the two mean columns use their own range (mean A vs B).
         const mAbs = Math.max(0.05, ...rows.flatMap(r => [r.mA, r.mB]).filter(v => v !== null).map(Math.abs));
-        const means = { type: 'heatmap', z: rows.map(r => [r.mA, r.mB]), x: ['mean A', 'mean B'], y: yLabels, xaxis: 'x2', yaxis: 'y', zmin: -mAbs, zmax: mAbs, zmid: 0,
+        const means = { type: 'heatmap', z: rows.map(r => [r.mA, r.mB]), x: d.peer ? [d.A.names[0].slice(0, 12), 'mean peers'] : ['mean A', 'mean B'], y: yLabels, xaxis: 'x2', yaxis: 'y', zmin: -mAbs, zmax: mAbs, zmid: 0,
             colorscale: 'RdBu', reversescale: true, showscale: false, hovertemplate: '%{y}<br>%{x}: %{z:.2f} (own colour range \u00b1' + mAbs.toFixed(2) + ')<extra></extra>', hoverongaps: false };
         const stripTrace = { type: 'heatmap', z: stripZ, x: colNames, y: strips.map(st => st.label), text: stripText, xaxis: 'x', yaxis: 'y2',
             zmin: 0, zmax: nCat, colorscale: catScale, showscale: false, hovertemplate: '%{x}<br>%{text}<extra></extra>', xgap: 0.5, ygap: 2 };
@@ -427,6 +464,8 @@ Object.assign(GSEAApp.prototype, {
             return `<span style="margin-right: 12px;"><b>${st.label}:</b> ` + cats.map(v => `<span style="display:inline-block; width:10px; height:10px; background:${catColor.get(st.key + ':' + v).color}; border:1px solid #ccc; vertical-align:middle; margin: 0 3px 0 6px;"></span>${this._escText(v || 'n/a')}`).join('') + '</span>';
         }).join('');
         const sortNote = ['group', 'mutation', 'disease', 'subtype', 'lineage'].includes(sortBy) ? '' : `, sorted by ${scoreLabel} ${desc ? 'high to low' : 'low to high'}${sortBy.endsWith('Within') ? ' within each group' : ''}`;
-        document.getElementById('hmInfo').textContent = `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${cols.length} cell lines${sortNote}. The two columns on the right are the mean of each group, on their own colour range (\u00b1${mAbs.toFixed(2)}) so small differences stay visible.`;
+        document.getElementById('hmInfo').textContent = d.peer
+            ? `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${d.A.names[0]} (first column, left of the divider) against ${nB} peer lines${sortNote}. Right: the loaded line's value and the mean of the peers, on their own colour range (\u00b1${mAbs.toFixed(2)}). The peers are the DepMap lines with the same disease; to choose the columns yourself, use Compare cell lines.`
+            : `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${cols.length} cell lines${sortNote}. The two columns on the right are the mean of each group, on their own colour range (\u00b1${mAbs.toFixed(2)}) so small differences stay visible.`;
     }
 });
