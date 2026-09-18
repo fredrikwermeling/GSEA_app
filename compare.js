@@ -135,6 +135,27 @@ Object.assign(GSEAApp.prototype, {
         this._cmpSearch();
     },
 
+    // Typing a gene is meant as a filter, so the status menu follows: hotspot
+    // if the gene has hotspot calls, otherwise any mutation. The note under the
+    // box says what the data holds for that gene, or that it holds nothing.
+    _cmpGeneChanged() {
+        const gene = document.getElementById('cmpMutGene').value.trim().toUpperCase();
+        const st = document.getElementById('cmpMutStatus');
+        const note = document.getElementById('cmpMutGeneNote');
+        const mut = DEPMAP.mut;
+        if (!gene) { if (note) note.textContent = ''; st.value = 'any'; this._cmpSearch(); return; }
+        if (!mut) { if (note) note.textContent = 'Mutation data is still loading...'; DEPMAP_mutations().then(() => this._cmpGeneChanged()).catch(() => { if (note) note.textContent = 'Mutation data could not be loaded.'; }); return; }
+        const nHot = (mut.hotspot[gene] || []).length, nDam = (mut.damaging[gene] || []).length;
+        if (!nHot && !nDam) {
+            if (note) note.innerHTML = `<span style="color:#b45309;">No mutation calls for ${this._escText(gene)} in DepMap. Check the symbol; hotspot calls exist for ${Object.keys(mut.hotspot).length} cancer genes, damaging calls for most genes.</span>`;
+            st.value = 'any';
+        } else {
+            if (note) note.textContent = `${gene}: ${nHot} lines with a hotspot mutation, ${nDam} with a damaging mutation, ${mut.profiled.length} lines have mutation data.`;
+            if (st.value === 'any') st.value = nHot ? 'hotspot' : 'mutated';
+        }
+        this._cmpSearch();
+    },
+
     _cmpSearch() {
         const q = document.getElementById('cmpSearch').value.trim();
         const out = document.getElementById('cmpResults');
