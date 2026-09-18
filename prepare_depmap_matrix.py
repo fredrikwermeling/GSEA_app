@@ -33,7 +33,7 @@ def load_models():
     m = pd.read_csv(os.path.join(CACHE, 'Model26Q1.csv'), dtype=str).fillna('')
     return {r['ModelID']: {'name': r['CellLineName'] or r['StrippedCellLineName'] or r['ModelID'],
                            'stripped': r['StrippedCellLineName'],
-                           'lineage': r['OncotreeLineage'], 'disease': r['OncotreePrimaryDisease']}
+                           'lineage': r['OncotreeLineage'], 'disease': r['OncotreePrimaryDisease'], 'subtype': r.get('OncotreeSubtype', '')}
             for _, r in m.iterrows()}
 
 def write_matrix(df, models, name, transform):
@@ -52,7 +52,7 @@ def write_matrix(df, models, name, transform):
     arr.tofile(path)
     print(f'  {path}: {arr.shape[0]} cell lines x {arr.shape[1]} genes, {os.path.getsize(path)/1e6:.1f} MB')
     return {'genes': genes,
-            'cellLines': [{'id': i, 'name': models[i]['name'], 'lineage': models[i]['lineage'], 'disease': models[i]['disease']} for i in df.index],
+            'cellLines': [{'id': i, 'name': models[i]['name'], 'lineage': models[i]['lineage'], 'disease': models[i]['disease'], 'subtype': models[i]['subtype']} for i in df.index],
             'nGenes': len(genes), 'nCellLines': len(df.index), 'rowBytes': len(genes) * 2}
 
 def main():

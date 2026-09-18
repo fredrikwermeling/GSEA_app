@@ -12,7 +12,7 @@
 // kept in memory so later rows are free.
 //
 
-const DEPMAP = { index: null, loading: null, full: {}, v: '26Q1' };
+const DEPMAP = { index: null, loading: null, full: {}, v: "26Q1b" };
 
 async function DEPMAP_index() {
     if (DEPMAP.index) return DEPMAP.index;
@@ -51,7 +51,7 @@ function DEPMAP_search(query, limit = 25) {
     const words = q.split(/\s+/);
     const hit = (c) => {
         if (qn && norm(c.name).includes(qn)) return true;
-        const hay = `${c.name} ${c.lineage} ${c.disease}`.toLowerCase();
+        const hay = `${c.name} ${c.lineage} ${c.disease} ${c.subtype || ''}`.toLowerCase();
         return words.every(w => hay.includes(w));
     };
     const out = idx.all.filter(hit);

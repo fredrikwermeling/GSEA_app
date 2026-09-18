@@ -1632,7 +1632,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.51</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.51.1</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1657,9 +1657,12 @@
         <div style="border: 1px solid var(--green-200); border-radius: 6px; padding: 6px 8px; min-height: 58px; max-height: 150px; overflow-y: auto;"><div style="font-weight: 600; color: var(--green-800); font-size: 0.9em;">Group A <span id="cmpCountA" style="font-weight: 400; color: var(--gray-500);"></span></div><div id="cmpGroupA"></div></div>
         <div style="border: 1px solid var(--green-200); border-radius: 6px; padding: 6px 8px; min-height: 58px; max-height: 150px; overflow-y: auto;"><div style="font-weight: 600; color: var(--green-800); font-size: 0.9em;">Group B <span id="cmpCountB" style="font-weight: 400; color: var(--gray-500);"></span></div><div id="cmpGroupB"></div></div>
     </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px;">
         <select class="form-control" id="cmpLineage" style="font-size: 0.85em; padding: 4px 6px;" onchange="app._cmpFillFilters(); app._cmpSearch()" title="Tissue of origin (DepMap Oncotree lineage)"><option value="">Any tissue</option></select>
-        <select class="form-control" id="cmpDisease" style="font-size: 0.85em; padding: 4px 6px;" onchange="app._cmpSearch()" title="Disease (DepMap Oncotree primary disease); the list follows the chosen tissue"><option value="">Any disease</option></select>
+        <select class="form-control" id="cmpDisease" style="font-size: 0.85em; padding: 4px 6px;" onchange="app._cmpFillFilters(); app._cmpSearch()" title="Disease (DepMap Oncotree primary disease); the list follows the chosen tissue"><option value="">Any disease</option></select>
+        <select class="form-control" id="cmpSubtype" style="font-size: 0.85em; padding: 4px 6px;" onchange="app._cmpSearch()" title="Subtype (DepMap Oncotree subtype); the list follows the chosen tissue and disease"><option value="">Any subtype</option></select>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
         <input type="text" class="form-control" id="cmpMutGene" placeholder="Mutation in gene, e.g. BRAF" style="font-size: 0.85em; padding: 4px 6px;" oninput="app._cmpSearch()" title="Gene symbol. Hotspot = a known cancer hotspot mutation (e.g. BRAF V600E, KRAS G12); damaging = a call predicted to disrupt the protein. Lines without mutation data are left out of both mutated and wild-type groups.">
         <select class="form-control" id="cmpMutStatus" style="font-size: 0.85em; padding: 4px 6px;" onchange="app._cmpSearch()" title="Which lines to keep for the gene typed on the left"><option value="any">Any mutation status</option><option value="hotspot">Hotspot mutated</option><option value="mutated">Mutated (hotspot or damaging)</option><option value="wt">Wild type</option></select>
     </div>
@@ -2989,6 +2992,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.51.1</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>Compare cell lines: subtype filter added next to tissue and disease (the three cascade, as in Correlate); the cell line search also matches subtype names</li>
+            </ul>
             <p><strong>v.51</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>Uploading your own data is the main use, so the example data block is folded away behind "No data at hand? Load example data"</li>
@@ -3510,9 +3517,9 @@
 </div>
 
 <script src="helpPopout.js?v=2"></script>
-<script src="depmapService.js?v=3"></script>
+<script src="depmapService.js?v=4"></script>
 <script src="app.js?v=95"></script>
-<script src="compare.js?v=2"></script>
+<script src="compare.js?v=3"></script>
 <script src="explain.js?v=1"></script>
 <script src="exportImage.js?v=1"></script>
 </body>

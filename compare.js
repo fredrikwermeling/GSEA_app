@@ -36,6 +36,10 @@ Object.assign(GSEAApp.prototype, {
         const curDis = dis.value;
         dis.innerHTML = '<option value="">Any disease</option>' + count('disease', lin.value ? (c => c.lineage === lin.value) : null).map(([k, n]) => `<option value="${k}">${k} (${n})</option>`).join('');
         dis.value = [...dis.options].some(o => o.value === curDis) ? curDis : '';
+        const sub = document.getElementById('cmpSubtype');
+        const curSub = sub.value;
+        sub.innerHTML = '<option value="">Any subtype</option>' + count('subtype', c => (!lin.value || c.lineage === lin.value) && (!dis.value || c.disease === dis.value)).map(([k, n]) => `<option value="${k}">${k} (${n})</option>`).join('');
+        sub.value = [...sub.options].some(o => o.value === curSub) ? curSub : '';
         const mut = DEPMAP.mut;
         const note = document.getElementById('cmpMutNote');
         if (note) note.textContent = mut ? `Hotspot calls for ${Object.keys(mut.hotspot).length} cancer genes, damaging calls for ${Object.keys(mut.damaging).length} genes; ${mut.profiled.length} lines have mutation data.` : 'Mutation data not available.';
@@ -45,12 +49,12 @@ Object.assign(GSEAApp.prototype, {
     _cmpCandidates() {
         const idx = DEPMAP.index; if (!idx) return [];
         const type = this._cmp.type;
-        const lin = document.getElementById('cmpLineage').value, dis = document.getElementById('cmpDisease').value;
+        const lin = document.getElementById('cmpLineage').value, dis = document.getElementById('cmpDisease').value, sub = document.getElementById('cmpSubtype').value;
         const gene = document.getElementById('cmpMutGene').value.trim().toUpperCase();
         const status = document.getElementById('cmpMutStatus').value;
         const q = document.getElementById('cmpSearch').value.trim();
         let rows = q ? DEPMAP_search(q, 5000).rows : idx.all.slice();
-        rows = rows.filter(c => c.rows[type] !== undefined && (!lin || c.lineage === lin) && (!dis || c.disease === dis));
+        rows = rows.filter(c => c.rows[type] !== undefined && (!lin || c.lineage === lin) && (!dis || c.disease === dis) && (!sub || c.subtype === sub));
         const mut = DEPMAP.mut;
         if (gene && status !== 'any' && mut) {
             const hs = mut.hotspotSets[gene] || new Set(), dm = mut.damagingSets[gene] || new Set();
@@ -107,10 +111,10 @@ Object.assign(GSEAApp.prototype, {
     _cmpAddAll(group) {
         const res = this._cmpLastResults || [];
         const parts = [];
-        const lin = document.getElementById('cmpLineage').value, dis = document.getElementById('cmpDisease').value;
+        const lin = document.getElementById('cmpLineage').value, dis = document.getElementById('cmpDisease').value, sub = document.getElementById('cmpSubtype').value;
         const gene = document.getElementById('cmpMutGene').value.trim().toUpperCase(), st = document.getElementById('cmpMutStatus').value;
         const q = document.getElementById('cmpSearch').value.trim();
-        if (q) parts.push(`"${q}"`); if (lin) parts.push(lin); if (dis) parts.push(dis);
+        if (q) parts.push(`"${q}"`); if (lin) parts.push(lin); if (dis) parts.push(dis); if (sub) parts.push(sub);
         if (gene && st !== 'any') parts.push(`${gene} ${st === 'wt' ? 'wild type' : st === 'hotspot' ? 'hotspot mutated' : 'mutated'}`);
         if (!this._cmp.labels) this._cmp.labels = {};
         this._cmp.labels[group] = parts.join(', ');
@@ -135,7 +139,7 @@ Object.assign(GSEAApp.prototype, {
         const q = document.getElementById('cmpSearch').value.trim();
         const out = document.getElementById('cmpResults');
         if (!DEPMAP.index) { out.innerHTML = ''; return; }
-        const anyFilter = q || document.getElementById('cmpLineage').value || document.getElementById('cmpDisease').value
+        const anyFilter = q || document.getElementById('cmpLineage').value || document.getElementById('cmpDisease').value || document.getElementById('cmpSubtype').value
             || (document.getElementById('cmpMutGene').value.trim() && document.getElementById('cmpMutStatus').value !== 'any');
         if (!anyFilter) { out.innerHTML = '<div style="color: var(--gray-400); padding: 2px 4px; font-size: 0.85em;">Type a name, or choose a tissue, disease or mutation, to list cell lines.</div>'; this._cmpLastResults = []; return; }
         const type = this._cmp.type;
@@ -145,7 +149,7 @@ Object.assign(GSEAApp.prototype, {
         let html = '';
         if (rows.length > 1) html += `<div style="padding: 2px 4px; font-size: 0.85em; color: var(--gray-600);">${rows.length} matching cell lines: <a href="#" onclick="app._cmpAddAll('A'); return false;">add all to A</a> &middot; <a href="#" onclick="app._cmpAddAll('B'); return false;">add all to B</a></div>`;
         for (const l of rows.slice(0, 60)) {
-            const where = [l.lineage, l.disease].filter(Boolean).join(', ');
+            const where = [l.lineage, l.disease, l.subtype && l.subtype !== l.disease ? l.subtype : ''].filter(Boolean).join(', ');
             const inA = this._cmp.A.includes(l.id), inB = this._cmp.B.includes(l.id);
             html += `<div class="example-row"><div class="example-cell-info"><span class="example-cell-name">${this._escText(l.name)}</span><span class="example-cancer-type">${this._escText(where)}</span></div><div class="example-buttons">`
                 + `<button class="btn btn-outline btn-xs" ${inA ? 'style="background: var(--green-100);"' : ''} onclick="app._cmpAdd('A','${l.id}')" title="Put this cell line in group A">${inA ? '&#10003; ' : '+'}A</button>`
