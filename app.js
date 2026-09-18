@@ -310,6 +310,9 @@ class GSEAApp {
 
         // Gene search
         document.getElementById('searchGenesBtn').addEventListener('click', () => this.searchGenes());
+        document.getElementById('rankedGeneSearchBtn').addEventListener('click', () => this.searchRankedGenes());
+        document.getElementById('rankedGeneClearBtn').addEventListener('click', () => this.clearRankedGeneSearch());
+        document.getElementById('rankedGeneSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.searchRankedGenes(); });
         document.getElementById('clearSearchBtn').addEventListener('click', () => this.clearGeneSearch());
 
         // Top/Bottom N selector
@@ -2668,6 +2671,74 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             doubleClick: false,
             edits: { annotationPosition: true, annotationText: true, axisTitleText: true, titleText: false, legendPosition: true }
         });
+        if (this._rankedHighlight && this._rankedHighlight.length) this._highlightGenesOnRankedPlot(this._rankedHighlight);
+    }
+
+    // Find genes on the ranked list: a line at each gene's rank with its name,
+    // and a summary line with rank and value. Misspellings get suggestions.
+    searchRankedGenes() {
+        const input = document.getElementById('rankedGeneSearch').value.trim();
+        const out = document.getElementById('rankedGeneSearchResults');
+        if (!input || !this.rankedList) return;
+        const names = input.split(/[\n,\t\s;]+/).map(g => g.trim().toUpperCase()).filter(Boolean);
+        const genes = this.rankedList.genes, metrics = this.rankedList.metrics;
+        const found = [], missing = [];
+        for (const g of names) {
+            const idx = genes.indexOf(g);
+            if (idx >= 0) found.push({ gene: g, rank: idx, metric: metrics[idx] }); else missing.push(g);
+        }
+        found.sort((a, b) => a.rank - b.rank);
+        let html = found.map(f => `<b style="color:${f.metric >= 0 ? '#dc2626' : '#2563eb'};">${f.gene}</b> rank ${(f.rank + 1).toLocaleString()} of ${genes.length.toLocaleString()} (${f.metric >= 0 ? '+' : ''}${f.metric.toFixed(3)})`).join(' &middot; ');
+        for (const g of missing) {
+            const sugg = this._suggestGenes(g);
+            html += `${html ? ' &middot; ' : ''}<span style="color:#dc2626;">${this._escText(g)} not found</span>`;
+            if (sugg.length) html += ` (did you mean ${sugg.map(sg => `<a href="#" onclick="app._useSuggestedRankedGene('${this._escText(g)}','${sg}'); return false;" style="color: var(--green-700);">${sg}</a>`).join(', ')}?)`;
+        }
+        out.innerHTML = html;
+        this._rankedHighlight = found;
+        this._highlightGenesOnRankedPlot(found);
+    }
+
+    _useSuggestedRankedGene(wrong, right) {
+        const box = document.getElementById('rankedGeneSearch');
+        const esc = wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        box.value = box.value.replace(new RegExp(`(^|[\\s,;])${esc}(?=[\\s,;]|$)`, 'i'), (m, lead) => `${lead}${right}`);
+        this.searchRankedGenes();
+    }
+
+    _highlightGenesOnRankedPlot(found) {
+        const plotEl = document.getElementById('rankedPlot');
+        if (!plotEl || !plotEl.layout) return;
+        const shapes = (plotEl.layout.shapes || []).filter(sh => !sh._isHighlight);
+        const annotations = (plotEl.layout.annotations || []).filter(a => !a._isHighlight);
+        const N = this.rankedList.genes.length;
+        let lastRank = -Infinity, row = 0;
+        const sorted = found.slice().sort((a, b) => a.rank - b.rank);
+        for (const f of sorted) {
+            row = (f.rank - lastRank) < N * 0.09 ? (row + 1) % 3 : 0;
+            lastRank = f.rank;
+            const color = f.metric >= 0 ? '#dc2626' : '#2563eb';
+            shapes.push({ type: 'line', x0: f.rank, x1: f.rank, y0: 0, y1: 1, xref: 'x', yref: 'paper',
+                line: { color, width: 1.5, dash: 'dot' }, _isHighlight: true });
+            annotations.push({ text: `<b>${f.gene}</b>`, x: f.rank, y: 0.97 - row * 0.16, xref: 'x', yref: 'paper',
+                showarrow: false, xanchor: 'center', yanchor: 'top',
+                font: { size: 11, color, family: this.settings.fontFamily + ', sans-serif' },
+                bgcolor: 'rgba(255,255,255,0.85)', borderpad: 2, _isHighlight: true });
+        }
+        Plotly.relayout('rankedPlot', { shapes, annotations });
+    }
+
+    clearRankedGeneSearch() {
+        document.getElementById('rankedGeneSearch').value = '';
+        document.getElementById('rankedGeneSearchResults').innerHTML = '';
+        this._rankedHighlight = null;
+        const plotEl = document.getElementById('rankedPlot');
+        if (plotEl && plotEl.layout) {
+            Plotly.relayout('rankedPlot', {
+                shapes: (plotEl.layout.shapes || []).filter(sh => !sh._isHighlight),
+                annotations: (plotEl.layout.annotations || []).filter(a => !a._isHighlight)
+            });
+        }
     }
 
     // --------------------------------------------------------
@@ -4555,7 +4626,7 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
 
         let html = `<div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;">`;
         html += `<input type="text" id="gsfSearch" class="form-control" placeholder="Filter..." style="flex: 1; max-width: 180px; font-size: 0.85em;" value="${this._gsfSearchVal || ''}">`;
-        html += `<select class="form-control" id="gsfFdrFilter" style="width: auto; font-size: 0.85em;">`;
+        html += `<select class="form-control" id="gsfFdrFilter" style="width: auto; font-size: 0.85em;" title="Only sets below this false discovery rate are listed; changing it unticks the sets above the cut-off">`;
         html += `<option value="all"${gsfFdrVal === 'all' ? ' selected' : ''}>All FDR</option>`;
         html += `<option value="0.5"${gsfFdrVal === '0.5' ? ' selected' : ''}>FDR < 0.5</option>`;
         html += `<option value="0.25"${gsfFdrVal === '0.25' ? ' selected' : ''}>FDR < 0.25</option>`;
@@ -4563,23 +4634,44 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         html += `<option value="0.05"${gsfFdrVal === '0.05' ? ' selected' : ''}>FDR < 0.05</option>`;
         html += `<option value="0.01"${gsfFdrVal === '0.01' ? ' selected' : ''}>FDR < 0.01</option>`;
         html += `</select>`;
-        html += `<select class="form-control" id="gsfPvalFilter" style="width: auto; font-size: 0.85em;">`;
+        html += `<select class="form-control" id="gsfPvalFilter" style="width: auto; font-size: 0.85em;" title="Only sets below this nominal p-value are listed">`;
         html += `<option value="all"${gsfPvalVal === 'all' ? ' selected' : ''}>All p-val</option>`;
         html += `<option value="0.1"${gsfPvalVal === '0.1' ? ' selected' : ''}>p < 0.1</option>`;
         html += `<option value="0.05"${gsfPvalVal === '0.05' ? ' selected' : ''}>p < 0.05</option>`;
         html += `<option value="0.01"${gsfPvalVal === '0.01' ? ' selected' : ''}>p < 0.01</option>`;
         html += `<option value="0.001"${gsfPvalVal === '0.001' ? ' selected' : ''}>p < 0.001</option>`;
         html += `</select>`;
-        html += `<select class="form-control" id="gsfClusterThresh" style="width: auto; font-size: 0.85em;" title="Jaccard threshold for overlap clusters">`;
+        html += `<select class="form-control" id="gsfClusterThresh" style="width: auto; font-size: 0.85em;" title="Groups gene sets that share more than this fraction of their genes (Jaccard index). Auto-select then keeps one set per group, the one with the strongest NES (Hallmark preferred), so the plots are not filled with near-copies of the same pathway. No clusters: every set is treated on its own.">`;
         for (const v of [0, 0.1, 0.2, 0.3, 0.5]) {
             html += `<option value="${v}"${gsfClusterThresh === v ? ' selected' : ''}>${v === 0 ? 'No clusters' : `Overlap > ${(v * 100).toFixed(0)}%`}</option>`;
         }
         html += `</select>`;
-        html += `<button class="btn btn-outline btn-sm" id="gsfAutoSelect" title="Auto-select best representative per overlap cluster">Auto-select</button>`;
-        html += `<button class="btn btn-outline btn-sm" id="gsfShowAll">Show all</button>`;
-        html += `<button class="btn btn-outline btn-sm" id="gsfHideAll">Hide all</button>`;
-        html += `<button class="btn btn-sm" id="gsfViewInOverview" style="background: var(--green-50); border: 1px solid var(--green-600); color: var(--green-700);" title="Pin visible sets and view in Overview lollipop plot">📊 View in Bubble Plot</button>`;
+        html += `<button class="btn btn-outline btn-sm" id="gsfAutoSelect" title="Within each overlap group, keep only the set with the strongest NES ticked and untick the rest. This is what happened automatically when the dialog first opened (with FDR < 0.25 and overlap > 30%).">Auto-select</button>`;
+        html += `<button class="btn btn-outline btn-sm" id="gsfShowAll" title="Tick every gene set">Select all</button>`;
+        html += `<button class="btn btn-outline btn-sm" id="gsfHideAll" title="Untick every gene set">Deselect all</button>`;
+        html += `<button class="btn btn-sm" id="gsfViewInOverview" style="background: var(--green-50); border: 1px solid var(--green-600); color: var(--green-700);" title="Pin the ticked sets and show only them in the Bubble Plot">📊 View in Bubble Plot</button>`;
         html += `</div>`;
+        // One button per source collection: tick or untick a whole collection at once
+        const collCounts = {};
+        for (const r of this.results) {
+            const c = r.collection || (r.collection = this._getSetCollection(r.name));
+            if (!collCounts[c]) collCounts[c] = { total: 0, selected: 0 };
+            collCounts[c].total++;
+            if (!this._hiddenSets.has(r.name)) collCounts[c].selected++;
+        }
+        const collNames = Object.keys(collCounts);
+        if (collNames.length > 1) {
+            html += `<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; font-size: 0.85em;"><span style="color: var(--gray-500);">By collection:</span>`;
+            for (const c of collNames) {
+                const st = collCounts[c];
+                const all = st.selected === st.total, none = st.selected === 0;
+                const style = all ? 'background: var(--green-100); border-color: var(--green-500); color: var(--green-800);'
+                    : none ? 'background: white; color: var(--gray-500);' : 'background: var(--green-50); border-color: var(--green-300); color: var(--green-800);';
+                html += `<button class="btn btn-outline btn-sm gsf-coll" data-coll="${c}" style="${style}" title="${all ? 'Untick' : 'Tick'} all ${st.total} ${c} sets. ${st.selected} of ${st.total} are ticked now.">${all ? '&#10003; ' : ''}${c} <span style="opacity:0.7;">${st.selected}/${st.total}</span></button>`;
+            }
+            html += `</div>`;
+        }
+        html += `<div style="font-size: 0.8em; color: var(--gray-500); margin: 0 0 8px; line-height: 1.45;">Ticked sets are shown in the table and plots; unticked sets stay in the results but are hidden. When this dialog first opens, sets above the FDR cut-off are unticked and, in each group of sets sharing more than the chosen overlap, only the one with the strongest NES is left ticked. Tick or untick as you like, then Apply.</div>`;
 
         html += `<div style="max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;">`;
         html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.82em;">`;
@@ -4629,8 +4721,8 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         html += `<div style="margin-top: 8px; display: flex; gap: 6px; justify-content: flex-end;">`;
         const visibleCount = this.results.filter(r => !this._hiddenSets.has(r.name)).length;
         html += `<span style="flex: 1; font-size: 0.82em; color: var(--gray-500); align-self: center;" id="gsfCount">${visibleCount} of ${this.results.length} selected</span>`;
-        html += `<button class="btn btn-outline btn-sm" id="gsfCancel">Cancel</button>`;
-        html += `<button class="btn btn-sm" id="gsfApply" style="background: var(--green-600); color: white;">Apply</button>`;
+        html += `<button class="btn btn-outline btn-sm" id="gsfCancel" title="Close without changing which sets are shown">Cancel</button>`;
+        html += `<button class="btn btn-sm" id="gsfApply" style="background: var(--green-600); color: white;" title="Show only the ticked sets in the Results Table, Enrichment Plot, Bubble Plot and Overlap tabs">Apply</button>`;
         html += `</div>`;
 
         body.innerHTML = html;
@@ -4762,6 +4854,12 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 body.querySelectorAll('.gsf-check').forEach(c => { c.checked = true; });
                 body.querySelectorAll('.gsf-row').forEach(r => { r.style.opacity = '1'; });
                 document.getElementById('gsfCount').textContent = `${self.results.length} of ${self.results.length} selected`;
+            } else if (e.target.closest && e.target.closest('.gsf-coll')) {
+                const c = e.target.closest('.gsf-coll').dataset.coll;
+                const members = self.results.filter(r => (r.collection || self._getSetCollection(r.name)) === c);
+                const allOn = members.every(r => !self._hiddenSets.has(r.name));
+                for (const r of members) { if (allOn) self._hiddenSets.add(r.name); else self._hiddenSets.delete(r.name); }
+                self._renderGeneSetFilter();
             } else if (e.target.id === 'gsfHideAll') {
                 self.results.forEach(r => self._hiddenSets.add(r.name));
                 body.querySelectorAll('.gsf-check').forEach(c => { c.checked = false; });
