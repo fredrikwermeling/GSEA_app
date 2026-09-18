@@ -328,21 +328,26 @@ Object.assign(GSEAApp.prototype, {
             geneVals.set(g, vals);
         }
         const mean = (arr) => { const ok = arr.filter(v => v !== null && v !== undefined); return ok.length ? ok.reduce((a, b) => a + b, 0) / ok.length : null; };
-        // column score for sorting: mean of shown genes, or one gene
-        cols.forEach((c, k) => {
-            c.score = sortGene && geneVals.has(sortGene) ? geneVals.get(sortGene)[k] : mean(genes.map(g => geneVals.get(g)[k]));
-        });
+        // column score for sorting: one typed gene, else the mean of the
+        // leading-edge genes (the signal GSEA found), else the mean of all shown genes
+        const desc = document.getElementById('hmSortDir').value !== 'asc';
+        const leGenes = genes.filter(g => le.has(g));
+        const scoreGenes = sortGene && geneVals.has(sortGene) ? [sortGene] : (sortBy.startsWith('le') && leGenes.length ? leGenes : genes);
+        cols.forEach((c, k) => { c.score = mean(scoreGenes.map(g => geneVals.get(g)[k])); });
         const byGroup = (a, b) => (a.group < b.group ? -1 : a.group > b.group ? 1 : 0);
-        const num = (a, b) => ((b.score ?? -Infinity) - (a.score ?? -Infinity));
+        const num = (a, b) => desc ? ((b.score ?? -Infinity) - (a.score ?? -Infinity)) : ((a.score ?? Infinity) - (b.score ?? Infinity));
         const str = (key) => (a, b) => String(a[key]).localeCompare(String(b[key])) || byGroup(a, b) || a.order - b.order;
         const sorters = {
             group: (a, b) => byGroup(a, b) || a.order - b.order,
+            leWithin: (a, b) => byGroup(a, b) || num(a, b) || a.order - b.order,
+            le: (a, b) => num(a, b) || a.order - b.order,
             valueWithin: (a, b) => byGroup(a, b) || num(a, b) || a.order - b.order,
             value: (a, b) => num(a, b) || a.order - b.order,
             mutation: (a, b) => byGroup(a, b) || String(a.mut).localeCompare(String(b.mut)) || a.order - b.order,
             disease: str('disease'), subtype: str('subtype'), lineage: str('lineage')
         };
         cols.sort(sorters[sortBy] || sorters.group);
+        const scoreLabel = sortGene && geneVals.has(sortGene) ? sortGene : (scoreGenes === leGenes ? 'leading-edge score' : 'mean of shown genes');
         const order = cols.map(c => c.order);
         const colNames = cols.map(c => c.name);
         const nA = cols.filter(c => c.group === 'A').length, nB = cols.length - nA;
@@ -389,12 +394,12 @@ Object.assign(GSEAApp.prototype, {
         const layout = {
             title: { text: `${this.cleanName(name)}<br><span style="font-size:11px;color:#6b7280">${metricName}; \u2605 = leading edge; rows sorted by mean A minus mean B</span>`, font: { size: 14 } },
             xaxis: { domain: [0, 0.86], tickangle: -60, showticklabels: showX, tickfont: { size: 9 }, side: 'bottom', anchor: 'y2' },
-            xaxis2: { domain: [0.885, 0.955], tickfont: { size: 9 }, side: 'top', anchor: 'y' },
+            xaxis2: { domain: [0.875, 0.875 + Math.max(0.03, Math.min(0.07, 2 * 0.86 / cols.length * 1.3))], tickfont: { size: 9 }, side: 'top', anchor: 'y' },
             yaxis: { domain: yMain, autorange: 'reversed', tickfont: { size: 10 }, automargin: true },
             yaxis2: { domain: yStrip, autorange: 'reversed', tickfont: { size: 9 }, automargin: true },
             margin: { l: 120, r: 70, t: 110, b: showX ? 110 : 30 },
             height: total,
-            shapes: sortBy !== 'value' && sortBy !== 'disease' && sortBy !== 'subtype' && sortBy !== 'lineage'
+            shapes: !['value', 'le', 'disease', 'subtype', 'lineage'].includes(sortBy)
                 ? [{ type: 'line', x0: nA - 0.5, x1: nA - 0.5, y0: 0, y1: 1, xref: 'x', yref: 'paper', line: { color: '#111', width: 2 } }] : [],
             annotations: [
                 { text: lab('A', nA, this._escText(d.A.label)), x: 0.0, y: 1.0, xref: 'paper', yref: 'paper', xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 11, color: '#dc2626' } },
@@ -405,8 +410,11 @@ Object.assign(GSEAApp.prototype, {
         const main = { type: 'heatmap', z, x: colNames, y: yLabels, zmin: -zmax, zmax, zmid: 0, colorscale: 'RdBu', reversescale: true,
             colorbar: { title: { text: metricName.length > 24 ? 'value' : metricName, side: 'right' }, thickness: 12, x: 1.0, len: yMain[1] - yMain[0], y: (yMain[0] + yMain[1]) / 2 },
             hovertemplate: '%{y}<br>%{x}<br>%{z:.2f}<extra></extra>', hoverongaps: false };
-        const means = { type: 'heatmap', z: rows.map(r => [r.mA, r.mB]), x: ['mean A', 'mean B'], y: yLabels, xaxis: 'x2', yaxis: 'y', zmin: -zmax, zmax, zmid: 0,
-            colorscale: 'RdBu', reversescale: true, showscale: false, hovertemplate: '%{y}<br>%{x}: %{z:.2f}<extra></extra>', hoverongaps: false };
+        // Means of many z-scores are small numbers; on the map's scale they all
+        // looked pale, so the two mean columns use their own range (mean A vs B).
+        const mAbs = Math.max(0.05, ...rows.flatMap(r => [r.mA, r.mB]).filter(v => v !== null).map(Math.abs));
+        const means = { type: 'heatmap', z: rows.map(r => [r.mA, r.mB]), x: ['mean A', 'mean B'], y: yLabels, xaxis: 'x2', yaxis: 'y', zmin: -mAbs, zmax: mAbs, zmid: 0,
+            colorscale: 'RdBu', reversescale: true, showscale: false, hovertemplate: '%{y}<br>%{x}: %{z:.2f} (own colour range \u00b1' + mAbs.toFixed(2) + ')<extra></extra>', hoverongaps: false };
         const stripTrace = { type: 'heatmap', z: stripZ, x: colNames, y: strips.map(st => st.label), text: stripText, xaxis: 'x', yaxis: 'y2',
             zmin: 0, zmax: nCat, colorscale: catScale, showscale: false, hovertemplate: '%{x}<br>%{text}<extra></extra>', xgap: 0.5, ygap: 2 };
         Plotly.newPlot('gsHeatmap', [main, means, stripTrace], layout, { responsive: true, displayModeBar: false, displaylogo: false });
@@ -416,6 +424,7 @@ Object.assign(GSEAApp.prototype, {
             const cats = [...new Set(st.vals)];
             return `<span style="margin-right: 12px;"><b>${st.label}:</b> ` + cats.map(v => `<span style="display:inline-block; width:10px; height:10px; background:${catColor.get(st.key + ':' + v).color}; border:1px solid #ccc; vertical-align:middle; margin: 0 3px 0 6px;"></span>${this._escText(v || 'n/a')}`).join('') + '</span>';
         }).join('');
-        document.getElementById('hmInfo').textContent = `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${cols.length} cell lines. The two columns on the right are the mean of each group.`;
+        const sortNote = ['group', 'mutation', 'disease', 'subtype', 'lineage'].includes(sortBy) ? '' : `, sorted by ${scoreLabel} ${desc ? 'high to low' : 'low to high'}${sortBy.endsWith('Within') ? ' within each group' : ''}`;
+        document.getElementById('hmInfo').textContent = `${rows.length} genes of ${result.size} in the set${leOnly ? ' (leading edge only)' : ''}; ${cols.length} cell lines${sortNote}. The two columns on the right are the mean of each group, on their own colour range (\u00b1${mAbs.toFixed(2)}) so small differences stay visible.`;
     }
 });

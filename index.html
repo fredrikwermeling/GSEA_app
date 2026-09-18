@@ -1632,7 +1632,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.53</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.53.1</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1647,16 +1647,19 @@
         <label style="cursor: pointer;" title="Scale each gene to mean 0 and standard deviation 1 across the shown cell lines. On by default: genes that are essential (or highly expressed) in every line would otherwise paint the whole map one colour and hide the differences between the groups."><input type="checkbox" id="hmZscore" checked onchange="app.renderGeneSetHeatmap()"> z-score per gene</label>
         <span title="Order of the cell line columns"><b>Sort cell lines by</b>
             <select class="form-control" id="hmSort" style="width: auto; font-size: 0.9em; padding: 3px 6px; display: inline-block;" onchange="app.renderGeneSetHeatmap()">
-                <option value="group">Group (A then B)</option>
-                <option value="valueWithin">Value within each group</option>
-                <option value="value">Value across all lines</option>
+                <option value="leWithin" selected>Leading-edge score, within each group</option>
+                <option value="le">Leading-edge score, across all lines</option>
+                <option value="valueWithin">Mean of all shown genes, within each group</option>
+                <option value="value">Mean of all shown genes, across all lines</option>
+                <option value="group">Group only (order added)</option>
                 <option value="mutation">Group, then mutation status</option>
                 <option value="disease">Disease</option>
                 <option value="subtype">Subtype</option>
                 <option value="lineage">Tissue</option>
             </select>
         </span>
-        <input type="text" class="form-control" id="hmSortGene" placeholder="value of gene, e.g. MITF" style="width: 150px; font-size: 0.85em; padding: 3px 6px;" title="When sorting by value: use this one gene instead of the mean of all shown genes" oninput="app.renderGeneSetHeatmap()">
+        <select class="form-control" id="hmSortDir" style="width: auto; font-size: 0.9em; padding: 3px 6px; display: inline-block;" onchange="app.renderGeneSetHeatmap()" title="Direction of the value sort"><option value="desc">high to low</option><option value="asc">low to high</option></select>
+        <input type="text" class="form-control" id="hmSortGene" placeholder="or one gene, e.g. MITF" style="width: 150px; font-size: 0.85em; padding: 3px 6px;" title="When sorting by value: use this one gene instead of the mean of all shown genes" oninput="app.renderGeneSetHeatmap()">
         <input type="text" class="form-control" id="hmMutGene" placeholder="mutation strip gene" style="width: 150px; font-size: 0.85em; padding: 3px 6px;" title="Gene whose mutation status (hotspot, damaging, wild type, no data) is shown as a strip under the map; starts as the gene used to build the comparison" oninput="app.renderGeneSetHeatmap()">
         <button class="btn btn-outline btn-sm" onclick="app.exportImage('gsHeatmap')" title="Save the heatmap as PNG, SVG, PDF, TIFF or PowerPoint">Image...</button>
     </div>
@@ -3021,6 +3024,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.53.1</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>Heatmap by cell line: default column order is now the leading-edge score within each group, high to low, with a direction switch; the mean A and mean B columns use their own colour range and the same cell width as the map, so they read like the rest of the data</li>
+            </ul>
             <p><strong>v.53</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>Heatmap by cell line, as in Correlate: annotation strips under the map (group, mutation status of a chosen gene, disease, subtype, tissue) with a legend; two columns on the right with the mean of group A and group B; cell lines can be sorted by group, by value (of all shown genes or of one gene, within groups or overall), by mutation status, disease, subtype or tissue. z-score per gene is now on by default, because genes essential in every line paint the raw map one colour.</li>
@@ -3564,7 +3571,7 @@
 <script src="helpPopout.js?v=2"></script>
 <script src="depmapService.js?v=4"></script>
 <script src="app.js?v=96"></script>
-<script src="compare.js?v=7"></script>
+<script src="compare.js?v=8"></script>
 <script src="explain.js?v=1"></script>
 <script src="exportImage.js?v=2"></script>
 </body>
