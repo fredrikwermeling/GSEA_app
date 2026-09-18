@@ -1650,7 +1650,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.54.2</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.54.3</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2410,12 +2410,12 @@
                                 <option value="50">Top 50</option>
                                 <option value="100">Top 100</option>
                             </select>
-                            <select class="form-control" id="overviewOverlapFilter" style="width: auto;" title="Hides gene sets that largely repeat a stronger set. Overlap is the Jaccard index: shared genes divided by the genes in either set. Of two overlapping sets the one with the stronger NES (Hallmark preferred) is kept. Note that Jaccard is smaller than the share of the smaller set: MYC targets V1 and V2 share 18 genes, 31% of V2 but 7.5% by Jaccard.">
+                            <select class="form-control" id="overviewOverlapFilter" style="width: auto;" title="Hides gene sets that largely repeat a stronger set. Overlap is the share of the smaller set's genes found in the other set: MYC targets V2 (58 genes) has 18 of them in MYC targets V1, so they overlap by 31% and V2 is hidden at any cut-off below that. Of two overlapping sets the one with the stronger NES (Hallmark preferred) is kept.">
                                 <option value="0">No redundancy filter</option>
-                                <option value="50">Jaccard &ge; 50%</option>
-                                <option value="30">Jaccard &ge; 30%</option>
-                                <option value="20">Jaccard &ge; 20%</option>
-                                <option value="10">Jaccard &ge; 10%</option>
+                                <option value="50">Share &ge; 50% of genes</option>
+                                <option value="30">Share &ge; 30% of genes</option>
+                                <option value="20">Share &ge; 20% of genes</option>
+                                <option value="10">Share &ge; 10% of genes</option>
                             </select>
                             <button class="btn btn-outline btn-sm" onclick="app.openGeneSetFilter('bubble')" title="Select which gene sets to show">&#9998; Select sets</button>
                             <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('overview')" title="Reset filters to defaults">↺ Reset</button>
@@ -2588,12 +2588,12 @@
                                             <option value="up">Upregulated (NES &gt; 0)</option>
                                             <option value="down">Downregulated (NES &lt; 0)</option>
                                         </select>
-                                        <select class="form-control" id="esRedundancyFilter" style="width: auto; font-size: 0.85em;" title="Hides gene sets that largely repeat a stronger set. Overlap is the Jaccard index: shared genes divided by the genes in either set. The set with the stronger NES is kept.">
+                                        <select class="form-control" id="esRedundancyFilter" style="width: auto; font-size: 0.85em;" title="Hides gene sets that largely repeat a stronger set. Overlap is the share of the smaller set's genes found in the other set. The set with the stronger NES is kept.">
                                             <option value="0" selected>All sets</option>
-                                            <option value="0.1">Jaccard &ge; 10%</option>
-                                            <option value="0.2">Jaccard &ge; 20%</option>
-                                            <option value="0.3">Jaccard &ge; 30%</option>
-                                            <option value="0.5">Jaccard &ge; 50%</option>
+                                            <option value="0.1">Share &ge; 10% of genes</option>
+                                            <option value="0.2">Share &ge; 20% of genes</option>
+                                            <option value="0.3">Share &ge; 30% of genes</option>
+                                            <option value="0.5">Share &ge; 50% of genes</option>
                                         </select>
                                         <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('enrichment')" title="Reset filters to defaults" style="font-size: 0.85em;">↺ Reset</button>
                                         <span class="result-count" id="esFilterCount" style="font-size: 0.82em; color: var(--gray-500);"></span>
@@ -2773,12 +2773,12 @@
                                 <option value="up">Upregulated (NES &gt; 0)</option>
                                 <option value="down">Downregulated (NES &lt; 0)</option>
                             </select>
-                            <select class="form-control" id="overlapRedundancyFilter" style="width: auto;" title="Hides gene sets that largely repeat a stronger set. Overlap is the Jaccard index: shared genes divided by the genes in either set. Of two overlapping sets the one with the stronger NES (Hallmark preferred) is kept. Note that Jaccard is smaller than the share of the smaller set: MYC targets V1 and V2 share 18 genes, 31% of V2 but 7.5% by Jaccard.">
+                            <select class="form-control" id="overlapRedundancyFilter" style="width: auto;" title="Hides gene sets that largely repeat a stronger set. Overlap is the share of the smaller set's genes found in the other set: MYC targets V2 (58 genes) has 18 of them in MYC targets V1, so they overlap by 31% and V2 is hidden at any cut-off below that. Of two overlapping sets the one with the stronger NES (Hallmark preferred) is kept.">
                                 <option value="0" selected>No redundancy filter</option>
-                                <option value="50">Jaccard &ge; 50%</option>
-                                <option value="30">Jaccard &ge; 30%</option>
-                                <option value="20">Jaccard &ge; 20%</option>
-                                <option value="10">Jaccard &ge; 10%</option>
+                                <option value="50">Share &ge; 50% of genes</option>
+                                <option value="30">Share &ge; 30% of genes</option>
+                                <option value="20">Share &ge; 20% of genes</option>
+                                <option value="10">Share &ge; 10% of genes</option>
                             </select>
                             <label style="color: var(--gray-600); font-weight: 500; margin: 0; font-size: 0.85em;">Max:</label>
                             <input type="number" class="form-control settings-live" id="overlapMaxSets" value="20" min="5" max="50" style="max-width: 55px; font-size: 0.85em;">
@@ -2844,12 +2844,12 @@
                                 <option value="up">Upregulated (NES &gt; 0)</option>
                                 <option value="down">Downregulated (NES &lt; 0)</option>
                             </select>
-                            <select class="form-control" id="tableOverlapFilter" style="width: auto;" title="Hides gene sets that largely repeat a stronger set. Overlap is the Jaccard index: shared genes divided by the genes in either set. Of two overlapping sets the one with the stronger NES (Hallmark preferred) is kept. Note that Jaccard is smaller than the share of the smaller set: MYC targets V1 and V2 share 18 genes, 31% of V2 but 7.5% by Jaccard.">
+                            <select class="form-control" id="tableOverlapFilter" style="width: auto;" title="Hides gene sets that largely repeat a stronger set. Overlap is the share of the smaller set's genes found in the other set: MYC targets V2 (58 genes) has 18 of them in MYC targets V1, so they overlap by 31% and V2 is hidden at any cut-off below that. Of two overlapping sets the one with the stronger NES (Hallmark preferred) is kept.">
                                 <option value="0">No redundancy filter</option>
-                                <option value="50">Jaccard &ge; 50%</option>
-                                <option value="30">Jaccard &ge; 30%</option>
-                                <option value="20">Jaccard &ge; 20%</option>
-                                <option value="10">Jaccard &ge; 10%</option>
+                                <option value="50">Share &ge; 50% of genes</option>
+                                <option value="30">Share &ge; 30% of genes</option>
+                                <option value="20">Share &ge; 20% of genes</option>
+                                <option value="10">Share &ge; 10% of genes</option>
                             </select>
                             <button class="btn btn-outline btn-sm" onclick="app.openGeneSetFilter('table')" title="Select which gene sets to show">&#9998; Select sets</button>
                             <button class="btn btn-outline btn-sm" onclick="app.resetTabFilters('table')" title="Reset filters to defaults">↺ Reset</button>
@@ -3047,6 +3047,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.54.3</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>The redundancy filter and the overlap groups in Select sets now measure overlap as the share of the smaller set's genes found in the other set, which is what "these sets overlap by 30%" means to most people. MYC targets V2 has 31% of its genes in V1 and is now hidden at a 10% cut-off; by Jaccard it was 7.5% and stayed. The Overlap tab heatmap keeps the Jaccard index, as labelled.</li>
+            </ul>
             <p><strong>v.54.2</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>The Leading Edge Genes table is much taller (three quarters of the window), so most gene sets show in full without scrolling</li>
@@ -3610,7 +3614,7 @@
 
 <script src="helpPopout.js?v=2"></script>
 <script src="depmapService.js?v=4"></script>
-<script src="app.js?v=99"></script>
+<script src="app.js?v=100"></script>
 <script src="compare.js?v=10"></script>
 <script src="explain.js?v=1"></script>
 <script src="exportImage.js?v=2"></script>

@@ -4327,8 +4327,9 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
             }
         }
 
-        // Compute pairwise Jaccard for clustering (cap at 300 sets for safety)
+        // Compute pairwise overlap for the redundancy filter (cap at 300 sets for safety)
         const pairwise = new Map();
+        const pairwiseJaccard = new Map();
         const names = Object.keys(setGenes);
         const pairCap = Math.min(names.length, 300);
         const pairNames = names.slice(0, pairCap);
@@ -4351,21 +4352,32 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
                 for (const g of smaller) { if (larger.has(g)) inter++; }
                 const union = setA.size + setB.size - inter;
                 const jaccard = union > 0 ? inter / union : 0;
-                if (jaccard > 0.05) {
+                // Share of the smaller set: what people mean by "these sets
+                // overlap by 30%". Jaccard (shared / either) is kept for the heatmap.
+                const share = smaller.size > 0 ? inter / smaller.size : 0;
+                if (share > 0.05) {
                     const key = a < b ? `${a}|||${b}` : `${b}|||${a}`;
-                    pairwise.set(key, jaccard);
+                    pairwise.set(key, share);
+                    pairwiseJaccard.set(key, jaccard);
                 }
             }
         }
 
-        this._overlapCache = { pairwise, setGenes };
+        this._overlapCache = { pairwise, pairwiseJaccard, setGenes };
     }
 
-    /** Get Jaccard overlap between two gene sets from cache */
+    /** Overlap between two gene sets from the cache: shared genes as a fraction of the smaller set */
     _getCachedJaccard(nameA, nameB) {
         if (!this._overlapCache) return 0;
         const key = nameA < nameB ? `${nameA}|||${nameB}` : `${nameB}|||${nameA}`;
         return this._overlapCache.pairwise.get(key) || 0;
+    }
+
+    /** The Jaccard index (shared genes / genes in either set) for the same pair */
+    _getCachedTrueJaccard(nameA, nameB) {
+        if (!this._overlapCache || !this._overlapCache.pairwiseJaccard) return 0;
+        const key = nameA < nameB ? `${nameA}|||${nameB}` : `${nameB}|||${nameA}`;
+        return this._overlapCache.pairwiseJaccard.get(key) || 0;
     }
 
     /**
@@ -4653,9 +4665,9 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         html += `<option value="0.01"${gsfPvalVal === '0.01' ? ' selected' : ''}>p < 0.01</option>`;
         html += `<option value="0.001"${gsfPvalVal === '0.001' ? ' selected' : ''}>p < 0.001</option>`;
         html += `</select>`;
-        html += `<select class="form-control" id="gsfClusterThresh" style="width: auto; font-size: 0.85em;" title="Groups gene sets that share more than this fraction of their genes (Jaccard index). Auto-select then keeps one set per group, the one with the strongest NES (Hallmark preferred), so the plots are not filled with near-copies of the same pathway. No clusters: every set is treated on its own.">`;
+        html += `<select class="form-control" id="gsfClusterThresh" style="width: auto; font-size: 0.85em;" title="Groups gene sets that share more than this fraction of the smaller set's genes. Auto-select then keeps one set per group, the one with the strongest NES (Hallmark preferred), so the plots are not filled with near-copies of the same pathway. No clusters: every set is treated on its own.">`;
         for (const v of [0, 0.1, 0.2, 0.3, 0.5]) {
-            html += `<option value="${v}"${gsfClusterThresh === v ? ' selected' : ''}>${v === 0 ? 'No clusters' : `Overlap > ${(v * 100).toFixed(0)}%`}</option>`;
+            html += `<option value="${v}"${gsfClusterThresh === v ? ' selected' : ''}>${v === 0 ? 'No clusters' : `Share \u2265 ${(v * 100).toFixed(0)}%`}</option>`;
         }
         html += `</select>`;
         html += `<button class="btn btn-outline btn-sm" id="gsfAutoSelect" title="Within each overlap group, keep only the set with the strongest NES ticked and untick the rest. This is what happened automatically when the dialog first opened (with FDR < 0.25 and overlap > 30%).">Auto-select</button>`;
@@ -4990,8 +5002,8 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         const noteEl = document.getElementById('overlapFilterNote');
         if (noteEl) {
             const rem = overlapVal !== '0' ? (this._lastOverlapRemoved || []) : [];
-            if (!rem.length) noteEl.innerHTML = overlapVal !== '0' ? `<span style="color: var(--gray-500);">Redundancy filter on (Jaccard \u2265 ${overlapVal}%): no set among the ${filtered.length} shown shares that much with a stronger set, so none was hidden.</span>` : '';
-            else noteEl.innerHTML = `<span style="color: var(--gray-600);"><b>${rem.length} set${rem.length > 1 ? 's' : ''} hidden as redundant</b> (Jaccard \u2265 ${overlapVal}% with a stronger set, kept set in brackets): </span>` + rem.map(x => `<span title="${this._escapeAttr(this.describeSet(x.name))}">${this.cleanName(x.name)}</span> <span style="color: var(--gray-500);">(${Math.round(x.jaccard * 100)}% with ${this.cleanName(x.by)})</span>`).join('; ') + `. <a href="#" onclick="document.getElementById('tableOverlapFilter').value='0'; document.getElementById('tableOverlapFilter').dispatchEvent(new Event('change')); return false;">Show them</a>`;
+            if (!rem.length) noteEl.innerHTML = overlapVal !== '0' ? `<span style="color: var(--gray-500);">Redundancy filter on (\u2265 ${overlapVal}% of a set's genes shared with a stronger set): none of the ${filtered.length} shown shares that much, so none was hidden.</span>` : '';
+            else noteEl.innerHTML = `<span style="color: var(--gray-600);"><b>${rem.length} set${rem.length > 1 ? 's' : ''} hidden as redundant</b> (\u2265 ${overlapVal}% of the smaller set's genes shared with a stronger set, which is kept): </span>` + rem.map(x => `<span title="${this._escapeAttr(this.describeSet(x.name))}">${this.cleanName(x.name)}</span> <span style="color: var(--gray-500);">(${Math.round(x.jaccard * 100)}% with ${this.cleanName(x.by)})</span>`).join('; ') + `. <a href="#" onclick="document.getElementById('tableOverlapFilter').value='0'; document.getElementById('tableOverlapFilter').dispatchEvent(new Event('change')); return false;">Show them</a>`;
         }
 
         // Update count
