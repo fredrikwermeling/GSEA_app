@@ -20,6 +20,9 @@ import pandas as pd
 CACHE = 'web_data/.cache'
 OUT = 'web_data'
 RELEASE = '26Q1'
+# Cell lines left out on purpose. HeLa: the lab does not distribute HeLa-derived
+# data (Henrietta Lacks family agreement), whatever the DepMap release contains.
+EXCLUDE = {'ACH-001086'}
 SCALE = 1000
 NA = -32768
 
@@ -40,7 +43,7 @@ def write_matrix(df, models, name, transform):
     keep = ~pd.Index(genes).duplicated()
     df = df.loc[:, keep]; genes = [g for g, k in zip(genes, keep) if k]
     df = df[~df.index.duplicated(keep='first')]
-    ids = [i for i in df.index if i in models]
+    ids = [i for i in df.index if i in models and i not in EXCLUDE]
     df = df.loc[ids]
     df = df.iloc[np.argsort([models[i]['name'].upper() for i in ids])]
     values = transform(df)
