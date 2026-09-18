@@ -310,6 +310,7 @@ class GSEAApp {
 
         // Gene search
         document.getElementById('searchGenesBtn').addEventListener('click', () => this.searchGenes());
+        this._initFloatingProgress();
         const dms = document.getElementById('depmapSearch');
         if (dms) {
             let dmsTimer = null;
@@ -5723,6 +5724,43 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         } catch (err) {
             this.showStatus('uploadStatus', 'error', `Failed to load DepMap data: ${err.message}`);
         }
+    }
+
+    // Floating progress pill (bottom right). It mirrors the places the app
+    // already reports progress in, so nothing else has to know about it:
+    // the run progress bar, the upload / example status box while loading,
+    // the collection loading status, and the compare dialog status.
+    _initFloatingProgress() {
+        const pill = document.getElementById('floatProgress');
+        if (!pill || typeof MutationObserver === 'undefined') return;
+        const txt = document.getElementById('fpText'), bar = document.getElementById('fpBar'), pct = document.getElementById('fpPct');
+        const sources = [
+            { el: document.getElementById('progressContainer'), text: () => document.getElementById('progressText')?.textContent || 'Working...', active: (el) => el.classList.contains('active'), pct: () => parseFloat(document.getElementById('progressBar')?.style.width) || null, label: 'Analysis: ' },
+            { el: document.getElementById('uploadStatus'), text: (el) => el.textContent, active: (el) => el.classList.contains('status-info') && !el.classList.contains('hidden'), pct: () => null, label: '' },
+            { el: document.getElementById('geneSetStatus'), text: (el) => el.textContent, active: (el) => el.classList.contains('status-info') && /loading/i.test(el.textContent) && !el.classList.contains('hidden'), pct: () => null, label: '' },
+            { el: document.getElementById('cmpStatus'), text: (el) => el.textContent, active: (el) => /loading|computing/i.test(el.textContent), pct: () => null, label: 'Compare: ' }
+        ].filter(s => s.el);
+        const update = () => {
+            const src = sources.find(s => s.active(s.el));
+            if (!src) { pill.classList.remove('show'); this._fpSource = null; return; }
+            this._fpSource = src.el;
+            const t = (src.label + src.text(src.el)).replace(/\s+/g, ' ').trim();
+            if (txt.textContent !== t) txt.textContent = t;
+            const p = src.pct();
+            bar.parentElement.style.display = p === null ? 'none' : '';
+            pct.style.display = p === null ? 'none' : '';
+            if (p !== null) { bar.style.width = p + '%'; pct.textContent = Math.round(p) + '%'; }
+            pill.classList.add('show');
+        };
+        const obs = new MutationObserver(update);
+        for (const s of sources) obs.observe(s.el, { attributes: true, childList: true, subtree: true, characterData: true });
+        obs.observe(document.getElementById('progressBar') || document.body, { attributes: true });
+        update();
+    }
+
+    _floatProgressJump() {
+        const el = this._fpSource;
+        if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     toggleExamples() {

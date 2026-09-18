@@ -83,6 +83,24 @@
             white-space: pre-wrap;
             pointer-events: none;
         }
+        /* Floating progress pill: whatever the app is loading or computing is
+           shown bottom right, wherever the page is scrolled. */
+        .float-progress {
+            position: fixed; right: 16px; bottom: 16px; z-index: 5500;
+            display: none; align-items: center; gap: 10px;
+            background: #1f2937; color: #f9fafb; border-radius: 999px;
+            padding: 8px 14px 8px 12px; font-size: 12.5px; line-height: 1.3;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25); max-width: min(520px, 92vw); cursor: pointer;
+        }
+        .float-progress.show { display: flex; }
+        .float-progress .fp-spin {
+            width: 14px; height: 14px; flex: 0 0 14px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.25); border-top-color: #98cd74; animation: spin 0.9s linear infinite;
+        }
+        .float-progress .fp-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .float-progress .fp-bar { width: 90px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden; flex: 0 0 90px; }
+        .float-progress .fp-bar > div { height: 100%; background: #98cd74; width: 0%; transition: width 0.2s; }
+        .float-progress .fp-pct { font-family: 'Roboto Mono', monospace; font-size: 11px; color: #cdebb9; min-width: 34px; text-align: right; }
         .coll-chip {
             display: inline-block;
             padding: 1px 7px;
@@ -1632,7 +1650,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.53.2</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.54</a>
 </div>
 
 <!-- How to Use popup -->
@@ -2921,6 +2939,10 @@
     </div>
 </footer>
 
+<div class="float-progress" id="floatProgress" title="Click to scroll to where this is happening" onclick="app._floatProgressJump()">
+    <div class="fp-spin"></div><div class="fp-text" id="fpText"></div><div class="fp-bar"><div id="fpBar"></div></div><div class="fp-pct" id="fpPct"></div>
+</div>
+
 <!-- Export for AI dialog (same idea as Correlate) -->
 <div id="aiAnalysisDialog" style="display:none; position:fixed; inset:0; z-index:6000; background:rgba(0,0,0,0.5); justify-content:center; align-items:flex-start; padding:60px 20px; overflow-y:auto;">
     <div style="background:#fff; max-width:560px; width:100%; border-radius:8px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);">
@@ -3024,6 +3046,10 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.54</strong> <span style="color:#888;">(2026-09-18)</span></p>
+            <ul>
+                <li>A progress pill at the bottom right shows whatever the app is loading or computing (gene set collections, DepMap cell lines, a running analysis with its permutation count, a comparison being built), wherever the page is scrolled. Clicking it scrolls to the place it reports on.</li>
+            </ul>
             <p><strong>v.53.2</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>Heatmap by cell line: red and blue are kept for the values only; group A is green and group B purple, hotspot mutations orange and damaging ones yellow, and the disease, subtype and tissue strips use a palette without red or blue</li>
@@ -3574,7 +3600,7 @@
 
 <script src="helpPopout.js?v=2"></script>
 <script src="depmapService.js?v=4"></script>
-<script src="app.js?v=96"></script>
+<script src="app.js?v=97"></script>
 <script src="compare.js?v=9"></script>
 <script src="explain.js?v=1"></script>
 <script src="exportImage.js?v=2"></script>
