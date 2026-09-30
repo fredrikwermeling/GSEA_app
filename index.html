@@ -1650,7 +1650,7 @@
     <a href="https://greenlisted.cmm.se" target="_blank" rel="noopener noreferrer">Green Listed</a>
     <a href="https://correlate.cmm.se" target="_blank" rel="noopener noreferrer">Correlate</a>
     <a href="https://wermelinglab.com" target="_blank" rel="noopener noreferrer">Wermeling Lab</a>
-    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.54.6</a>
+    <a href="#" id="versionBadge" onclick="event.preventDefault();document.getElementById('changelogModal').style.display='flex'" style="position:relative; margin-left:6px; font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:10px; color:#6b7280; border:1px solid #d1d5db; font-weight:400;">v.54.7</a>
 </div>
 
 <!-- How to Use popup -->
@@ -1765,7 +1765,7 @@
     </ol>
 
     <h4>3. Choose gene set collections</h4>
-    <p>Select one or more MSigDB collections (Hallmark is recommended to start). You can also upload a custom GMT file.</p>
+    <p>Select one or more MSigDB collections (Hallmark is recommended to start). You can also add your own gene sets under <b>Add your own gene sets</b>: paste a list of genes or upload a GMT file.</p>
 
     <h4>4. Run the analysis</h4>
     <p>Click <strong>Run GSEA</strong>. The analysis runs in your browser using a Web Worker. With Hallmark (50 sets) this takes seconds; larger collections take longer.</p>
@@ -2132,11 +2132,17 @@
                 <div style="margin-top: 10px;">
                     <div class="collapsible-header" id="customGmtToggle">
                         <span class="chevron">&#9654;</span>
-                        <span class="form-label" style="margin: 0; cursor: pointer;">Upload custom GMT file</span>
+                        <span class="form-label" style="margin: 0; cursor: pointer;">Add your own gene sets</span>
                     </div>
                     <div class="collapsible-body" id="customGmtBody">
-                        <input type="file" id="gmtInput" accept=".gmt" class="form-control">
+                        <div class="form-hint" style="margin: 0 0 6px;">Paste gene symbols, one per line or separated by commas, semicolons, tabs or spaces (a column copied from Excel works).</div>
+                        <input type="text" id="pasteSetName" class="form-control" placeholder="Gene set name, e.g. MY_SIGNATURE" style="margin-bottom: 6px;">
+                        <textarea id="pasteSetGenes" class="form-control" rows="5" placeholder="GENE1&#10;GENE2&#10;GENE3" style="font-family: 'Roboto Mono', monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                        <button type="button" class="btn btn-outline btn-sm" id="pasteSetAdd" style="margin-top: 6px;">Add gene set</button>
+                        <div class="form-hint" style="margin-top: 12px;">Or upload a <b>GMT file</b>: the standard gene set format used by MSigDB and the Broad GSEA software. It is a tab-separated text file with one set per line: the set name, a description (or a URL), then the genes.</div>
+                        <input type="file" id="gmtInput" accept=".gmt,.txt" class="form-control" style="margin-top: 6px;">
                         <div id="gmtStatus" class="status-box hidden"></div>
+                        <div id="customSetList" style="margin-top: 8px;"></div>
                     </div>
                 </div>
             </div>
@@ -2867,7 +2873,7 @@
                                     <tr>
                                         <th style="width:28px;padding:2px" title="Pin to bubble plot">&#128204;</th>
                                         <th data-col="name">Gene Set <span class="sort-arrow">&#9650;</span></th>
-                                        <th data-col="collection" title="Source collection: Hallmark, KEGG, Reactome, WikiPathways, BioCarta, PID, CGP, GO:BP/CC/MF, HPO, C3, C6, C7, C8 or a custom GMT">Collection <span class="sort-arrow">&#9650;</span></th>
+                                        <th data-col="collection" title="Source collection: Hallmark, KEGG, Reactome, WikiPathways, BioCarta, PID, CGP, GO:BP/CC/MF, HPO, C3, C6, C7, C8 or your own sets">Collection <span class="sort-arrow">&#9650;</span></th>
                                         <th data-col="size">Size <span class="sort-arrow">&#9650;</span></th>
                                         <th data-col="es">ES <span class="sort-arrow">&#9650;</span></th>
                                         <th data-col="nes">NES <span class="sort-arrow">&#9650;</span></th>
@@ -3049,6 +3055,11 @@
             <button onclick="this.closest('#changelogModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
         </div>
         <div style="font-size:12px; line-height:1.6; color:#374151;">
+            <p><strong>v.54.7</strong> <span style="color:#888;">(2026-09-30)</span></p>
+            <ul>
+                <li>"Add your own gene sets" in card 2: paste a gene list (one per line, or separated by commas, semicolons, tabs or spaces) and give it a name. The app reports how many of the genes are in your ranked list and warns if the set falls outside the min/max size.</li>
+                <li>GMT upload now adds to your own sets instead of replacing them, explains what a GMT file is, and drops genes listed twice in a set. Each set can be removed from the list.</li>
+            </ul>
             <p><strong>v.54.6</strong> <span style="color:#888;">(2026-09-18)</span></p>
             <ul>
                 <li>The note listing sets hidden by the redundancy filter shows the first five and folds the rest behind a "Show all" link, so a long list no longer pushes the results table down the page.</li>
@@ -3628,7 +3639,7 @@
 
 <script src="helpPopout.js?v=2"></script>
 <script src="depmapService.js?v=4"></script>
-<script src="app.js?v=103"></script>
+<script src="app.js?v=104"></script>
 <script src="compare.js?v=14"></script>
 <script src="explain.js?v=1"></script>
 <script src="exportImage.js?v=2"></script>

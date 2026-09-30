@@ -195,6 +195,19 @@ class GSEAApp {
         // Custom GMT upload
         document.getElementById('gmtInput').addEventListener('change', (e) => {
             if (e.target.files[0]) this.handleGMTUpload(e.target.files[0]);
+            e.target.value = '';   // allow re-selecting the same file
+        });
+        document.getElementById('pasteSetAdd').addEventListener('click', () => this.addPastedGeneSet());
+        document.getElementById('customSetList').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-remove-set]');
+            if (btn) {
+                delete this.customGeneSets[btn.dataset.removeSet];
+                this.onCustomSetsChanged();
+            } else if (e.target.closest('#customSetClear')) {
+                this.customGeneSets = {};
+                this.onCustomSetsChanged();
+                document.getElementById('gmtStatus').classList.add('hidden');
+            }
         });
 
         // Gene Set Browser
@@ -696,11 +709,15 @@ class GSEAApp {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                this.customGeneSets = this.parseGMT(e.target.result);
-                const n = Object.keys(this.customGeneSets).length;
-                this.showStatus('gmtStatus', 'success', `Loaded ${n} custom gene sets`);
-                this.updateGeneSetStatus();
-                this.checkReady();
+                const sets = this.parseGMT(e.target.result);
+                const n = Object.keys(sets).length;
+                if (n === 0) {
+                    this.showStatus('gmtStatus', 'error', 'No gene sets found. A GMT file needs tab-separated lines: name, description, then genes.');
+                    return;
+                }
+                Object.assign(this.customGeneSets, sets);
+                this.showStatus('gmtStatus', 'success', `Loaded ${n} gene set${n === 1 ? '' : 's'} from ${file.name}`);
+                this.onCustomSetsChanged();
             } catch (err) {
                 this.showStatus('gmtStatus', 'error', 'Failed to parse GMT: ' + err.message);
             }
@@ -710,20 +727,90 @@ class GSEAApp {
 
     parseGMT(text) {
         const sets = {};
-        const lines = text.split('\n');
+        const lines = text.split(/\r?\n/);
         for (const line of lines) {
             if (!line.trim()) continue;
             const parts = line.split('\t');
             if (parts.length < 3) continue;
             const name = parts[0].trim();
-            const genes = parts.slice(2)
+            // A gene listed twice in a set would otherwise be counted twice in the ES
+            const genes = [...new Set(parts.slice(2)
                 .map(g => g.trim().toUpperCase())
-                .filter(g => g !== '');
-            if (genes.length > 0) {
+                .filter(g => g !== ''))];
+            if (name && genes.length > 0) {
                 sets[name] = genes;
             }
         }
         return sets;
+    }
+
+    // Gene set pasted as a list: one gene per line, or comma/semicolon/tab/space separated
+    addPastedGeneSet() {
+        const nameInput = document.getElementById('pasteSetName');
+        const genesInput = document.getElementById('pasteSetGenes');
+        const genes = [...new Set(genesInput.value
+            .split(/[\s,;]+/)
+            .map(g => g.replace(/^["']+|["']+$/g, '').trim().toUpperCase())
+            .filter(g => g !== ''))];
+        if (genes.length === 0) {
+            this.showStatus('gmtStatus', 'error', 'Paste at least one gene symbol.');
+            return;
+        }
+        let name = nameInput.value.trim().replace(/\s+/g, '_');
+        if (!name) {
+            let i = 1;
+            while (this.customGeneSets['CUSTOM_SET_' + i]) i++;
+            name = 'CUSTOM_SET_' + i;
+        }
+        const replaced = !!this.customGeneSets[name];
+        this.customGeneSets[name] = genes;
+
+        const minSize = parseInt(document.getElementById('minSize').value) || 15;
+        const maxSize = parseInt(document.getElementById('maxSize').value) || 500;
+        let msg = `${replaced ? 'Replaced' : 'Added'} ${name} with ${genes.length} gene${genes.length === 1 ? '' : 's'}`;
+        let level = 'success';
+        let nUsable = genes.length;
+        if (this.rankedList) {
+            const inList = new Set(this.rankedList.genes);
+            nUsable = genes.filter(g => inList.has(g)).length;
+            msg += `, ${nUsable} found in your ranked list`;
+            if (nUsable < genes.length) level = 'warning';
+        }
+        msg += '.';
+        if (nUsable < minSize) {
+            level = 'warning';
+            msg += ` It will be skipped unless Min set size (now ${minSize}) is lowered to ${Math.max(1, nUsable)} or less.`;
+        } else if (nUsable > maxSize) {
+            level = 'warning';
+            msg += ` It will be skipped unless Max set size (now ${maxSize}) is raised to ${nUsable} or more.`;
+        }
+        this.showStatus('gmtStatus', level, msg);
+        nameInput.value = '';
+        genesInput.value = '';
+        this.onCustomSetsChanged();
+    }
+
+    onCustomSetsChanged() {
+        const names = Object.keys(this.customGeneSets);
+        const list = document.getElementById('customSetList');
+        if (names.length === 0) {
+            list.innerHTML = '';
+        } else {
+            const shown = names.slice(0, 50);
+            list.innerHTML =
+                `<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82em; color: var(--gray-600); margin-bottom: 4px;">` +
+                `<b>Your gene sets (${names.length})</b>` +
+                `<a href="#" id="customSetClear" onclick="return false;" style="color: var(--gray-500);">Remove all</a></div>` +
+                shown.map(n =>
+                    `<div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 0.8em; padding: 2px 0; border-bottom: 1px solid var(--gray-100);">` +
+                    `<span style="font-family: 'Roboto Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${this._escapeAttr(n)}">${this._escText(n)}</span>` +
+                    `<span style="white-space: nowrap; color: var(--gray-500);">${this.customGeneSets[n].length} gene${this.customGeneSets[n].length === 1 ? '' : 's'} ` +
+                    `<button type="button" data-remove-set="${this._escapeAttr(n)}" aria-label="Remove ${this._escapeAttr(n)}" title="Remove" style="border: none; background: none; cursor: pointer; color: var(--gray-500); font-size: 1.1em; padding: 0 2px;">&times;</button></span></div>`
+                ).join('') +
+                (names.length > shown.length ? `<div class="form-hint">and ${names.length - shown.length} more</div>` : '');
+        }
+        this.updateGeneSetStatus();
+        this.checkReady();
     }
 
     // --------------------------------------------------------
@@ -5916,6 +6003,8 @@ cat("(Drag & drop the file onto Enrich, or use the 'Upload R results' button)\\n
         this.rawData = null;
         this.rankedList = null;
         this.customGeneSets = {};
+        document.getElementById('customSetList').innerHTML = '';
+        document.getElementById('gmtStatus').classList.add('hidden');
         this.results = null;
         this.analysisDate = null;
         this._currentGeneDetailRows = null;
